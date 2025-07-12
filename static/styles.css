@@ -1605,3 +1605,18 @@ form#signup-form p a:hover, form#login-form p a:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
+
+/* Coming Soon Drawing Tools Styling */
+.drawing-tool-btn.coming-soon {
+    background-color: #cccccc;
+    color: #666666;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.drawing-tool-btn.coming-soon:hover {
+    background-color: #cccccc;
+    color: #666666;
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
