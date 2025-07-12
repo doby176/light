@@ -996,7 +996,7 @@ async function loadChart(event, tabId) {
         nextButton.disabled = true;
         if (replayPrefix === 'simulator') { // Market Simulator
             const tradingButtonsContainer = document.getElementById('trading-buttons-container');
-            if (tradingButtonsContainer) tradingButtonsContainer.style.display = 'block';
+            if (tradingButtonsContainer) tradingButtonsContainer.style.display = 'flex';
             if (buyButton) buyButton.disabled = true;
             if (sellButton) sellButton.disabled = true;
         }
