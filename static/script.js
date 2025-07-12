@@ -170,10 +170,10 @@ let indicatorSeries = {
 
 // Drawing Tools State
 let drawingTools = {
-    simulator: { active: null, lines: [] },
-    gap: { active: null, lines: [] },
-    events: { active: null, lines: [] },
-    earnings: { active: null, lines: [] }
+    simulator: { active: null, lines: [], pendingTool: null },
+    gap: { active: null, lines: [], pendingTool: null },
+    events: { active: null, lines: [], pendingTool: null },
+    earnings: { active: null, lines: [], pendingTool: null }
 };
 
 // User zoom tracking - to prevent auto-fit during manual zoom
@@ -346,6 +346,13 @@ function createChart(containerId, chartData, timeframe) {
     title.textContent = `${chartData.ticker} ${timeframe}-Minute Chart - ${chartData.date}`;
     container.appendChild(title);
 
+    // Create auto-zoom button
+    const autoZoomBtn = document.createElement('button');
+    autoZoomBtn.className = 'auto-zoom-btn';
+    autoZoomBtn.textContent = '🔍 Auto Fit';
+    autoZoomBtn.setAttribute('data-section', containerId.replace('chart-', ''));
+    container.appendChild(autoZoomBtn);
+
     try {
         // Create chart with V4 API
         const chart = LightweightCharts.createChart(container, {
@@ -517,6 +524,14 @@ function renderChart(section, candles, currentCandleIndex = -1, minuteIndex = nu
         // Set up zoom tracking for this chart
         if (chartInstances[section]) {
             setupChartZoomTracking(section);
+            
+            // Set up any pending drawing tools
+            if (drawingTools[section].pendingTool) {
+                const pendingTool = drawingTools[section].pendingTool;
+                drawingTools[section].pendingTool = null;
+                setupDrawingClickHandler(section, pendingTool);
+                console.log(`Set up pending drawing tool: ${pendingTool} for ${section}`);
+            }
         }
     }
 
@@ -597,7 +612,7 @@ function destroyChart(section) {
     }
     // Clear indicators for this section
     indicatorSeries[section] = {};
-    drawingTools[section] = { active: null, lines: [] };
+    drawingTools[section] = { active: null, lines: [], pendingTool: null };
     // Reset user zoom state
     userZoomState[section] = false;
     // Clear click handlers
@@ -633,10 +648,21 @@ function setupChartZoomTracking(section) {
 
 // Update indicators in real-time during replay
 function updateIndicatorsForReplay(section, candlestickData, volumeData) {
-    if (!chartInstances[section] || !candlestickData.length) return;
+    if (!chartInstances[section] || !candlestickData.length) {
+        console.log(`No chart instance or data for ${section}, skipping indicator update`);
+        return;
+    }
+    
+    console.log(`Updating indicators for ${section} with ${candlestickData.length} candles`);
     
     // Get currently active indicators
     const activeIndicators = Object.keys(indicatorSeries[section]);
+    console.log(`Active indicators for ${section}:`, activeIndicators);
+    
+    if (activeIndicators.length === 0) {
+        console.log(`No active indicators for ${section}`);
+        return;
+    }
     
     activeIndicators.forEach(indicatorKey => {
         const parts = indicatorKey.split('_');
@@ -654,61 +680,89 @@ function updateIndicatorsForReplay(section, candlestickData, volumeData) {
         try {
             switch (indicator) {
                 case 'sma':
-                    indicatorData = calculateSMA(candlestickData, period);
+                    if (candlestickData.length >= period) {
+                        indicatorData = calculateSMA(candlestickData, period);
+                        console.log(`Calculated SMA ${period} with ${indicatorData.length} points`);
+                    }
                     break;
                 case 'ema':
-                    indicatorData = calculateEMA(candlestickData, period);
+                    if (candlestickData.length >= period) {
+                        indicatorData = calculateEMA(candlestickData, period);
+                        console.log(`Calculated EMA ${period} with ${indicatorData.length} points`);
+                    }
                     break;
                 case 'vwap':
                     indicatorData = calculateVWAP(candlestickData, volumeData);
+                    console.log(`Calculated VWAP with ${indicatorData.length} points`);
                     break;
                 case 'bollinger':
-                    const bbData = calculateBollingerBands(candlestickData, 20, 2);
-                    if (indicatorSeries[section][`${indicatorKey}_upper`]) {
-                        indicatorSeries[section][`${indicatorKey}_upper`].setData(bbData.upper);
-                    }
-                    if (indicatorSeries[section][`${indicatorKey}_middle`]) {
-                        indicatorSeries[section][`${indicatorKey}_middle`].setData(bbData.middle);
-                    }
-                    if (indicatorSeries[section][`${indicatorKey}_lower`]) {
-                        indicatorSeries[section][`${indicatorKey}_lower`].setData(bbData.lower);
+                    if (candlestickData.length >= 20) {
+                        const bbData = calculateBollingerBands(candlestickData, 20, 2);
+                        if (indicatorSeries[section][`${indicatorKey}_upper`]) {
+                            indicatorSeries[section][`${indicatorKey}_upper`].setData(bbData.upper);
+                        }
+                        if (indicatorSeries[section][`${indicatorKey}_middle`]) {
+                            indicatorSeries[section][`${indicatorKey}_middle`].setData(bbData.middle);
+                        }
+                        if (indicatorSeries[section][`${indicatorKey}_lower`]) {
+                            indicatorSeries[section][`${indicatorKey}_lower`].setData(bbData.lower);
+                        }
+                        console.log(`Updated Bollinger Bands with ${bbData.upper.length} points`);
                     }
                     return; // Skip setting data below
                 case 'rsi':
-                    const rsiData = calculateRSI(candlestickData, 14);
-                    const priceRange = Math.max(...candlestickData.map(d => d.high)) - Math.min(...candlestickData.map(d => d.low));
-                    const minPrice = Math.min(...candlestickData.map(d => d.low));
-                    indicatorData = rsiData.map(d => ({
-                        time: d.time,
-                        value: minPrice + (d.value / 100) * priceRange * 0.3
-                    }));
+                    if (candlestickData.length >= 14) {
+                        const rsiData = calculateRSI(candlestickData, 14);
+                        if (candlestickData.length > 0) {
+                            const priceRange = Math.max(...candlestickData.map(d => d.high)) - Math.min(...candlestickData.map(d => d.low));
+                            const minPrice = Math.min(...candlestickData.map(d => d.low));
+                            indicatorData = rsiData.map(d => ({
+                                time: d.time,
+                                value: minPrice + (d.value / 100) * priceRange * 0.3
+                            }));
+                        }
+                        console.log(`Calculated RSI with ${indicatorData?.length || 0} points`);
+                    }
                     break;
                 case 'macd':
-                    const macdData = calculateMACD(candlestickData, 12, 26, 9);
-                    const macdRange = Math.max(...macdData.macdLine.map(d => d.value)) - Math.min(...macdData.macdLine.map(d => d.value));
-                    const macdMinPrice = Math.min(...candlestickData.map(d => d.low));
-                    const macdPriceRange = Math.max(...candlestickData.map(d => d.high)) - macdMinPrice;
-                    indicatorData = macdData.macdLine.map(d => ({
-                        time: d.time,
-                        value: macdMinPrice + (d.value / (macdRange || 1)) * macdPriceRange * 0.2
-                    }));
+                    if (candlestickData.length >= 26) {
+                        const macdData = calculateMACD(candlestickData, 12, 26, 9);
+                        if (macdData.macdLine.length > 0) {
+                            const macdRange = Math.max(...macdData.macdLine.map(d => d.value)) - Math.min(...macdData.macdLine.map(d => d.value));
+                            const macdMinPrice = Math.min(...candlestickData.map(d => d.low));
+                            const macdPriceRange = Math.max(...candlestickData.map(d => d.high)) - macdMinPrice;
+                            indicatorData = macdData.macdLine.map(d => ({
+                                time: d.time,
+                                value: macdMinPrice + (d.value / (macdRange || 1)) * macdPriceRange * 0.2
+                            }));
+                        }
+                        console.log(`Calculated MACD with ${indicatorData?.length || 0} points`);
+                    }
                     break;
                 case 'stochastic':
-                    const stochData = calculateStochastic(candlestickData, 14, 3);
-                    const stochMinPrice = Math.min(...candlestickData.map(d => d.low));
-                    const stochPriceRange = Math.max(...candlestickData.map(d => d.high)) - stochMinPrice;
-                    indicatorData = stochData.stochK.map(d => ({
-                        time: d.time,
-                        value: stochMinPrice + (d.value / 100) * stochPriceRange * 0.25
-                    }));
+                    if (candlestickData.length >= 14) {
+                        const stochData = calculateStochastic(candlestickData, 14, 3);
+                        if (stochData.stochK.length > 0) {
+                            const stochMinPrice = Math.min(...candlestickData.map(d => d.low));
+                            const stochPriceRange = Math.max(...candlestickData.map(d => d.high)) - stochMinPrice;
+                            indicatorData = stochData.stochK.map(d => ({
+                                time: d.time,
+                                value: stochMinPrice + (d.value / 100) * stochPriceRange * 0.25
+                            }));
+                        }
+                        console.log(`Calculated Stochastic with ${indicatorData?.length || 0} points`);
+                    }
                     break;
             }
             
-            if (indicatorData && indicatorSeries[section][indicatorKey]) {
+            if (indicatorData && indicatorData.length > 0 && indicatorSeries[section][indicatorKey]) {
                 indicatorSeries[section][indicatorKey].setData(indicatorData);
+                console.log(`Updated ${indicatorKey} indicator with ${indicatorData.length} points`);
+            } else if (indicatorData && indicatorData.length === 0) {
+                console.log(`No data points for ${indicatorKey} - not enough historical data`);
             }
         } catch (error) {
-            console.warn(`Error updating indicator ${indicatorKey}:`, error);
+            console.error(`Error updating indicator ${indicatorKey}:`, error);
         }
     });
 }
@@ -923,8 +977,13 @@ function addIndicatorToChart(section, indicator, period, candleData, volumeData)
     switch (indicator) {
         case 'sma':
             indicatorData = calculateSMA(candleData, period);
+            let smaColor = '#2196f3'; // Default blue
+            if (period === 9) smaColor = '#9c27b0'; // Purple for SMA 9
+            else if (period === 20) smaColor = '#ff9800'; // Orange for SMA 20
+            else if (period === 50) smaColor = '#2196f3'; // Blue for SMA 50
+            
             seriesOptions = {
-                color: period === 20 ? '#ff9800' : '#2196f3',
+                color: smaColor,
                 lineWidth: 2,
                 title: `SMA ${period}`
             };
@@ -1120,11 +1179,18 @@ function activateDrawingTool(section, tool) {
         activeButton.classList.add('active');
         drawingTools[section].active = tool;
         
-        // Set up click handler for drawing
-        setupDrawingClickHandler(section, tool);
+        // Set up click handler for drawing (with retry mechanism)
+        if (chartInstances[section]) {
+            setupDrawingClickHandler(section, tool);
+        } else {
+            // Store for later when chart is created
+            drawingTools[section].pendingTool = tool;
+            console.log(`Chart not ready for ${section}, will set up drawing tool later`);
+        }
         
         // Change cursor to indicate drawing mode
-        const chartContainer = document.getElementById(getReplayConfig(section).chartContainerId);
+        const chartContainerId = `chart-${section}`;
+        const chartContainer = document.getElementById(chartContainerId);
         if (chartContainer) {
             chartContainer.style.cursor = 'crosshair';
         }
@@ -1134,10 +1200,19 @@ function activateDrawingTool(section, tool) {
 }
 
 function setupDrawingClickHandler(section, tool) {
-    if (!chartInstances[section]) return;
+    if (!chartInstances[section]) {
+        console.log(`No chart instance for section: ${section}, deferring click handler setup`);
+        return;
+    }
     
     const chart = chartInstances[section].chart;
-    const chartContainer = document.getElementById(getReplayConfig(section).chartContainerId);
+    const chartContainerId = `chart-${section}`;
+    const chartContainer = document.getElementById(chartContainerId);
+    
+    if (!chartContainer) {
+        console.error(`Chart container not found: ${chartContainerId}`);
+        return;
+    }
     
     // Remove existing click handler
     if (chartClickHandlers[section]) {
@@ -1150,13 +1225,21 @@ function setupDrawingClickHandler(section, tool) {
     };
     
     chartContainer.addEventListener('click', chartClickHandlers[section]);
+    console.log(`Drawing click handler set up for ${section}`);
 }
 
 function handleDrawingClick(section, tool, event) {
     if (!chartInstances[section]) return;
     
     const chart = chartInstances[section].chart;
-    const chartContainer = document.getElementById(getReplayConfig(section).chartContainerId);
+    const chartContainerId = `chart-${section}`;
+    const chartContainer = document.getElementById(chartContainerId);
+    
+    if (!chartContainer) {
+        console.error(`Chart container not found: ${chartContainerId}`);
+        return;
+    }
+    
     const rect = chartContainer.getBoundingClientRect();
     
     // Get click coordinates relative to chart
@@ -1195,7 +1278,10 @@ function handleDrawingClick(section, tool, event) {
 }
 
 function showDrawingFeedback(section, tool, x, y) {
-    const chartContainer = document.getElementById(getReplayConfig(section).chartContainerId);
+    const chartContainerId = `chart-${section}`;
+    const chartContainer = document.getElementById(chartContainerId);
+    
+    if (!chartContainer) return;
     
     // Create visual feedback element
     const feedback = document.createElement('div');
@@ -1230,13 +1316,14 @@ function deactivateDrawingTool(section) {
     drawingTools[section].active = null;
     
     // Reset cursor
-    const chartContainer = document.getElementById(getReplayConfig(section).chartContainerId);
+    const chartContainerId = `chart-${section}`;
+    const chartContainer = document.getElementById(chartContainerId);
     if (chartContainer) {
         chartContainer.style.cursor = 'default';
     }
     
     // Remove click handler
-    if (chartClickHandlers[section]) {
+    if (chartClickHandlers[section] && chartContainer) {
         chartContainer.removeEventListener('click', chartClickHandlers[section]);
         chartClickHandlers[section] = null;
     }
@@ -1247,7 +1334,8 @@ function clearAllDrawings(section) {
     deactivateDrawingTool(section);
     
     // Clear any visual feedback elements
-    const chartContainer = document.getElementById(getReplayConfig(section).chartContainerId);
+    const chartContainerId = `chart-${section}`;
+    const chartContainer = document.getElementById(chartContainerId);
     if (chartContainer) {
         const feedbackElements = chartContainer.querySelectorAll('.drawing-feedback');
         feedbackElements.forEach(el => el.remove());
