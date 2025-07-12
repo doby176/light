@@ -525,6 +525,19 @@ function renderChart(section, candles, currentCandleIndex = -1, minuteIndex = nu
         if (chartInstances[section]) {
             setupChartZoomTracking(section);
             
+            // Set up auto-zoom button functionality
+            const autoZoomBtn = document.querySelector(`#${containerId} .auto-zoom-btn`);
+            if (autoZoomBtn) {
+                autoZoomBtn.onclick = () => {
+                    if (chartInstances[section] && chartInstances[section].chart.timeScale) {
+                        chartInstances[section].chart.timeScale().fitContent();
+                        // Reset zoom state to allow auto-fit during replay
+                        userZoomState[section] = false;
+                        console.log(`Auto-fit triggered for ${section}`);
+                    }
+                };
+            }
+            
             // Set up any pending drawing tools
             if (drawingTools[section].pendingTool) {
                 const pendingTool = drawingTools[section].pendingTool;
@@ -664,13 +677,38 @@ function updateIndicatorsForReplay(section, candlestickData, volumeData) {
         return;
     }
     
+    // Group Bollinger Band indicators
+    const processedBollinger = new Set();
+    
     activeIndicators.forEach(indicatorKey => {
         const parts = indicatorKey.split('_');
         const indicator = parts[0];
         const period = parts[1] ? parseInt(parts[1]) : null;
         
-        // Skip composite indicators (like bollinger band components)
+        // Handle Bollinger Bands specially since they have multiple components
         if (indicatorKey.includes('_upper') || indicatorKey.includes('_middle') || indicatorKey.includes('_lower')) {
+            const baseKey = indicatorKey.replace(/_upper|_middle|_lower$/, '');
+            if (indicator === 'bollinger' && !processedBollinger.has(baseKey)) {
+                processedBollinger.add(baseKey);
+                // Process Bollinger Bands
+                if (candlestickData.length >= 20) {
+                    try {
+                        const bbData = calculateBollingerBands(candlestickData, 20, 2);
+                        if (indicatorSeries[section][`${baseKey}_upper`]) {
+                            indicatorSeries[section][`${baseKey}_upper`].setData(bbData.upper);
+                        }
+                        if (indicatorSeries[section][`${baseKey}_middle`]) {
+                            indicatorSeries[section][`${baseKey}_middle`].setData(bbData.middle);
+                        }
+                        if (indicatorSeries[section][`${baseKey}_lower`]) {
+                            indicatorSeries[section][`${baseKey}_lower`].setData(bbData.lower);
+                        }
+                        console.log(`Updated Bollinger Bands with ${bbData.upper.length} points`);
+                    } catch (error) {
+                        console.error(`Error updating Bollinger Bands:`, error);
+                    }
+                }
+            }
             return;
         }
         
@@ -691,26 +729,11 @@ function updateIndicatorsForReplay(section, candlestickData, volumeData) {
                         console.log(`Calculated EMA ${period} with ${indicatorData.length} points`);
                     }
                     break;
-                case 'vwap':
-                    indicatorData = calculateVWAP(candlestickData, volumeData);
-                    console.log(`Calculated VWAP with ${indicatorData.length} points`);
-                    break;
-                case 'bollinger':
-                    if (candlestickData.length >= 20) {
-                        const bbData = calculateBollingerBands(candlestickData, 20, 2);
-                        if (indicatorSeries[section][`${indicatorKey}_upper`]) {
-                            indicatorSeries[section][`${indicatorKey}_upper`].setData(bbData.upper);
-                        }
-                        if (indicatorSeries[section][`${indicatorKey}_middle`]) {
-                            indicatorSeries[section][`${indicatorKey}_middle`].setData(bbData.middle);
-                        }
-                        if (indicatorSeries[section][`${indicatorKey}_lower`]) {
-                            indicatorSeries[section][`${indicatorKey}_lower`].setData(bbData.lower);
-                        }
-                        console.log(`Updated Bollinger Bands with ${bbData.upper.length} points`);
-                    }
-                    return; // Skip setting data below
-                case 'rsi':
+                  case 'vwap':
+                      indicatorData = calculateVWAP(candlestickData, volumeData);
+                      console.log(`Calculated VWAP with ${indicatorData.length} points`);
+                      break;
+                  case 'rsi':
                     if (candlestickData.length >= 14) {
                         const rsiData = calculateRSI(candlestickData, 14);
                         if (candlestickData.length > 0) {
@@ -1171,16 +1194,23 @@ function setupIndicatorListeners(section) {
 
 // Drawing Tools Functions (Enhanced)
 function activateDrawingTool(section, tool) {
+    console.log(`Attempting to activate drawing tool: ${tool} for section: ${section}`);
+    
     const buttons = document.querySelectorAll(`#chart-indicators-${section} .drawing-tool-btn`);
+    console.log(`Found ${buttons.length} drawing tool buttons`);
     buttons.forEach(btn => btn.classList.remove('active'));
     
     const activeButton = document.querySelector(`#chart-indicators-${section} [data-tool="${tool}"]`);
+    console.log(`Active button found:`, activeButton);
+    
     if (activeButton) {
         activeButton.classList.add('active');
         drawingTools[section].active = tool;
+        console.log(`Set drawing tool ${tool} as active for ${section}`);
         
         // Set up click handler for drawing (with retry mechanism)
         if (chartInstances[section]) {
+            console.log(`Chart instance exists for ${section}, setting up handler immediately`);
             setupDrawingClickHandler(section, tool);
         } else {
             // Store for later when chart is created
@@ -1191,11 +1221,18 @@ function activateDrawingTool(section, tool) {
         // Change cursor to indicate drawing mode
         const chartContainerId = `chart-${section}`;
         const chartContainer = document.getElementById(chartContainerId);
+        console.log(`Chart container (${chartContainerId}):`, chartContainer);
+        
         if (chartContainer) {
             chartContainer.style.cursor = 'crosshair';
+            console.log(`Set cursor to crosshair for ${chartContainerId}`);
+        } else {
+            console.error(`Chart container not found: ${chartContainerId}`);
         }
         
-        console.log(`Activated drawing tool: ${tool} for ${section}`);
+        console.log(`Successfully activated drawing tool: ${tool} for ${section}`);
+    } else {
+        console.error(`Could not find button for tool: ${tool} in section: ${section}`);
     }
 }
 
@@ -1217,15 +1254,21 @@ function setupDrawingClickHandler(section, tool) {
     // Remove existing click handler
     if (chartClickHandlers[section]) {
         chartContainer.removeEventListener('click', chartClickHandlers[section]);
+        console.log(`Removed existing click handler for ${section}`);
     }
     
     // Create new click handler
     chartClickHandlers[section] = (event) => {
+        console.log(`Drawing click detected for ${section} with tool ${tool}`);
         handleDrawingClick(section, tool, event);
     };
     
     chartContainer.addEventListener('click', chartClickHandlers[section]);
-    console.log(`Drawing click handler set up for ${section}`);
+    console.log(`Drawing click handler set up for ${section} with tool ${tool}`);
+    
+    // Also try to set cursor immediately
+    chartContainer.style.cursor = 'crosshair';
+    console.log(`Set cursor to crosshair for ${section}`);
 }
 
 function handleDrawingClick(section, tool, event) {
@@ -1794,6 +1837,30 @@ async function loadChart(event, tabId) {
         if (indicatorsPanel) {
             indicatorsPanel.style.display = 'block';
             setupIndicatorListeners(replayPrefix);
+            
+            // Re-activate any checked indicators
+            const checkboxes = indicatorsPanel.querySelectorAll('input[type="checkbox"]:checked');
+            checkboxes.forEach(checkbox => {
+                const indicator = checkbox.dataset.indicator;
+                const period = parseInt(checkbox.dataset.period) || null;
+                
+                // Convert chart data to format needed for indicators
+                const candleData = data.chart_data.timestamp.map((timestamp, i) => ({
+                    time: Math.floor(new Date(timestamp).getTime() / 1000),
+                    open: parseFloat(data.chart_data.open[i]),
+                    high: parseFloat(data.chart_data.high[i]),
+                    low: parseFloat(data.chart_data.low[i]),
+                    close: parseFloat(data.chart_data.close[i])
+                }));
+                
+                const volumeData = data.chart_data.timestamp.map((timestamp, i) => ({
+                    time: Math.floor(new Date(timestamp).getTime() / 1000),
+                    value: parseFloat(data.chart_data.volume[i])
+                }));
+                
+                addIndicatorToChart(replayPrefix, indicator, period, candleData, volumeData);
+                console.log(`Re-activated indicator: ${indicator} ${period || ''} for ${replayPrefix}`);
+            });
         }
         
         if (replayPrefix === 'simulator') { // Market Simulator
@@ -2226,6 +2293,12 @@ function startOverReplay(section) {
     
     // Update chart to show no candles (initial state)
     renderChart(section, []);
+    
+    // Re-setup indicators that were active
+    const indicatorsPanel = document.getElementById(`chart-indicators-${section}`);
+    if (indicatorsPanel) {
+        setupIndicatorListeners(section);
+    }
 
     // Update button states
     playButton.textContent = 'Play Replay';
