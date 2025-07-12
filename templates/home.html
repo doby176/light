@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Elevate your trading with 1MChart's Market Simulator, Nasdaq gap insights, market replay, and earnings analysis. Replay 1-minute candlestick charts, simulate trades on key historical events (CPI, FOMC, earnings), analyze gap fill rates, reversal patterns, and earnings outcomes (Beat, Miss) with high-frequency data for strategic day trading (2015-2025).">
+    <meta name="keywords" content="1-minute stock charts, Nasdaq gap insights, QQQ gap fill rate, QQQ gap trading, intraday gap analysis, market replay, market simulator, trading simulator, historical event trading, backtest trading strategies, 1-minute candlestick replay, intraday trading simulation, stock market replay, candlestick chart simulation, trading session replay, 1-minute trading practice, QQQ price action patterns, day trading, price action analysis, Nasdaq gap statistics, earnings price action, CPI, PPI, FOMC, NFP, QQQ, AAPL, MSFT, TSLA, ORCL, NVDA, MSTR, UBER, PLTR, META, intraday trading, historical stock data, trading tools, technical analysis, stock market analysis, QQQ gap trading strategies, stock gap analytics">
+    <meta name="author" content="1MChart Team">
+    <meta name="robots" content="index, follow">
+    <!-- Open Graph for social media -->
+    <meta property="og:title" content="1MChart - Precision Nasdaq Gap, Market Replay & Earnings Insights">
+    <meta property="og:description" content="Elevate your trading with 1MChart's Market Simulator, Nasdaq gap insights, market replay, and earnings analysis. Replay 1-minute candlestick charts to simulate trades on key historical events (CPI, FOMC, earnings), analyze gap fill rates, adverse moves, reversal patterns, and earnings outcomes (Beat, Miss, Slight Beat) with high-frequency 1-minute data for strategic day trading (2015-2025).">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://onemchart.onrender.com">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="1MChart - Precision Nasdaq Gap, Market Replay & Earnings Insights">
+    <meta name="twitter:description" content="Elevate your trading with 1MChart's Market Simulator, Nasdaq gap insights, market replay, and earnings analysis. Replay 1-minute candlestick charts to simulate trades on key historical events (CPI, FOMC, earnings), analyze gap fill rates, adverse moves, reversal patterns, and earnings outcomes (Beat, Miss, Slight Beat) with high-frequency 1-minute data for strategic day trading (2015-2025).">
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BFDR405H06"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-BFDR405H06');
+    </script>
+    <!-- Google AdSense -->
+    <meta name="google-adsense-account" content="ca-pub-9416785017460416">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9416785017460416" crossorigin="anonymous"></script>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=48">
+    <title>1MChart - Precision Trading Insights</title>
+</head>
+<body>
+    <header class="landing-header">
+        <img src="{{ url_for('static', filename='logo-new.png') }}" alt="1MChart Logo" class="logo">
+        <h1>Discover Powerful Nasdaq Gap Insights, News Analysis, Market Replay and Earnings Data with 1MChart</h1>
+    </header>
+    <div class="header-cta">
+        <div class="cta-buttons">
+            <a href="{{ url_for('login') }}" class="cta-button">Log In</a>
+            <a href="{{ url_for('landing') }}" class="cta-button cta-signup">Sign Up</a>
+        </div>
+    </div>
+    <main class="landing-main">
+        <section class="hero">
+            <h2>Trade Smarter with 1MChart</h2>
+            <p>Harness the power of high-frequency 1-minute data to simulate trades with the Market Simulator, replay market sessions, analyze Nasdaq gaps, earnings reactions, and key economic events (CPI, FOMC, NFP). Build data-driven trading strategies with precision.</p>
+            <div class="video-container">
+                <iframe 
+                    width="100%" 
+                    height="315" 
+                    src="https://www.youtube.com/embed/BPywNAlhFA4" 
+                    title="1MChart Introduction" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+            </div>
+            <!-- Ad below YouTube video -->
+            <div class="ad-container">
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="ca-pub-9416785017460416"
+                     data-ad-slot="5487535867"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+                <script>
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                </script>
+            </div>
+        </section>
+        <section class="features">
+            <h2>Why Choose 1MChart?</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <img src="{{ url_for('static', filename='metrics.png') }}" alt="Nasdaq Gap Analysis" class="metric-icon">
+                    <h3>Nasdaq Gap Analysis</h3>
+                    <p>Filter by gap size, direction, and day to uncover intraday price action patterns. Analyze gap fill rates and reversal patterns with 1-minute precision.</p>
+                </div>
+                <div class="feature-card">
+                    <img src="{{ url_for('static', filename='metricearning.png') }}" alt="Earnings Analysis" class="metric-icon">
+                    <h3>Earnings Analysis</h3>
+                    <p>Study stock price reactions to earnings outcomes (Beat, Miss, Slight Beat) with 1-minute charts to identify profitable trading opportunities.</p>
+                </div>
+                <div class="feature-card">
+                    <img src="{{ url_for('static', filename='metricnews.png') }}" alt="News Events" class="metric-icon">
+                    <h3>News Event Insights</h3>
+                    <p>Explore price action on key economic event days (CPI, PPI, FOMC, NFP) to master intraday trading strategies.</p>
+                </div>
+                <div class="feature-card">
+                    <img src="{{ url_for('static', filename='replaymetric.png') }}" alt="Market Replay" class="metric-icon">
+                    <h3>Market Replay</h3>
+                    <p>Replay 1-minute candlestick charts to simulate intraday trading sessions. Control playback with play, pause, and candle navigation, and start at any time for strategic practice.</p>
+                </div>
+                <div class="feature-card">
+                    <img src="{{ url_for('static', filename='simumetric.png') }}" alt="Market Simulator" class="metric-icon">
+                    <h3>Market Simulator</h3>
+                    <p>Practice trading by revisiting key historical events (CPI, FOMC, earnings) with 1-minute candlestick charts. Simulate trades and test strategies risk-free.</p>
+                </div>
+                <div class="feature-card">
+                    <img src="{{ url_for('static', filename='highmetric.png') }}" alt="High-Frequency 1-Minute Data" class="metric-icon">
+                    <h3>High-Frequency 1-Minute Data</h3>
+                    <p>Access 1-minute candle data from 2015 to 2025 for precise market analysis and replay. Available tickers include QQQ, AAPL, MSFT, TSLA, ORCL, NVDA, MSTR, UBER, PLTR, and META, enabling detailed intraday trading strategies.</p>
+                </div>
+            </div>
+        </section>
+        <section class="cta-section">
+            <h2>Ready to Elevate Your Trading?</h2>
+            <p>Join 1MChart today and gain access to powerful analytics tools and market replay features designed for day traders.</p>
+            <div class="cta-buttons">
+                <a href="{{ url_for('landing') }}" class="cta-button cta-signup">Get Started</a>
+                <a href="{{ url_for('login') }}" class="cta-button">Log In</a>
+            </div>
+            <!-- Ad below CTA buttons -->
+            <div class="ad-container">
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="ca-pub-9416785017460416"
+                     data-ad-slot="5487535867"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+                <script>
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                </script>
+            </div>
+        </section>
+    </main>
+    <footer class="footer">
+        <h2>1MChart - THE EDGE LIES IN THE DATA</h2>
+        <p>More coming soon</p>
+        <p class="disclaimer">DISCLAIMER: The author takes no responsibility for your use of any information provided on this site. All information provided is for educational purposes and is not investment advice or buy/sell recommendations.</p>
+        <img src="{{ url_for('static', filename='logo-new.png') }}" alt="1MChart Footer Logo" class="footer-logo">
+    </footer>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9416785017460416" crossorigin="anonymous"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=23"></script>
+</body>
+</html>
