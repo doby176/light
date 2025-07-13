@@ -63,6 +63,13 @@ except redis.ConnectionError as e:
 @app.errorhandler(429)
 def ratelimit_handler(e):
     logging.info(f"Rate limit exceeded for session: {session.get('user_id')}")
+    
+    # Check if request is from sample mode
+    if is_sample_mode():
+        return jsonify({
+            'error': 'Sample limit reached: You\'ve used your 3 free API calls. Sign up FREE for 10 calls per 12 hours and full access!'
+        }), 429
+    
     if request.path == '/api/gap_insights':
         return jsonify({
             'error': 'Rate limit exceeded: You have reached the limit of 3 requests per 12 hours. Please wait and try again later.'
@@ -365,7 +372,7 @@ def logout():
     return redirect(url_for('home'))
 
 @app.route('/api/tickers', methods=['GET'])
-@limiter.limit("10 per 12 hours")
+@limiter.limit("3 per 12 hours")
 def get_tickers():
     if is_sample_mode():
         logging.debug("Returning sample tickers (limited)")
@@ -375,7 +382,7 @@ def get_tickers():
         return jsonify({'tickers': VALID_TICKERS})
 
 @app.route('/api/valid_dates', methods=['GET'])
-@limiter.limit("10 per 12 hours")
+@limiter.limit("3 per 12 hours")
 def get_valid_dates():
     ticker = request.args.get('ticker')
     logging.debug(f"Fetching valid dates for ticker: {ticker}")
@@ -411,7 +418,7 @@ def get_valid_dates():
         return jsonify({'error': f'Failed to fetch dates for {ticker}'}), 500
 
 @app.route('/api/stock/chart', methods=['GET'])
-@limiter.limit("10 per 12 hours")
+@limiter.limit("3 per 12 hours")
 def get_chart():
     try:
         ticker = request.args.get('ticker')
@@ -504,7 +511,7 @@ def get_chart():
         return jsonify({'error': 'Server error'}), 500
 
 @app.route('/api/gaps', methods=['GET'])
-@limiter.limit("10 per 12 hours")
+@limiter.limit("3 per 12 hours")
 def get_gaps():
     try:
         gap_size = request.args.get('gap_size')
@@ -658,7 +665,7 @@ def get_gap_insights():
         return jsonify({'error': 'Server error'}), 500
 
 @app.route('/api/years', methods=['GET'])
-@limiter.limit("10 per 12 hours")
+@limiter.limit("3 per 12 hours")
 def get_years():
     try:
         logging.debug("Fetching unique years from news_events.csv")
@@ -690,7 +697,7 @@ def get_years():
         return jsonify({'error': 'Server error'}), 500
 
 @app.route('/api/events', methods=['GET'])
-@limiter.limit("10 per 12 hours")
+@limiter.limit("3 per 12 hours")
 def get_events():
     try:
         event_type = request.args.get('event_type')
