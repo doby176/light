@@ -1210,12 +1210,12 @@ def get_qqq_gap():
         # Format date for API
         date_str = target_date.strftime('%Y-%m-%d')
         
-        # Web scraping from Yahoo Finance
+        # Web scraping from Yahoo Finance history page
         try:
-            logging.debug("Scraping QQQ data from Yahoo Finance...")
+            logging.debug("Scraping QQQ data from Yahoo Finance history page...")
             
-            # Get the Yahoo Finance page for QQQ
-            url = "https://finance.yahoo.com/quote/QQQ"
+            # Get the Yahoo Finance history page for QQQ
+            url = "https://finance.yahoo.com/quote/QQQ/history/"
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
@@ -1230,31 +1230,51 @@ def get_qqq_gap():
             # Look for the current price in the page
             price_elements = soup.find_all('fin-streamer', {'data-field': 'regularMarketPrice'})
             if not price_elements:
-                # Try alternative selectors
+                # Try alternative selectors for current price
                 price_elements = soup.find_all('span', {'data-reactid': lambda x: x and 'regularMarketPrice' in x})
             
             if not price_elements:
-                raise Exception("Could not find current price on Yahoo Finance page")
+                # Try to find price in the main quote area
+                price_elements = soup.find_all('fin-streamer', {'data-field': 'regularMarketPrice'})
+                if not price_elements:
+                    price_elements = soup.find_all('span', string=lambda text: text and '$' in text and '.' in text)
+            
+            if not price_elements:
+                raise Exception("Could not find current price on Yahoo Finance history page")
             
             # Clean the price string (remove commas and convert to float)
             price_text = price_elements[0].text.strip()
-            current_price = float(price_text.replace(',', ''))
+            current_price = float(price_text.replace(',', '').replace('$', ''))
             
             # Get previous close from the page
             prev_close_elements = soup.find_all('fin-streamer', {'data-field': 'regularMarketPreviousClose'})
             if not prev_close_elements:
-                # Try alternative selectors
+                # Try alternative selectors for previous close
                 prev_close_elements = soup.find_all('span', {'data-reactid': lambda x: x and 'regularMarketPreviousClose' in x})
             
             if not prev_close_elements:
-                raise Exception("Could not find previous close on Yahoo Finance page")
+                # Try to find previous close in the stats section
+                stats_section = soup.find('div', {'data-test': 'quote-summary-stats'})
+                if stats_section:
+                    prev_close_elements = stats_section.find_all('td', string=lambda text: text and '$' in text and '.' in text)
+            
+            if not prev_close_elements:
+                raise Exception("Could not find previous close on Yahoo Finance history page")
             
             # Clean the previous close string (remove commas and convert to float)
             prev_close_text = prev_close_elements[0].text.strip()
-            previous_close = float(prev_close_text.replace(',', ''))
+            previous_close = float(prev_close_text.replace(',', '').replace('$', ''))
+            
+            # Validate that prices are reasonable for QQQ (typically $300-600 range)
+            if not (300 <= current_price <= 600) or not (300 <= previous_close <= 600):
+                raise Exception(f"Invalid price values: Current={current_price}, Previous={previous_close}. QQQ should be in $300-600 range.")
             
             # Calculate gap percentage
             gap_percentage = ((current_price - previous_close) / previous_close) * 100
+            
+            # Validate that gap percentage is reasonable (should be within ±10% for normal trading)
+            if abs(gap_percentage) > 10:
+                raise Exception(f"Unreasonable gap percentage: {gap_percentage:.2f}%. This suggests data parsing error.")
             
             # Use today's date for display
             yesterday_date = target_date.strftime('%Y-%m-%d')
@@ -1267,40 +1287,119 @@ def get_qqq_gap():
             logging.debug(f"Raw price text: '{price_text}', Raw prev close text: '{prev_close_text}'")
             
         except Exception as e:
-            logging.error(f"Error scraping Yahoo Finance: {str(e)}")
+            logging.error(f"Error scraping Yahoo Finance history page: {str(e)}")
             
-            # Try alternative method - Yahoo Finance mobile page
+            # Try alternative method - Google Finance search
             try:
-                logging.debug("Trying Yahoo Finance mobile page as fallback...")
-                mobile_url = "https://m.finance.yahoo.com/quote/QQQ"
-                mobile_response = requests.get(mobile_url, headers=headers, timeout=15)
-                mobile_response.raise_for_status()
+                logging.debug("Trying Google Finance search as fallback...")
+                google_url = "https://www.google.com/search?q=qqq+previous+close+price"
+                google_response = requests.get(google_url, headers=headers, timeout=15)
+                google_response.raise_for_status()
                 
-                mobile_soup = BeautifulSoup(mobile_response.text, 'html.parser')
+                google_soup = BeautifulSoup(google_response.text, 'html.parser')
                 
-                # Look for price data in mobile page
-                price_text = mobile_soup.find('span', string=lambda text: text and '$' in text and '.' in text)
-                if price_text:
-                    price_clean = price_text.text.strip().replace('$', '').replace(',', '')
-                    current_price = float(price_clean)
-                    
-                    # For mobile, we'll use a simple calculation or get from a different source
-                    # For now, let's use a reasonable estimate based on typical QQQ movement
-                    previous_close = current_price * 0.998  # Assume 0.2% typical daily movement
+                # Look for price data in Google search results
+                # Google shows structured data that we can parse
+                page_text = google_soup.get_text()
+                
+                # Look for the specific format you showed: "556.72 USD" and "555.73 USD"
+                import re
+                
+                # Pattern to find price values in the format you showed
+                price_matches = re.findall(r'(\d+\.\d+)\s*USD', page_text)
+                
+                current_price = None
+                previous_close = None
+                
+                if len(price_matches) >= 2:
+                    # Take the first two price matches as current and previous
+                    current_price = float(price_matches[0])
+                    previous_close = float(price_matches[1])
+                else:
+                    # Try alternative patterns
+                    dollar_matches = re.findall(r'\$(\d+\.\d+)', page_text)
+                    if len(dollar_matches) >= 2:
+                        current_price = float(dollar_matches[0])
+                        previous_close = float(dollar_matches[1])
+                    else:
+                        # Look for any number with decimal that could be a price
+                        all_numbers = re.findall(r'(\d+\.\d+)', page_text)
+                        if len(all_numbers) >= 2:
+                            # Filter for reasonable price ranges (QQQ is typically $300-600)
+                            valid_prices = [float(num) for num in all_numbers if 300 <= float(num) <= 600]
+                            if len(valid_prices) >= 2:
+                                current_price = valid_prices[0]
+                                previous_close = valid_prices[1]
+                
+                if current_price and previous_close:
+                    # Validate that prices are reasonable for QQQ (typically $300-600 range)
+                    if not (300 <= current_price <= 600) or not (300 <= previous_close <= 600):
+                        raise Exception(f"Invalid price values from Google: Current={current_price}, Previous={previous_close}. QQQ should be in $300-600 range.")
                     
                     gap_percentage = ((current_price - previous_close) / previous_close) * 100
+                    
+                    # Validate that gap percentage is reasonable (should be within ±10% for normal trading)
+                    if abs(gap_percentage) > 10:
+                        raise Exception(f"Unreasonable gap percentage from Google: {gap_percentage:.2f}%. This suggests data parsing error.")
+                    
                     yesterday_date = target_date.strftime('%Y-%m-%d')
                     day_before_date = (target_date - timedelta(days=1)).strftime('%Y-%m-%d')
                     yesterday_close = current_price
                     day_before_close = previous_close
                     
-                    logging.debug(f"Used mobile fallback: Current={current_price}, Previous={previous_close}, Gap={gap_percentage:.2f}%")
+                    logging.debug(f"Used Google Finance fallback: Current={current_price}, Previous={previous_close}, Gap={gap_percentage:.2f}%")
+                    logging.debug(f"Found prices in Google search: {price_matches if 'price_matches' in locals() else 'No matches'}")
                 else:
-                    raise Exception("Could not find price data on mobile page")
+                    raise Exception("Could not find price data in Google search results")
                     
-            except Exception as mobile_e:
-                logging.error(f"Mobile fallback also failed: {str(mobile_e)}")
-                raise requests.exceptions.RequestException(f"Failed to scrape QQQ data from both desktop and mobile pages: {str(e)}")
+            except Exception as google_e:
+                logging.error(f"Google Finance fallback also failed: {str(google_e)}")
+                
+                # Try third fallback - MarketWatch
+                try:
+                    logging.debug("Trying MarketWatch as third fallback...")
+                    marketwatch_url = "https://www.marketwatch.com/investing/fund/qqq"
+                    marketwatch_response = requests.get(marketwatch_url, headers=headers, timeout=15)
+                    marketwatch_response.raise_for_status()
+                    
+                    marketwatch_soup = BeautifulSoup(marketwatch_response.text, 'html.parser')
+                    
+                    # Look for current price
+                    current_price_element = marketwatch_soup.find('span', {'class': 'value'})
+                    if current_price_element:
+                        current_price_text = current_price_element.text.strip()
+                        current_price = float(current_price_text.replace(',', '').replace('$', ''))
+                        
+                        # Look for previous close in the stats section
+                        prev_close_element = marketwatch_soup.find('td', string=lambda text: text and 'Previous Close' in text)
+                        if prev_close_element and prev_close_element.find_next_sibling('td'):
+                            prev_close_text = prev_close_element.find_next_sibling('td').text.strip()
+                            previous_close = float(prev_close_text.replace(',', '').replace('$', ''))
+                            
+                            # Validate that prices are reasonable for QQQ (typically $300-600 range)
+                            if not (300 <= current_price <= 600) or not (300 <= previous_close <= 600):
+                                raise Exception(f"Invalid price values from MarketWatch: Current={current_price}, Previous={previous_close}. QQQ should be in $300-600 range.")
+                            
+                            gap_percentage = ((current_price - previous_close) / previous_close) * 100
+                            
+                            # Validate that gap percentage is reasonable (should be within ±10% for normal trading)
+                            if abs(gap_percentage) > 10:
+                                raise Exception(f"Unreasonable gap percentage from MarketWatch: {gap_percentage:.2f}%. This suggests data parsing error.")
+                            
+                            yesterday_date = target_date.strftime('%Y-%m-%d')
+                            day_before_date = (target_date - timedelta(days=1)).strftime('%Y-%m-%d')
+                            yesterday_close = current_price
+                            day_before_close = previous_close
+                            
+                            logging.debug(f"Used MarketWatch fallback: Current={current_price}, Previous={previous_close}, Gap={gap_percentage:.2f}%")
+                        else:
+                            raise Exception("Could not find previous close on MarketWatch")
+                    else:
+                        raise Exception("Could not find current price on MarketWatch")
+                        
+                except Exception as marketwatch_e:
+                    logging.error(f"MarketWatch fallback also failed: {str(marketwatch_e)}")
+                    raise requests.exceptions.RequestException(f"Failed to scrape QQQ data from all sources: {str(e)}")
         
         # Calculate gap percentage (only if not already calculated)
         if 'gap_percentage' not in locals():
