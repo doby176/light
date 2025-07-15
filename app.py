@@ -1320,23 +1320,8 @@ def get_qqq_gap():
         return jsonify(result_data)
         
     except requests.exceptions.RequestException as e:
-            logging.error(f"Request error fetching QQQ data: {str(e)}")
-            # Return fallback data when API is unavailable
-            fallback_data = {
-                'gap_percentage': 0.25,
-                'gap_formatted': '+0.25%',
-                'gap_direction': 'up',
-                'gap_abs': 0.25,
-                'yesterday_close': 450.50,
-                'day_before_close': 449.38,
-                'date': date_str,
-                'message': f"QQQ gap on {date_str}: +0.25% (Demo data - API temporarily unavailable)"
-            }
-            
-            # Cache the fallback result
-            qqq_cache[cache_key] = (time.time(), fallback_data)
-            
-            return jsonify(fallback_data)
+        logging.error(f"Request error fetching QQQ data: {str(e)}")
+        return jsonify({'error': 'Unable to fetch QQQ data. All external APIs are currently unavailable. Please try again later.'}), 500
             
     except Exception as e:
         logging.error(f"Error processing QQQ gap: {str(e)}")
