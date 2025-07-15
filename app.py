@@ -1229,66 +1229,136 @@ def get_qqq_gap():
             
             current_price = None
             previous_close = None
+            open_price = None
             
-            # Look for the current price - CNBC typically shows it prominently
-            price_elements = soup.find_all('span', {'class': 'QuoteStrip-lastPrice'})
-            if not price_elements:
-                # Try alternative selectors for current price
-                price_elements = soup.find_all('span', {'class': 'lastPrice'})
+            # First, try to find the current price
+            # Look for various possible price elements
+            price_selectors = [
+                'span.QuoteStrip-lastPrice',
+                'span.lastPrice',
+                'div[data-testid="price"]',
+                'span[data-testid="price"]',
+                'div.price',
+                'span.price'
+            ]
             
-            if not price_elements:
-                # Look for any span with price-like content
-                all_spans = soup.find_all('span')
-                for span in all_spans:
-                    text = span.get_text().strip()
-                    if '$' in text and '.' in text and len(text) < 20:  # Price-like text
-                        try:
-                            price_clean = text.replace('$', '').replace(',', '')
-                            test_price = float(price_clean)
-                            if 300 <= test_price <= 600:  # Reasonable QQQ price range
-                                current_price = test_price
-                                logging.debug(f"Found current price: {current_price}")
-                                break
-                        except:
-                            continue
+            for selector in price_selectors:
+                elements = soup.select(selector)
+                if elements:
+                    try:
+                        price_text = elements[0].get_text().strip()
+                        # Clean the price text
+                        price_clean = price_text.replace('$', '').replace(',', '').replace('USD', '').strip()
+                        test_price = float(price_clean)
+                        if 300 <= test_price <= 600:  # Reasonable QQQ price range
+                            current_price = test_price
+                            logging.debug(f"Found current price using selector '{selector}': {current_price}")
+                            break
+                    except (ValueError, AttributeError):
+                        continue
+            
+            # If we still don't have current price, look for any text that looks like a price
+            if not current_price:
+                all_text = soup.get_text()
+                import re
+                # Look for price patterns like $XXX.XX or XXX.XX
+                price_matches = re.findall(r'[\$]?(\d{3,4}\.\d{2})', all_text)
+                for match in price_matches:
+                    try:
+                        test_price = float(match)
+                        if 300 <= test_price <= 600:
+                            current_price = test_price
+                            logging.debug(f"Found current price using regex: {current_price}")
+                            break
+                    except ValueError:
+                        continue
+            
+            # Now look for Open and Previous Close in the KEY STATS section
+            # Look for various patterns that might contain this data
+            all_divs = soup.find_all(['div', 'span', 'td'])
+            
+            for element in all_divs:
+                text = element.get_text().strip()
+                
+                # Look for "Open" and "Prev Close" patterns
+                if 'Open' in text and any(char.isdigit() for char in text):
+                    import re
+                    # Try different patterns for Open price
+                    open_patterns = [
+                        r'Open\s*[\$]?(\d+\.\d+)',
+                        r'(\d+\.\d+)\s*Open',
+                        r'Open\s*(\d{3,4}\.\d{2})'
+                    ]
+                    
+                    for pattern in open_patterns:
+                        match = re.search(pattern, text)
+                        if match:
+                            try:
+                                test_open = float(match.group(1))
+                                if 300 <= test_open <= 600:
+                                    open_price = test_open
+                                    logging.debug(f"Found Open price: {open_price}")
+                                    break
+                            except ValueError:
+                                continue
+                
+                # Look for "Prev Close" or "Previous Close" patterns
+                if ('Prev Close' in text or 'Previous Close' in text) and any(char.isdigit() for char in text):
+                    import re
+                    # Try different patterns for Previous Close price
+                    prev_patterns = [
+                        r'Prev Close\s*[\$]?(\d+\.\d+)',
+                        r'Previous Close\s*[\$]?(\d+\.\d+)',
+                        r'(\d+\.\d+)\s*Prev Close',
+                        r'(\d+\.\d+)\s*Previous Close',
+                        r'Prev Close\s*(\d{3,4}\.\d{2})',
+                        r'Previous Close\s*(\d{3,4}\.\d{2})'
+                    ]
+                    
+                    for pattern in prev_patterns:
+                        match = re.search(pattern, text)
+                        if match:
+                            try:
+                                test_prev = float(match.group(1))
+                                if 300 <= test_prev <= 600:
+                                    previous_close = test_prev
+                                    logging.debug(f"Found Previous Close: {previous_close}")
+                                    break
+                            except ValueError:
+                                continue
+            
+            # If we found both Open and Previous Close, use Open as current price for gap calculation
+            if open_price and previous_close:
+                current_price = open_price
+                logging.debug(f"Using Open price ({open_price}) as current price for gap calculation")
+            elif current_price and previous_close:
+                # We have current price and previous close, use current price
+                logging.debug(f"Using current price ({current_price}) for gap calculation")
+            else:
+                # If we don't have both values, try to find them in the page text
+                all_text = soup.get_text()
+                import re
+                
+                # Look for all price-like numbers in the text
+                all_prices = re.findall(r'(\d{3,4}\.\d{2})', all_text)
+                valid_prices = []
+                
+                for price_str in all_prices:
+                    try:
+                        price_val = float(price_str)
+                        if 300 <= price_val <= 600:
+                            valid_prices.append(price_val)
+                    except ValueError:
+                        continue
+                
+                # If we have multiple valid prices, use the first two as current and previous
+                if len(valid_prices) >= 2:
+                    current_price = valid_prices[0]
+                    previous_close = valid_prices[1]
+                    logging.debug(f"Using first two valid prices: Current={current_price}, Previous={previous_close}")
             
             if not current_price:
                 raise Exception("Could not find current price on CNBC page")
-            
-            # Look for "Open" and "Prev Close" in the KEY STATS section
-            all_divs = soup.find_all('div')
-            for div in all_divs:
-                text = div.get_text()
-                if 'Open' in text and 'Prev Close' in text:
-                    # Extract both Open and Prev Close values
-                    import re
-                    # Look for patterns like "Open 560.25" and "Prev Close 556.21"
-                    open_match = re.search(r'Open\s+(\d+\.\d+)', text)
-                    prev_close_match = re.search(r'Prev Close\s+(\d+\.\d+)', text)
-                    
-                    if open_match and prev_close_match:
-                        open_price = float(open_match.group(1))
-                        prev_close_price = float(prev_close_match.group(1))
-                        
-                        # Use open price as current price for gap calculation
-                        current_price = open_price
-                        previous_close = prev_close_price
-                        
-                        logging.debug(f"Found Open: {open_price}, Prev Close: {prev_close_price}")
-                        break
-            
-            # If we couldn't find the structured data, try alternative approach
-            if not previous_close:
-                # Look for "Prev Close" text specifically
-                for div in all_divs:
-                    text = div.get_text()
-                    if 'Prev Close' in text:
-                        import re
-                        matches = re.findall(r'Prev Close\s+(\d+\.\d+)', text)
-                        if matches:
-                            previous_close = float(matches[0])
-                            logging.debug(f"Found previous close: {previous_close}")
-                            break
             
             if not previous_close:
                 raise Exception("Could not find previous close on CNBC page")
