@@ -1405,85 +1405,6 @@ footer p {
         display: table; /* Show table on desktop */
     }
 }
-    
-    .mobile-trade-card {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        margin-bottom: 12px;
-        padding: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .mobile-trade-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #dee2e6;
-    }
-    
-    .mobile-trade-type {
-        font-weight: bold;
-        font-size: 0.9rem;
-        padding: 4px 8px;
-        border-radius: 4px;
-        color: white;
-    }
-    
-    .mobile-trade-type.buy {
-        background: #28a745;
-    }
-    
-    .mobile-trade-type.sell {
-        background: #dc3545;
-    }
-    
-    .mobile-trade-pnl {
-        font-weight: bold;
-        font-size: 0.9rem;
-    }
-    
-    .mobile-trade-pnl.positive {
-        color: #28a745;
-    }
-    
-    .mobile-trade-pnl.negative {
-        color: #dc3545;
-    }
-    
-    .mobile-trade-details {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        font-size: 0.8rem;
-    }
-    
-    .mobile-trade-detail {
-        display: flex;
-        justify-content: space-between;
-    }
-    
-    .mobile-trade-label {
-        color: #6c757d;
-        font-weight: 500;
-    }
-    
-    .mobile-trade-value {
-        font-weight: 600;
-    }
-    
-    .mobile-trade-time {
-        grid-column: 1 / -1;
-        text-align: center;
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px solid #dee2e6;
-        color: #6c757d;
-        font-size: 0.75rem;
-    }
-}
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -1591,7 +1512,7 @@ footer p {
          align-items: flex-start;
      }
      
-         /* Mobile Chart Fixes */
+             /* Mobile Chart Fixes */
     #chart-simulator, 
     #chart-gap, 
     #chart-events, 
@@ -1599,7 +1520,86 @@ footer p {
         height: 400px;
         max-height: 500px;
     }
- }
+    
+    /* Mobile Trade History Cards */
+    .mobile-trade-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        padding: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .mobile-trade-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .mobile-trade-type {
+        font-weight: bold;
+        font-size: 0.9rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        color: white;
+    }
+    
+    .mobile-trade-type.buy {
+        background: #28a745;
+    }
+    
+    .mobile-trade-type.sell {
+        background: #dc3545;
+    }
+    
+    .mobile-trade-pnl {
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    
+    .mobile-trade-pnl.positive {
+        color: #28a745;
+    }
+    
+    .mobile-trade-pnl.negative {
+        color: #dc3545;
+    }
+    
+    .mobile-trade-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        font-size: 0.8rem;
+    }
+    
+    .mobile-trade-detail {
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .mobile-trade-label {
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .mobile-trade-value {
+        font-weight: 600;
+    }
+    
+    .mobile-trade-time {
+        grid-column: 1 / -1;
+        text-align: center;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #dee2e6;
+        color: #6c757d;
+        font-size: 0.75rem;
+    }
+}
 
 @media (max-width: 480px) {
     .logo {
