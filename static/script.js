@@ -2983,6 +2983,10 @@ function startReplay(section) {
         if (config.hasTradeSimulator) {
             buyButton.disabled = config.currentReplayIndex() <= 0 || config.currentReplayIndex() > chartData.count || openPosition?.type === 'sell';
             sellButton.disabled = config.currentReplayIndex() <= 0 || config.currentReplayIndex() > chartData.count;
+            
+            // Check for TP/SL hits during replay
+            checkPositionForTPSL(config.currentReplayIndex());
+            
             updateTradeSummary();
         }
 
@@ -3206,6 +3210,125 @@ function nextCandle(section) {
     updateChartToIndex(section);
 }
 
+function checkPositionForTPSL(currentIndex) {
+    // Only check if we have an open position and TP/SL lines
+    if (!openPosition || currentIndex <= 0 || (!takeProfitLine && !stopLossLine)) {
+        return;
+    }
+    
+    const config = getReplayConfig('simulator');
+    const chartData = config.chartData();
+    
+    const currentPrice = chartData.close[currentIndex - 1];
+    const currentHigh = chartData.high[currentIndex - 1];
+    const currentLow = chartData.low[currentIndex - 1];
+    
+    // Get current TP/SL prices (they might have been dragged)
+    const tpPrice = takeProfitLine ? takeProfitLine.options().price : null;
+    const slPrice = stopLossLine ? stopLossLine.options().price : null;
+    
+    // Debug logging (temporarily enabled for testing)
+    if (true) { // Set to false to disable debug logs
+        console.log(`Price Check - Current: ${currentPrice.toFixed(2)}, High: ${currentHigh.toFixed(2)}, Low: ${currentLow.toFixed(2)}`);
+        console.log(`TP/SL Levels - TP: ${tpPrice ? tpPrice.toFixed(2) : 'N/A'}, SL: ${slPrice ? slPrice.toFixed(2) : 'N/A'}`);
+        console.log(`Position Type: ${openPosition.type}`);
+    }
+    
+    let shouldClose = false;
+    let closeReason = '';
+    let closePrice = currentPrice;
+    
+    if (openPosition.type === 'buy') {
+        // Check Take Profit (price goes above TP)
+        if (tpPrice && currentHigh >= tpPrice) {
+            shouldClose = true;
+            closeReason = 'Take Profit Hit';
+            closePrice = tpPrice;
+            console.log(`LONG TP HIT! High ${currentHigh.toFixed(2)} >= TP ${tpPrice.toFixed(2)}`);
+        }
+        // Check Stop Loss (price goes below SL)
+        else if (slPrice && currentLow <= slPrice) {
+            shouldClose = true;
+            closeReason = 'Stop Loss Hit';
+            closePrice = slPrice;
+            console.log(`LONG SL HIT! Low ${currentLow.toFixed(2)} <= SL ${slPrice.toFixed(2)}`);
+        }
+    } else if (openPosition.type === 'sell') {
+        // Check Take Profit for SHORT (price goes below TP)
+        if (tpPrice && currentLow <= tpPrice) {
+            shouldClose = true;
+            closeReason = 'Take Profit Hit';
+            closePrice = tpPrice;
+            console.log(`SHORT TP HIT! Low ${currentLow.toFixed(2)} <= TP ${tpPrice.toFixed(2)}`);
+        }
+        // Check Stop Loss for SHORT (price goes above SL)
+        else if (slPrice && currentHigh >= slPrice) {
+            shouldClose = true;
+            closeReason = 'Stop Loss Hit';
+            closePrice = slPrice;
+            console.log(`SHORT SL HIT! High ${currentHigh.toFixed(2)} >= SL ${slPrice.toFixed(2)}`);
+        }
+    }
+    
+    // Auto-close position if TP/SL hit
+    if (shouldClose) {
+        const pnl = openPosition.type === 'buy'
+            ? (closePrice - openPosition.price) * openPosition.shares
+            : (openPosition.price - closePrice) * openPosition.shares;
+        
+        // Remove alert popup - just close position silently
+        console.log(`🎯 ${closeReason}! Position: ${openPosition.type.toUpperCase()}, Exit Price: $${closePrice.toFixed(2)}, P&L: $${pnl.toFixed(2)}`);
+        
+        tradeHistory.push({
+            type: openPosition.type,
+            entryPrice: openPosition.price,
+            exitPrice: closePrice,
+            shares: openPosition.shares,
+            timestamp: chartData.timestamp[currentIndex - 1],
+            pnl: parseFloat(pnl.toFixed(2)),
+            closeReason: closeReason
+        });
+        
+        // Remove all price lines
+        if (chartInstances.simulator && chartInstances.simulator.candlestickSeries) {
+            if (entryPriceLine) {
+                chartInstances.simulator.candlestickSeries.removePriceLine(entryPriceLine);
+                entryPriceLine = null;
+            }
+            if (takeProfitLine) {
+                chartInstances.simulator.candlestickSeries.removePriceLine(takeProfitLine);
+                takeProfitLine = null;
+            }
+            if (stopLossLine) {
+                chartInstances.simulator.candlestickSeries.removePriceLine(stopLossLine);
+                stopLossLine = null;
+            }
+        }
+        
+        openPosition = null;
+        
+        // Make sure chart interactions are re-enabled after auto-close
+        if (chartInstances.simulator?.chart) {
+            chartInstances.simulator.chart.applyOptions({
+                handleScroll: {
+                    mouseWheel: true,
+                    pressedMouseMove: true,
+                    horzTouchDrag: true,
+                    vertTouchDrag: true
+                },
+                handleScale: {
+                    mouseWheel: true,
+                    pinch: true,
+                    axisPressedMouseMove: true,
+                    axisDoubleClickReset: true
+                }
+            });
+        }
+        
+        console.log(`Position auto-closed: ${closeReason} at $${closePrice.toFixed(2)} with P/L: $${pnl.toFixed(2)}`);
+    }
+}
+
 function updateChartToIndex(section) {
     const config = getReplayConfig(section);
     const chartData = config.chartData();
@@ -3235,116 +3358,7 @@ function updateChartToIndex(section) {
         sellButton.disabled = config.currentReplayIndex() <= 0 || config.currentReplayIndex() > chartData.count;
         
         // Check for TP/SL hits
-        if (openPosition && config.currentReplayIndex() > 0 && (takeProfitLine || stopLossLine)) {
-            const currentPrice = chartData.close[config.currentReplayIndex() - 1];
-            const currentHigh = chartData.high[config.currentReplayIndex() - 1];
-            const currentLow = chartData.low[config.currentReplayIndex() - 1];
-            
-            // Get current TP/SL prices (they might have been dragged)
-            const tpPrice = takeProfitLine ? takeProfitLine.options().price : null;
-            const slPrice = stopLossLine ? stopLossLine.options().price : null;
-            
-            // Debug logging (temporarily enabled for testing)
-            if (true) { // Set to false to disable debug logs
-                console.log(`Price Check - Current: ${currentPrice.toFixed(2)}, High: ${currentHigh.toFixed(2)}, Low: ${currentLow.toFixed(2)}`);
-                console.log(`TP/SL Levels - TP: ${tpPrice ? tpPrice.toFixed(2) : 'N/A'}, SL: ${slPrice ? slPrice.toFixed(2) : 'N/A'}`);
-                console.log(`Position Type: ${openPosition.type}`);
-            }
-            
-            let shouldClose = false;
-            let closeReason = '';
-            let closePrice = currentPrice;
-            
-            if (openPosition.type === 'buy') {
-                // Check Take Profit (price goes above TP)
-                if (tpPrice && currentHigh >= tpPrice) {
-                    shouldClose = true;
-                    closeReason = 'Take Profit Hit';
-                    closePrice = tpPrice;
-                    console.log(`LONG TP HIT! High ${currentHigh.toFixed(2)} >= TP ${tpPrice.toFixed(2)}`);
-                }
-                // Check Stop Loss (price goes below SL)
-                else if (slPrice && currentLow <= slPrice) {
-                    shouldClose = true;
-                    closeReason = 'Stop Loss Hit';
-                    closePrice = slPrice;
-                    console.log(`LONG SL HIT! Low ${currentLow.toFixed(2)} <= SL ${slPrice.toFixed(2)}`);
-                }
-            } else if (openPosition.type === 'sell') {
-                // Check Take Profit for SHORT (price goes below TP)
-                if (tpPrice && currentLow <= tpPrice) {
-                    shouldClose = true;
-                    closeReason = 'Take Profit Hit';
-                    closePrice = tpPrice;
-                    console.log(`SHORT TP HIT! Low ${currentLow.toFixed(2)} <= TP ${tpPrice.toFixed(2)}`);
-                }
-                // Check Stop Loss for SHORT (price goes above SL)
-                else if (slPrice && currentHigh >= slPrice) {
-                    shouldClose = true;
-                    closeReason = 'Stop Loss Hit';
-                    closePrice = slPrice;
-                    console.log(`SHORT SL HIT! High ${currentHigh.toFixed(2)} >= SL ${slPrice.toFixed(2)}`);
-                }
-            }
-            
-            // Auto-close position if TP/SL hit
-            if (shouldClose) {
-                const pnl = openPosition.type === 'buy'
-                    ? (closePrice - openPosition.price) * openPosition.shares
-                    : (openPosition.price - closePrice) * openPosition.shares;
-                
-                // Show immediate user feedback
-                alert(`🎯 ${closeReason}!\n\nPosition: ${openPosition.type.toUpperCase()}\nExit Price: $${closePrice.toFixed(2)}\nP&L: $${pnl.toFixed(2)}`);
-                
-                tradeHistory.push({
-                    type: openPosition.type,
-                    entryPrice: openPosition.price,
-                    exitPrice: closePrice,
-                    shares: openPosition.shares,
-                    timestamp: chartData.timestamp[config.currentReplayIndex() - 1],
-                    pnl: parseFloat(pnl.toFixed(2)),
-                    closeReason: closeReason
-                });
-                
-                // Remove all price lines
-                if (chartInstances.simulator && chartInstances.simulator.candlestickSeries) {
-                    if (entryPriceLine) {
-                        chartInstances.simulator.candlestickSeries.removePriceLine(entryPriceLine);
-                        entryPriceLine = null;
-                    }
-                    if (takeProfitLine) {
-                        chartInstances.simulator.candlestickSeries.removePriceLine(takeProfitLine);
-                        takeProfitLine = null;
-                    }
-                    if (stopLossLine) {
-                        chartInstances.simulator.candlestickSeries.removePriceLine(stopLossLine);
-                        stopLossLine = null;
-                    }
-                }
-                
-                openPosition = null;
-                
-                // Make sure chart interactions are re-enabled after auto-close
-                if (chartInstances.simulator?.chart) {
-                    chartInstances.simulator.chart.applyOptions({
-                        handleScroll: {
-                            mouseWheel: true,
-                            pressedMouseMove: true,
-                            horzTouchDrag: true,
-                            vertTouchDrag: true
-                        },
-                        handleScale: {
-                            mouseWheel: true,
-                            pinch: true,
-                            axisPressedMouseMove: true,
-                            axisDoubleClickReset: true
-                        }
-                    });
-                }
-                
-                console.log(`Position auto-closed: ${closeReason} at $${closePrice.toFixed(2)} with P/L: $${pnl.toFixed(2)}`);
-            }
-        }
+        checkPositionForTPSL(config.currentReplayIndex());
         
         updateTradeSummary();
     }
