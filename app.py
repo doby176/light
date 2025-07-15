@@ -1289,68 +1289,73 @@ def get_qqq_gap():
         except Exception as e:
             logging.error(f"Error scraping Yahoo Finance history page: {str(e)}")
             
-            # Try alternative method - Google Finance search
-            try:
-                logging.debug("Trying Google Finance search as fallback...")
-                google_url = "https://www.google.com/search?q=qqq+previous+close+price"
-                google_response = requests.get(google_url, headers=headers, timeout=15)
-                google_response.raise_for_status()
-                
-                google_soup = BeautifulSoup(google_response.text, 'html.parser')
-                
-                # Look for price data in Google search results
-                # Google shows structured data that we can parse
-                page_text = google_soup.get_text()
-                
-                # Look for the specific format you showed: "556.72 USD" and "555.73 USD"
-                import re
-                
-                # Pattern to find price values in the format you showed
-                price_matches = re.findall(r'(\d+\.\d+)\s*USD', page_text)
-                
-                current_price = None
-                previous_close = None
-                
-                if len(price_matches) >= 2:
-                    # Take the first two price matches as current and previous
-                    current_price = float(price_matches[0])
-                    previous_close = float(price_matches[1])
-                else:
-                    # Try alternative patterns
-                    dollar_matches = re.findall(r'\$(\d+\.\d+)', page_text)
-                    if len(dollar_matches) >= 2:
-                        current_price = float(dollar_matches[0])
-                        previous_close = float(dollar_matches[1])
+                            # Try alternative method - Google Finance direct quote
+                try:
+                    logging.debug("Trying Google Finance direct quote as fallback...")
+                    google_url = "https://www.google.com/finance/quote/QQQ:NASDAQ"
+                    google_response = requests.get(google_url, headers=headers, timeout=15)
+                    google_response.raise_for_status()
+                    
+                    google_soup = BeautifulSoup(google_response.text, 'html.parser')
+                    
+                    # Look for current price in Google Finance
+                    current_price = None
+                    previous_close = None
+                    
+                    # Try to find current price
+                    price_elements = google_soup.find_all('div', {'class': 'YMlKec fxKbKc'})
+                    if price_elements:
+                        price_text = price_elements[0].text.strip()
+                        current_price = float(price_text.replace(',', '').replace('$', ''))
+                        logging.debug(f"Found current price: {current_price}")
+                    
+                    # Try to find previous close
+                    # Look for elements that might contain previous close data
+                    all_divs = google_soup.find_all('div')
+                    for div in all_divs:
+                        text = div.get_text()
+                        if 'Previous close' in text or 'Prev close' in text:
+                            # Extract the number after "Previous close"
+                            import re
+                            matches = re.findall(r'[\$]?(\d+\.\d+)', text)
+                            if matches:
+                                previous_close = float(matches[0])
+                                logging.debug(f"Found previous close: {previous_close}")
+                                break
+                    
+                    # If we couldn't find previous close in the text, try alternative approach
+                    if not previous_close:
+                        # Look for price data in the page structure
+                        price_data_elements = google_soup.find_all('div', {'class': 'P6K39c'})
+                        for element in price_data_elements:
+                            text = element.get_text()
+                            if '$' in text and '.' in text:
+                                import re
+                                price_match = re.search(r'\$(\d+\.\d+)', text)
+                                if price_match and not previous_close:
+                                    previous_close = float(price_match.group(1))
+                                    logging.debug(f"Found previous close in alternative: {previous_close}")
+                                    break
+                    
+                    if current_price and previous_close:
+                        # Validate that prices are reasonable for QQQ (typically $300-600 range)
+                        if not (300 <= current_price <= 600) or not (300 <= previous_close <= 600):
+                            raise Exception(f"Invalid price values from Google Finance: Current={current_price}, Previous={previous_close}. QQQ should be in $300-600 range.")
+                        
+                        gap_percentage = ((current_price - previous_close) / previous_close) * 100
+                        
+                        # Validate that gap percentage is reasonable (should be within ±10% for normal trading)
+                        if abs(gap_percentage) > 10:
+                            raise Exception(f"Unreasonable gap percentage from Google Finance: {gap_percentage:.2f}%. This suggests data parsing error.")
+                        
+                        yesterday_date = target_date.strftime('%Y-%m-%d')
+                        day_before_date = (target_date - timedelta(days=1)).strftime('%Y-%m-%d')
+                        yesterday_close = current_price
+                        day_before_close = previous_close
+                        
+                        logging.debug(f"Used Google Finance direct quote: Current={current_price}, Previous={previous_close}, Gap={gap_percentage:.2f}%")
                     else:
-                        # Look for any number with decimal that could be a price
-                        all_numbers = re.findall(r'(\d+\.\d+)', page_text)
-                        if len(all_numbers) >= 2:
-                            # Filter for reasonable price ranges (QQQ is typically $300-600)
-                            valid_prices = [float(num) for num in all_numbers if 300 <= float(num) <= 600]
-                            if len(valid_prices) >= 2:
-                                current_price = valid_prices[0]
-                                previous_close = valid_prices[1]
-                
-                if current_price and previous_close:
-                    # Validate that prices are reasonable for QQQ (typically $300-600 range)
-                    if not (300 <= current_price <= 600) or not (300 <= previous_close <= 600):
-                        raise Exception(f"Invalid price values from Google: Current={current_price}, Previous={previous_close}. QQQ should be in $300-600 range.")
-                    
-                    gap_percentage = ((current_price - previous_close) / previous_close) * 100
-                    
-                    # Validate that gap percentage is reasonable (should be within ±10% for normal trading)
-                    if abs(gap_percentage) > 10:
-                        raise Exception(f"Unreasonable gap percentage from Google: {gap_percentage:.2f}%. This suggests data parsing error.")
-                    
-                    yesterday_date = target_date.strftime('%Y-%m-%d')
-                    day_before_date = (target_date - timedelta(days=1)).strftime('%Y-%m-%d')
-                    yesterday_close = current_price
-                    day_before_close = previous_close
-                    
-                    logging.debug(f"Used Google Finance fallback: Current={current_price}, Previous={previous_close}, Gap={gap_percentage:.2f}%")
-                    logging.debug(f"Found prices in Google search: {price_matches if 'price_matches' in locals() else 'No matches'}")
-                else:
-                    raise Exception("Could not find price data in Google search results")
+                        raise Exception("Could not find price data in Google Finance direct quote")
                     
             except Exception as google_e:
                 logging.error(f"Google Finance fallback also failed: {str(google_e)}")
@@ -1399,7 +1404,7 @@ def get_qqq_gap():
                         
                 except Exception as marketwatch_e:
                     logging.error(f"MarketWatch fallback also failed: {str(marketwatch_e)}")
-                    raise requests.exceptions.RequestException(f"Failed to scrape QQQ data from all sources: {str(e)}")
+                    raise requests.exceptions.RequestException(f"Failed to scrape QQQ data from Yahoo Finance, Google Finance, and MarketWatch: {str(e)}")
         
         # Calculate gap percentage (only if not already calculated)
         if 'gap_percentage' not in locals():
