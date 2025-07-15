@@ -1290,36 +1290,36 @@ def get_qqq_gap():
         else:
             # If all APIs failed, raise an exception to trigger fallback
             raise requests.exceptions.RequestException("All APIs failed")
-            
-            # Calculate gap percentage
-            gap_percentage = ((yesterday_close - day_before_close) / day_before_close) * 100
-            
-            # Determine gap direction
-            gap_direction = "up" if gap_percentage > 0 else "down"
-            gap_abs = abs(gap_percentage)
-            
-            # Format the gap for display
-            gap_formatted = f"{gap_percentage:.2f}%"
-            if gap_percentage > 0:
-                gap_formatted = f"+{gap_formatted}"
-            
-            result_data = {
-                'gap_percentage': gap_percentage,
-                'gap_formatted': gap_formatted,
-                'gap_direction': gap_direction,
-                'gap_abs': gap_abs,
-                'yesterday_close': yesterday_close,
-                'day_before_close': day_before_close,
-                'date': yesterday_date,
-                'message': f"QQQ gap on {yesterday_date}: {gap_formatted}"
-            }
-            
-            # Cache the result
-            qqq_cache[cache_key] = (time.time(), result_data)
-            
-            return jsonify(result_data)
-            
-        except requests.exceptions.RequestException as e:
+        
+        # Calculate gap percentage
+        gap_percentage = ((yesterday_close - day_before_close) / day_before_close) * 100
+        
+        # Determine gap direction
+        gap_direction = "up" if gap_percentage > 0 else "down"
+        gap_abs = abs(gap_percentage)
+        
+        # Format the gap for display
+        gap_formatted = f"{gap_percentage:.2f}%"
+        if gap_percentage > 0:
+            gap_formatted = f"+{gap_formatted}"
+        
+        result_data = {
+            'gap_percentage': gap_percentage,
+            'gap_formatted': gap_formatted,
+            'gap_direction': gap_direction,
+            'gap_abs': gap_abs,
+            'yesterday_close': yesterday_close,
+            'day_before_close': day_before_close,
+            'date': yesterday_date,
+            'message': f"QQQ gap on {yesterday_date}: {gap_formatted}"
+        }
+        
+        # Cache the result
+        qqq_cache[cache_key] = (time.time(), result_data)
+        
+        return jsonify(result_data)
+        
+    except requests.exceptions.RequestException as e:
             logging.error(f"Request error fetching QQQ data: {str(e)}")
             # Return fallback data when API is unavailable
             fallback_data = {
