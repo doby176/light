@@ -46,6 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof loadBinOptions === 'function') loadBinOptions();
     if (typeof populateEarningsOutcomes === 'function') populateEarningsOutcomes();
     
+    // Load real-time QQQ gap data automatically
+    loadRealTimeQQQGap();
+    
+    // Add refresh button functionality
+    const refreshButton = document.getElementById('refresh-qqq-gap');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', loadRealTimeQQQGap);
+    }
+    
     // Initialize chart-related event listeners only on pages that have chart containers
     if (hasChartContainers) {
         // Initialize stock forms for all tabs
@@ -4097,6 +4106,85 @@ async function loadGapInsights(event) {
         console.error('Error loading gap insights:', error.message);
         insightsContainer.innerHTML = '<p>Failed to load gap insights: ' + error.message + '. Please try again later.</p>';
         alert('Failed to load gap insights: ' + error.message);
+    }
+}
+
+async function loadRealTimeQQQGap() {
+    const qqqGapContent = document.getElementById('qqq-gap-content');
+    if (!qqqGapContent) return;
+    
+    try {
+        console.log('Loading real-time QQQ gap data...');
+        const response = await fetch('/api/real_time_gap?ticker=QQQ');
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Real-time data received:', data);
+            
+            if (!data.error) {
+                if (data.today_open !== null) {
+                    // Market is open, show gap data
+                    qqqGapContent.innerHTML = `
+                        <div class="qqq-gap-data">
+                            <div class="gap-info">
+                                <span class="label">Yesterday Close:</span>
+                                <span class="value">$${data.yesterday_close}</span>
+                            </div>
+                            <div class="gap-info">
+                                <span class="label">Today Open:</span>
+                                <span class="value">$${data.today_open}</span>
+                            </div>
+                            <div class="gap-info">
+                                <span class="label">Gap:</span>
+                                <span class="value gap-${data.gap_direction.toLowerCase()}">${data.gap_direction} ${Math.abs(data.gap_pct)}%</span>
+                            </div>
+                            <div class="gap-info">
+                                <span class="label">High:</span>
+                                <span class="value">$${data.today_high}</span>
+                            </div>
+                            <div class="gap-info">
+                                <span class="label">Low:</span>
+                                <span class="value">$${data.today_low}</span>
+                            </div>
+                            <div class="gap-info">
+                                <span class="label">Volume:</span>
+                                <span class="value">${data.today_volume.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Market is closed, show yesterday's close only
+                    qqqGapContent.innerHTML = `
+                        <div class="qqq-gap-data">
+                            <div class="gap-info">
+                                <span class="label">Yesterday Close:</span>
+                                <span class="value">$${data.yesterday_close}</span>
+                            </div>
+                            <div class="gap-info">
+                                <span class="label">Market Status:</span>
+                                <span class="value market-closed">Closed</span>
+                            </div>
+                            <div class="gap-info">
+                                <span class="label">Note:</span>
+                                <span class="value">Market opens at 9:30 AM ET</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                console.error('API returned error:', data.error);
+                qqqGapContent.innerHTML = `<div class="error-message">Error: ${data.error}</div>`;
+            }
+        } else {
+            console.error('HTTP error:', response.status);
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            qqqGapContent.innerHTML = `<div class="error-message">HTTP ${response.status} error</div>`;
+        }
+    } catch (err) {
+        console.error('Fetch error:', err);
+        qqqGapContent.innerHTML = `<div class="error-message">Failed to fetch data: ${err.message}</div>`;
     }
 }
 
