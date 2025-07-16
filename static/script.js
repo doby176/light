@@ -3987,10 +3987,32 @@ async function loadGapInsights(event) {
         }
         console.log('Rendering gap insights:', data.insights);
 
+        // Fetch real-time QQQ gap data from Alpha Vantage
+        let realTimeGapHtml = '';
+        try {
+            const realTimeResp = await fetch('/api/real_time_gap?ticker=QQQ');
+            if (realTimeResp.ok) {
+                const realTimeData = await realTimeResp.json();
+                if (!realTimeData.error) {
+                    realTimeGapHtml = `
+                        <div class="realtime-gap-box" style="background:#e3f2fd;padding:12px 16px;margin-bottom:16px;border-radius:8px;">
+                            <strong>Today\'s QQQ Gap:</strong><br>
+                            <span style="font-size:1.1em;">Open: <b>${realTimeData.today_open}</b> | Prev Close: <b>${realTimeData.yesterday_close}</b> | Gap: <b style="color:${realTimeData.gap_direction==='Up'?'#388e3c':'#d32f2f'}">${realTimeData.gap_direction} ${Math.abs(realTimeData.gap_pct)}%</b></span><br>
+                            <span style="font-size:0.95em;">High: ${realTimeData.today_high} | Low: ${realTimeData.today_low} | Volume: ${realTimeData.today_volume.toLocaleString()}</span>
+                        </div>
+                    `;
+                } else {
+                    realTimeGapHtml = `<div class="realtime-gap-box" style="background:#fff3e0;padding:12px 16px;margin-bottom:16px;border-radius:8px;"><strong>Today\'s QQQ Gap:</strong> <span style="color:#d32f2f;">${realTimeData.error}</span></div>`;
+                }
+            }
+        } catch (err) {
+            realTimeGapHtml = `<div class="realtime-gap-box" style="background:#fff3e0;padding:12px 16px;margin-bottom:16px;border-radius:8px;"><strong>Today\'s QQQ Gap:</strong> <span style="color:#d32f2f;">Failed to fetch real-time gap data.</span></div>`;
+        }
+
         const insights = data.insights;
         const container = document.createElement('div');
         container.className = 'insights-container';
-        container.innerHTML = `<h3>QQQ Gap Insights for ${gapSize} ${gapDirection} gaps on ${day}</h3>`;
+        container.innerHTML = realTimeGapHtml + `<h3>QQQ Gap Insights for ${gapSize} ${gapDirection} gaps on ${day}</h3>`;
 
         // First row: 4 metrics
         const row1 = document.createElement('div');
