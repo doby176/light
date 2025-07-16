@@ -1183,11 +1183,30 @@ def get_real_time_gap_data(ticker, date):
         now_et = datetime.now(eastern)
         today_et = now_et.strftime('%Y-%m-%d')
         
-        # Check if it's before 9:30 AM ET
-        market_open_time = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+        # Check if it's before 9:31 AM ET - if so, show yesterday's data
+        market_open_time = now_et.replace(hour=9, minute=31, second=0, microsecond=0)
         if now_et < market_open_time:
+            # Show yesterday's cached data if available
+            yesterday_et = (now_et - timedelta(days=1)).strftime('%Y-%m-%d')
+            yesterday_cache_file = f'qqq_gap_cache_{yesterday_et}.json'
+            
+            if os.path.exists(yesterday_cache_file):
+                try:
+                    with open(yesterday_cache_file, 'r') as f:
+                        yesterday_data = json.load(f)
+                        # Update the message to indicate it's yesterday's data
+                        yesterday_data['message'] = f"Yesterday's {yesterday_data['ticker']} gap data (showing until 9:31 AM ET)"
+                        yesterday_data['is_yesterday'] = True
+                        yesterday_data['current_time_et'] = now_et.isoformat()
+                        yesterday_data['next_update'] = market_open_time.isoformat()
+                        logging.debug(f"Showing yesterday's cached QQQ gap data for {yesterday_et}")
+                        return yesterday_data
+                except Exception as e:
+                    logging.error(f"Error loading yesterday's cached data: {e}")
+            
+            # If no yesterday data, return a message
             return {
-                'error': 'Gap data will be available after 9:30 AM ET.',
+                'error': 'Yesterday\'s gap data not available. Today\'s data will be available after 9:31 AM ET.',
                 'next_update': market_open_time.isoformat(),
                 'current_time_et': now_et.isoformat()
             }
