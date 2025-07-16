@@ -4216,7 +4216,7 @@ function setGapFilters(gapPercent, gapDirection) {
     console.log(`Setting gap filters: ${gapPercent}% ${gapDirection}`);
     
     // Check if gap is too small for trading opportunity
-    if (gapPercent < 0.14) {
+    if (gapPercent < 0.15) {
         const warningNotification = document.createElement('div');
         warningNotification.style.cssText = `
             position: fixed;
@@ -4233,7 +4233,7 @@ function setGapFilters(gapPercent, gapDirection) {
         `;
         warningNotification.innerHTML = `
             <div style="margin-bottom:8px;">⚠️ Gap Too Small</div>
-            <div style="font-size:0.9em;">Today's gap (${gapPercent}%) is below 0.14% and may not provide sufficient trading opportunity.</div>
+            <div style="font-size:0.9em;">Today's gap (${gapPercent}%) is below 0.15% and may not provide sufficient trading opportunity.</div>
         `;
         document.body.appendChild(warningNotification);
         
