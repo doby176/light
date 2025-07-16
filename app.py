@@ -1172,8 +1172,8 @@ ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
 
 def get_real_time_gap_data(ticker, date):
     """
-    Fetches real-time gap data for a specific ticker and date using Alpha Vantage API.
-    Returns a dictionary with gap details or an error message.
+    Fetches real-time gap data for QQQ using Alpha Vantage API.
+    Returns yesterday's close and today's open (if available) to calculate gap.
     """
     try:
         # Construct the Alpha Vantage API URL for daily time series
@@ -1222,68 +1222,62 @@ def get_real_time_gap_data(ticker, date):
         
         logging.debug(f"Available dates for {ticker}: {available_dates[:5]}")  # Show first 5 dates
         
-        # Find the most recent trading day (today or most recent available)
-        target_date_str = None
-        prev_trading_day_str = None
+        # Find yesterday's data (most recent trading day)
+        yesterday_data = None
+        yesterday_date_str = None
         
-        # Look for today's data first
-        if today_str in time_series_data:
-            target_date_str = today_str
-            # Find the previous trading day
-            for date_key in available_dates:
-                if date_key < today_str:
-                    prev_trading_day_str = date_key
-                    break
+        # Look for yesterday's data first
+        if yesterday_str in time_series_data:
+            yesterday_data = time_series_data[yesterday_str]
+            yesterday_date_str = yesterday_str
         else:
-            # If today's data is not available, use the most recent available date
+            # If yesterday's data is not available, use the most recent available date
             if available_dates:
-                target_date_str = available_dates[0]
-                if len(available_dates) > 1:
-                    prev_trading_day_str = available_dates[1]
+                yesterday_date_str = available_dates[0]
+                yesterday_data = time_series_data[yesterday_date_str]
         
-        if not target_date_str or not prev_trading_day_str:
-            logging.error(f"Could not find sufficient data for {ticker}")
-            return {'error': f'Insufficient data available for {ticker}. Need at least 2 trading days.'}
-        
-        # Get today's open price
-        today_data = time_series_data[target_date_str]
-        today_open = float(today_data['1. open'])
+        if not yesterday_data:
+            logging.error(f"Could not find yesterday's data for {ticker}")
+            return {'error': f'No data available for {ticker} from Alpha Vantage.'}
         
         # Get yesterday's close price
-        yesterday_data = time_series_data[prev_trading_day_str]
         yesterday_close = float(yesterday_data['4. close'])
         
-        # Calculate gap percentage
-        gap_pct = ((today_open - yesterday_close) / yesterday_close) * 100
+        # Check if today's data is available (market is open)
+        today_open = None
+        today_high = None
+        today_low = None
+        today_close = None
+        today_volume = None
+        gap_pct = None
+        gap_direction = None
         
-        # Determine gap direction
-        gap_direction = 'Up' if gap_pct > 0 else 'Down'
-        
-        # Get additional data for today
-        today_high = float(today_data['2. high'])
-        today_low = float(today_data['3. low'])
-        today_close = float(today_data['4. close'])
-        today_volume = float(today_data['5. volume'])
-        
-        # Calculate additional metrics
-        day_range = today_high - today_low
-        day_range_pct = (day_range / today_open) * 100
+        if today_str in time_series_data:
+            today_data = time_series_data[today_str]
+            today_open = float(today_data['1. open'])
+            today_high = float(today_data['2. high'])
+            today_low = float(today_data['3. low'])
+            today_close = float(today_data['4. close'])
+            today_volume = float(today_data['5. volume'])
+            
+            # Calculate gap percentage
+            gap_pct = ((today_open - yesterday_close) / yesterday_close) * 100
+            gap_direction = 'Up' if gap_pct > 0 else 'Down'
         
         return {
             'ticker': ticker,
-            'date': target_date_str,
-            'previous_trading_day': prev_trading_day_str,
+            'yesterday_date': yesterday_date_str,
             'yesterday_close': round(yesterday_close, 2),
-            'today_open': round(today_open, 2),
-            'gap_pct': round(gap_pct, 2),
+            'today_date': today_str,
+            'today_open': round(today_open, 2) if today_open else None,
+            'today_high': round(today_high, 2) if today_high else None,
+            'today_low': round(today_low, 2) if today_low else None,
+            'today_close': round(today_close, 2) if today_close else None,
+            'today_volume': int(today_volume) if today_volume else None,
+            'gap_pct': round(gap_pct, 2) if gap_pct else None,
             'gap_direction': gap_direction,
-            'today_high': round(today_high, 2),
-            'today_low': round(today_low, 2),
-            'today_close': round(today_close, 2),
-            'today_volume': int(today_volume),
-            'day_range': round(day_range, 2),
-            'day_range_pct': round(day_range_pct, 2),
-            'message': f"{ticker} gap: {gap_direction} {abs(round(gap_pct, 2))}% ({yesterday_close:.2f} → {today_open:.2f})"
+            'market_status': 'Open' if today_open else 'Closed',
+            'message': f"{ticker} yesterday close: ${yesterday_close:.2f}" + (f" | Today open: ${today_open:.2f} | Gap: {gap_direction} {abs(round(gap_pct, 2))}%" if today_open else " | Market not yet open")
         }
         
     except requests.exceptions.RequestException as e:
@@ -1297,15 +1291,14 @@ def get_real_time_gap_data(ticker, date):
 @limiter.limit("10 per 12 hours")
 def get_real_time_gap():
     ticker = request.args.get('ticker')
-    date = request.args.get('date')
-    logging.debug(f"Fetching real-time gap for ticker={ticker}, date={date}")
-    if not ticker or not date:
-        return jsonify({'error': 'Ticker and date are required for real-time gap data.'}), 400
+    logging.debug(f"Fetching real-time gap for ticker={ticker}")
+    if not ticker:
+        return jsonify({'error': 'Ticker is required for real-time gap data.'}), 400
     if ticker not in TICKERS:
         return jsonify({'error': 'Invalid ticker'}), 400
     
     try:
-        gap_data = get_real_time_gap_data(ticker, date)
+        gap_data = get_real_time_gap_data(ticker, None)  # No date parameter needed
         if 'error' in gap_data:
             return jsonify(gap_data), 404
         return jsonify(gap_data)

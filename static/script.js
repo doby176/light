@@ -3994,19 +3994,31 @@ async function loadGapInsights(event) {
             if (realTimeResp.ok) {
                 const realTimeData = await realTimeResp.json();
                 if (!realTimeData.error) {
-                    realTimeGapHtml = `
-                        <div class="realtime-gap-box" style="background:#e3f2fd;padding:12px 16px;margin-bottom:16px;border-radius:8px;">
-                            <strong>Today\'s QQQ Gap:</strong><br>
-                            <span style="font-size:1.1em;">Open: <b>${realTimeData.today_open}</b> | Prev Close: <b>${realTimeData.yesterday_close}</b> | Gap: <b style="color:${realTimeData.gap_direction==='Up'?'#388e3c':'#d32f2f'}">${realTimeData.gap_direction} ${Math.abs(realTimeData.gap_pct)}%</b></span><br>
-                            <span style="font-size:0.95em;">High: ${realTimeData.today_high} | Low: ${realTimeData.today_low} | Volume: ${realTimeData.today_volume.toLocaleString()}</span>
-                        </div>
-                    `;
+                    if (realTimeData.today_open !== null) {
+                        // Market is open, show gap data
+                        realTimeGapHtml = `
+                            <div class="realtime-gap-box" style="background:#e3f2fd;padding:12px 16px;margin-bottom:16px;border-radius:8px;">
+                                <strong>Today's QQQ Gap:</strong><br>
+                                <span style="font-size:1.1em;">Yesterday Close: <b>$${realTimeData.yesterday_close}</b> | Today Open: <b>$${realTimeData.today_open}</b> | Gap: <b style="color:${realTimeData.gap_direction==='Up'?'#388e3c':'#d32f2f'}">${realTimeData.gap_direction} ${Math.abs(realTimeData.gap_pct)}%</b></span><br>
+                                <span style="font-size:0.95em;">High: $${realTimeData.today_high} | Low: $${realTimeData.today_low} | Volume: ${realTimeData.today_volume.toLocaleString()}</span>
+                            </div>
+                        `;
+                    } else {
+                        // Market is closed, show yesterday's close only
+                        realTimeGapHtml = `
+                            <div class="realtime-gap-box" style="background:#fff3e0;padding:12px 16px;margin-bottom:16px;border-radius:8px;">
+                                <strong>Today's QQQ Gap:</strong><br>
+                                <span style="font-size:1.1em;">Yesterday Close: <b>$${realTimeData.yesterday_close}</b> | Market Status: <b style="color:#ff9800;">Closed</b></span><br>
+                                <span style="font-size:0.95em;">Market opens at 9:30 AM ET. Gap will be calculated once today's open is available.</span>
+                            </div>
+                        `;
+                    }
                 } else {
-                    realTimeGapHtml = `<div class="realtime-gap-box" style="background:#fff3e0;padding:12px 16px;margin-bottom:16px;border-radius:8px;"><strong>Today\'s QQQ Gap:</strong> <span style="color:#d32f2f;">${realTimeData.error}</span></div>`;
+                    realTimeGapHtml = `<div class="realtime-gap-box" style="background:#fff3e0;padding:12px 16px;margin-bottom:16px;border-radius:8px;"><strong>Today's QQQ Gap:</strong> <span style="color:#d32f2f;">${realTimeData.error}</span></div>`;
                 }
             }
         } catch (err) {
-            realTimeGapHtml = `<div class="realtime-gap-box" style="background:#fff3e0;padding:12px 16px;margin-bottom:16px;border-radius:8px;"><strong>Today\'s QQQ Gap:</strong> <span style="color:#d32f2f;">Failed to fetch real-time gap data.</span></div>`;
+            realTimeGapHtml = `<div class="realtime-gap-box" style="background:#fff3e0;padding:12px 16px;margin-bottom:16px;border-radius:8px;"><strong>Today's QQQ Gap:</strong> <span style="color:#d32f2f;">Failed to fetch real-time gap data.</span></div>`;
         }
 
         const insights = data.insights;
