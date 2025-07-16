@@ -4,6 +4,7 @@ import os
 import time
 import json
 import requests
+import pytz
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for
 from flask_limiter import Limiter
@@ -1171,8 +1172,42 @@ def get_real_time_gap_data(ticker, date):
     """
     Fetches real-time gap data for QQQ by scraping CNBC.
     Returns yesterday's close and today's open (if available) to calculate gap.
+    Uses caching to avoid repeated scraping and only scrapes after 9:30 AM ET.
     """
     try:
+        # Check current time in Eastern Time
+        from datetime import timezone
+        import pytz
+        
+        eastern = pytz.timezone('US/Eastern')
+        now_et = datetime.now(eastern)
+        today_et = now_et.strftime('%Y-%m-%d')
+        
+        # Check if it's before 9:30 AM ET
+        market_open_time = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+        if now_et < market_open_time:
+            return {
+                'error': 'Gap data will be available after 9:30 AM ET.',
+                'next_update': market_open_time.isoformat(),
+                'current_time_et': now_et.isoformat()
+            }
+        
+        # Check if we have cached data for today
+        cache_file = f'qqq_gap_cache_{today_et}.json'
+        
+        # Try to load cached data
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, 'r') as f:
+                    cached_data = json.load(f)
+                    logging.debug(f"Using cached QQQ gap data for {today_et}")
+                    return cached_data
+            except Exception as e:
+                logging.error(f"Error loading cached data: {e}")
+        
+        # If no cache exists, scrape the data
+        logging.debug("No cached data found, scraping CNBC...")
+        
         # Scrape QQQ data from CNBC
         url = "https://www.cnbc.com/quotes/QQQ"
         headers = {
@@ -1262,18 +1297,30 @@ def get_real_time_gap_data(ticker, date):
         gap_direction = "UP" if gap_pct > 0 else "DOWN"
         
         # Get current time to determine if market is open
-        now = datetime.now()
-        market_open = now.hour >= 9 and now.hour < 16  # Simplified market hours check
+        market_open = now_et.hour >= 9 and now_et.hour < 16  # Simplified market hours check
         
-        return {
+        # Prepare the result
+        result = {
             'ticker': ticker,
             'yesterday_close': round(prev_close, 2),
             'current_price': round(current_price, 2),
             'gap_pct': round(gap_pct, 2),
             'gap_direction': gap_direction,
             'market_status': 'Open' if market_open else 'Closed',
-            'message': f"{ticker} previous close: ${prev_close:.2f} | Current: ${current_price:.2f} | Gap: {gap_direction} {abs(round(gap_pct, 2))}%"
+            'message': f"{ticker} previous close: ${prev_close:.2f} | Current: ${current_price:.2f} | Gap: {gap_direction} {abs(round(gap_pct, 2))}%",
+            'cached_at': now_et.isoformat(),
+            'cache_date': today_et
         }
+        
+        # Cache the result for today
+        try:
+            with open(cache_file, 'w') as f:
+                json.dump(result, f, indent=2)
+            logging.debug(f"Cached QQQ gap data for {today_et}")
+        except Exception as e:
+            logging.error(f"Error caching data: {e}")
+        
+        return result
         
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching data from CNBC: {str(e)}")
