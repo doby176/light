@@ -1167,7 +1167,7 @@ def get_earnings_by_bin():
         return jsonify({'error': 'Server error'}), 500
 
 # Alpha Vantage API configuration
-ALPHA_VANTAGE_API_KEY = "9K03GJJCB96AJCO3"
+ALPHA_VANTAGE_API_KEY = os.environ.get('ALPHA_VANTAGE_API_KEY', "9K03GJJCB96AJCO3")
 ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
 
 def get_real_time_gap_data(ticker, date):
@@ -1195,6 +1195,10 @@ def get_real_time_gap_data(ticker, date):
         
         if 'Note' in data:
             logging.error(f"Alpha Vantage API note: {data['Note']}")
+            # Handle rate limit gracefully - don't show error to user
+            if 'rate limit' in data['Note'].lower():
+                logging.warning("Alpha Vantage API rate limit reached - skipping real-time gap data")
+                return {'error': 'Real-time data temporarily unavailable due to API rate limit'}
             return {'error': f'Alpha Vantage API note: {data["Note"]}'}
 
         if 'Time Series (Daily)' not in data:
