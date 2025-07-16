@@ -1210,23 +1210,8 @@ def get_market_date():
     
     return now_et.strftime('%Y-%m-%d')
 
-def is_market_just_opened():
-    """Check if we're in the critical window right after market opens (9:31-9:35 AM ET)"""
-    et_tz = pytz.timezone('US/Eastern')
-    now_et = datetime.now(et_tz)
-    
-    # Check if it's a weekday
-    if now_et.weekday() >= 5:  # Saturday or Sunday
-        return False
-    
-    # Check if we're in the 9:31-9:35 AM ET window
-    market_just_opened_start = now_et.replace(hour=9, minute=31, second=0, microsecond=0)
-    market_just_opened_end = now_et.replace(hour=9, minute=35, second=0, microsecond=0)
-    
-    return market_just_opened_start <= now_et <= market_just_opened_end
-
 def should_refresh_qqq_data():
-    """Determine if we need to refresh QQQ data based on market conditions"""
+    """Determine if we need to refresh QQQ data - once per day at 9:31 AM ET"""
     current_market_date = get_market_date()
     
     # If we don't have cached data, we need to scrape
@@ -1237,18 +1222,7 @@ def should_refresh_qqq_data():
     if qqq_data_cache['market_date'] != current_market_date:
         return True
     
-    # If market just opened (9:31-9:35 AM ET), refresh more frequently
-    if is_market_just_opened():
-        current_time = time.time()
-        if not qqq_data_cache['timestamp'] or (current_time - qqq_data_cache['timestamp']) > 300:  # 5 minutes
-            return True
-    
-    # If market is open and we haven't scraped in the last 30 minutes, refresh
-    elif is_market_open():
-        current_time = time.time()
-        if not qqq_data_cache['timestamp'] or (current_time - qqq_data_cache['timestamp']) > 1800:  # 30 minutes
-            return True
-    
+    # If we already have today's data, don't scrape again
     return False
 
 def scrape_qqq_data():
