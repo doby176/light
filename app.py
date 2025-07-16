@@ -1179,7 +1179,7 @@ def get_real_time_gap_data(ticker, date):
         from datetime import timezone
         import pytz
         
-        eastern = pytz.timezone('US/Eastern')
+        eastern = pytz.timezone('America/New_York')
         now_et = datetime.now(eastern)
         today_et = now_et.strftime('%Y-%m-%d')
         
