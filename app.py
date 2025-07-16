@@ -1240,45 +1240,29 @@ def get_real_time_gap_data(ticker, date):
         current_price = None
         prev_close = None
         
-        # Find all Summary-stat elements (these contain the key stats)
-        summary_stats = soup.find_all('li', {'class': 'Summary-stat'})
-        logging.debug(f"Found {len(summary_stats)} summary stats")
-        
-        for stat in summary_stats:
-            label_element = stat.find('span', {'class': 'Summary-label'})
-            value_element = stat.find('span', {'class': 'Summary-value'})
-            
-            if label_element and value_element:
-                label = label_element.text.strip()
-                value = value_element.text.strip()
-                logging.debug(f"Found stat: {label} = {value}")
-                
-                # Look for Open (current price)
-                if label == 'Open':
-                    try:
-                        current_price = float(value.replace(',', ''))
-                        logging.debug(f"Found current price (Open): {current_price}")
-                    except:
-                        pass
-                
-                # Look for Prev Close (previous close)
-                elif label == 'Prev Close':
-                    try:
-                        prev_close = float(value.replace(',', ''))
-                        logging.debug(f"Found previous close: {prev_close}")
-                    except:
-                        pass
-        
-        # Fallback: If we didn't find Open, try to find the current price elsewhere
-        if not current_price:
-            # Look for the main quote price using the correct selector
-            price_element = soup.find('span', {'class': 'QuoteStrip-lastPrice'})
-            if price_element:
-                current_price_text = price_element.text.strip()
+        # Look for current price using the correct CNBC selector
+        current_price_element = soup.find('span', {'class': 'QuoteStrip-lastPrice'})
+        if current_price_element:
+            current_price_text = current_price_element.text.strip()
+            try:
                 current_price = float(current_price_text.replace('$', '').replace(',', ''))
                 logging.debug(f"Found current price via QuoteStrip-lastPrice: {current_price}")
+            except ValueError:
+                logging.error(f"Could not parse current price from: {current_price_text}")
+                current_price = None
         
-        # If we still don't have current price, try other selectors
+        # Look for previous close - it's in the second QuoteStrip-lastPrice element
+        prev_close_elements = soup.find_all('span', {'class': 'QuoteStrip-lastPrice'})
+        if len(prev_close_elements) >= 2:
+            prev_close_text = prev_close_elements[1].text.strip()
+            try:
+                prev_close = float(prev_close_text.replace('$', '').replace(',', ''))
+                logging.debug(f"Found previous close via second QuoteStrip-lastPrice: {prev_close}")
+            except ValueError:
+                logging.error(f"Could not parse previous close from: {prev_close_text}")
+                prev_close = None
+        
+        # If we still don't have current price, try fallback methods
         if not current_price:
             # Look for any price-like text in the page
             for span in soup.find_all('span'):
@@ -1299,24 +1283,6 @@ def get_real_time_gap_data(ticker, date):
         if not current_price:
             logging.error("Could not find current price on CNBC page")
             return {'error': 'Could not find current price data on CNBC page'}
-        
-        # If we don't have previous close, try to find it using different methods
-        if not prev_close:
-            # Look for previous close in various formats
-            for span in soup.find_all('span'):
-                text = span.get_text().strip()
-                if 'prev' in text.lower() or 'close' in text.lower():
-                    try:
-                        # Try to extract a price from the text
-                        price_match = re.search(r'\$(\d+\.?\d*)', text)
-                        if price_match:
-                            potential_price = float(price_match.group(1))
-                            if 100 < potential_price < 1000:  # Reasonable QQQ price range
-                                prev_close = potential_price
-                                logging.debug(f"Found previous close via text search: {prev_close}")
-                                break
-                    except:
-                        pass
         
         # If we still don't have previous close, use a reasonable estimate
         if not prev_close:
@@ -1414,10 +1380,9 @@ def test_cnbc_scraping():
         
         # Also look for specific CNBC elements
         cnbc_elements = {
-            'QuoteStrip-lastPrice': soup.find('span', {'data-testid': 'QuoteStrip-lastPrice'}),
-            'QuoteStrip-previousClose': soup.find('span', {'data-testid': 'QuoteStrip-previousClose'}),
             'QuoteStrip-lastPrice-class': soup.find('span', {'class': 'QuoteStrip-lastPrice'}),
-            'QuoteStrip-previousClose-class': soup.find('span', {'class': 'QuoteStrip-previousClose'})
+            'all_QuoteStrip-lastPrice': soup.find_all('span', {'class': 'QuoteStrip-lastPrice'}),
+            'QuoteStrip-lastPrice-count': len(soup.find_all('span', {'class': 'QuoteStrip-lastPrice'}))
         }
         
         return jsonify({
@@ -1425,6 +1390,7 @@ def test_cnbc_scraping():
             'price_candidates_count': len(price_candidates),
             'price_candidates': price_candidates[:10],  # First 10
             'cnbc_elements': {k: v.text.strip() if v else None for k, v in cnbc_elements.items()},
+            'all_QuoteStrip-lastPrice_texts': [elem.text.strip() for elem in cnbc_elements['all_QuoteStrip-lastPrice']] if cnbc_elements['all_QuoteStrip-lastPrice'] else [],
             'page_title': soup.title.text if soup.title else 'No title'
         })
         
