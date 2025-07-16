@@ -1240,30 +1240,115 @@ def get_real_time_gap_data(ticker, date):
         current_price = None
         prev_close = None
         
-        # Look for current price using the correct CNBC selector
-        current_price_element = soup.find('span', {'class': 'QuoteStrip-lastPrice'})
-        if current_price_element:
-            current_price_text = current_price_element.text.strip()
-            try:
-                current_price = float(current_price_text.replace('$', '').replace(',', ''))
-                logging.debug(f"Found current price via QuoteStrip-lastPrice: {current_price}")
-            except ValueError:
-                logging.error(f"Could not parse current price from: {current_price_text}")
-                current_price = None
+        # Look for OPEN price using the correct CNBC selector
+        # The first QuoteStrip-lastPrice is the current price, we need to find the OPEN price
+        # Let me look for Summary-stat elements that contain "Open" label
+        open_price = None
+        prev_close = None
+        
+        # First, try to find SplitStats elements (these contain the key stats including Open)
+        split_stats = soup.find_all('li', {'class': 'SplitStats-item'})
+        logging.debug(f"Found {len(split_stats)} split stats")
+        
+        for stat in split_stats:
+            name_element = stat.find('span', {'class': 'SplitStats-name'})
+            price_element = stat.find('span', {'class': 'SplitStats-price'})
+            
+            if name_element and price_element:
+                name = name_element.text.strip()
+                price = price_element.text.strip()
+                logging.debug(f"Found split stat: {name} = {price}")
+                
+                # Look for Open (this is what we need for gap calculation)
+                if name == 'Open':
+                    try:
+                        open_price = float(price.replace(',', ''))
+                        logging.debug(f"Found OPEN price: {open_price}")
+                    except:
+                        pass
+                
+                # Look for Prev Close (previous close)
+                elif name == 'Prev Close':
+                    try:
+                        prev_close = float(price.replace(',', ''))
+                        logging.debug(f"Found previous close: {prev_close}")
+                    except:
+                        pass
+        
+        # If we didn't find Open in SplitStats, try Summary-stat elements
+        if not open_price:
+            summary_stats = soup.find_all('li', {'class': 'Summary-stat'})
+            logging.debug(f"Found {len(summary_stats)} summary stats")
+            
+            for stat in summary_stats:
+                label_element = stat.find('span', {'class': 'Summary-label'})
+                value_element = stat.find('span', {'class': 'Summary-value'})
+                
+                if label_element and value_element:
+                    label = label_element.text.strip()
+                    value = value_element.text.strip()
+                    logging.debug(f"Found stat: {label} = {value}")
+                    
+                    # Look for Open (this is what we need for gap calculation)
+                    if label == 'Open':
+                        try:
+                            open_price = float(value.replace(',', ''))
+                            logging.debug(f"Found OPEN price: {open_price}")
+                        except:
+                            pass
+                    
+                    # Look for Prev Close (previous close)
+                    elif label == 'Prev Close':
+                        try:
+                            prev_close = float(value.replace(',', ''))
+                            logging.debug(f"Found previous close: {prev_close}")
+                        except:
+                            pass
+        
+        # If we didn't find Open in Summary-stat, try to find it elsewhere
+        if not open_price:
+            # Look for any text containing "Open" and a price
+            for span in soup.find_all('span'):
+                text = span.get_text().strip()
+                if 'open' in text.lower() and any(char.isdigit() for char in text):
+                    try:
+                        # Try to extract a price from the text
+                        price_match = re.search(r'\$(\d+\.?\d*)', text)
+                        if price_match:
+                            potential_price = float(price_match.group(1))
+                            if 100 < potential_price < 1000:  # Reasonable QQQ price range
+                                open_price = potential_price
+                                logging.debug(f"Found OPEN price via text search: {open_price}")
+                                break
+                    except:
+                        pass
+        
+        # If we still don't have OPEN price, use the first QuoteStrip-lastPrice as fallback
+        if not open_price:
+            current_price_element = soup.find('span', {'class': 'QuoteStrip-lastPrice'})
+            if current_price_element:
+                current_price_text = current_price_element.text.strip()
+                try:
+                    open_price = float(current_price_text.replace('$', '').replace(',', ''))
+                    logging.debug(f"Using current price as OPEN price fallback: {open_price}")
+                except ValueError:
+                    logging.error(f"Could not parse current price from: {current_price_text}")
+                    open_price = None
         
         # Look for previous close - it's in the second QuoteStrip-lastPrice element
-        prev_close_elements = soup.find_all('span', {'class': 'QuoteStrip-lastPrice'})
-        if len(prev_close_elements) >= 2:
-            prev_close_text = prev_close_elements[1].text.strip()
-            try:
-                prev_close = float(prev_close_text.replace('$', '').replace(',', ''))
-                logging.debug(f"Found previous close via second QuoteStrip-lastPrice: {prev_close}")
-            except ValueError:
-                logging.error(f"Could not parse previous close from: {prev_close_text}")
-                prev_close = None
+        if not prev_close:
+            prev_close_elements = soup.find_all('span', {'class': 'QuoteStrip-lastPrice'})
+            if len(prev_close_elements) >= 2:
+                prev_close_text = prev_close_elements[1].text.strip()
+                try:
+                    prev_close = float(prev_close_text.replace('$', '').replace(',', ''))
+                    logging.debug(f"Found previous close via second QuoteStrip-lastPrice: {prev_close}")
+                except ValueError:
+                    logging.error(f"Could not parse previous close from: {prev_close_text}")
+                    prev_close = None
         
-        # If we still don't have current price, try fallback methods
-        if not current_price:
+        # If we still don't have OPEN price, try fallback methods
+        if not open_price:
             # Look for any price-like text in the page
             for span in soup.find_all('span'):
                 text = span.get_text().strip()
@@ -1274,39 +1359,39 @@ def get_real_time_gap_data(ticker, date):
                         if price_match:
                             potential_price = float(price_match.group(1))
                             if 100 < potential_price < 1000:  # Reasonable QQQ price range
-                                current_price = potential_price
-                                logging.debug(f"Found current price via regex: {current_price}")
+                                open_price = potential_price
+                                logging.debug(f"Found OPEN price via regex: {open_price}")
                                 break
                     except:
                         pass
         
-        if not current_price:
-            logging.error("Could not find current price on CNBC page")
-            return {'error': 'Could not find current price data on CNBC page'}
+        if not open_price:
+            logging.error("Could not find OPEN price on CNBC page")
+            return {'error': 'Could not find OPEN price data on CNBC page'}
         
         # If we still don't have previous close, use a reasonable estimate
         if not prev_close:
-            # Use current price minus a small gap as estimate
-            if current_price:
-                prev_close = current_price - (current_price * 0.001)  # Assume 0.1% gap
+            # Use open price minus a small gap as estimate
+            if open_price:
+                prev_close = open_price - (open_price * 0.001)  # Assume 0.1% gap
                 logging.debug(f"Using estimated previous close: {prev_close}")
             else:
                 logging.error("Could not find previous close on CNBC page")
                 return {'error': 'Could not find previous close data on CNBC page'}
         
-        # Calculate gap percentage
-        gap_pct = ((current_price - prev_close) / prev_close) * 100
+        # Calculate gap percentage (OPEN price vs previous close)
+        gap_pct = ((open_price - prev_close) / prev_close) * 100
         gap_direction = "UP" if gap_pct > 0 else "DOWN"
         
         # Prepare the result
         result = {
             'ticker': ticker,
             'yesterday_close': round(prev_close, 2),
-            'current_price': round(current_price, 2),
+            'open_price': round(open_price, 2),
             'gap_pct': round(gap_pct, 2),
             'gap_direction': gap_direction,
             'market_status': 'Open',
-            'message': f"{ticker} previous close: ${prev_close:.2f} | Current: ${current_price:.2f} | Gap: {gap_direction} {abs(round(gap_pct, 2))}%",
+            'message': f"{ticker} previous close: ${prev_close:.2f} | Open: ${open_price:.2f} | Gap: {gap_direction} {abs(round(gap_pct, 2))}%",
             'cached_at': now_et.isoformat(),
             'cache_date': today_et
         }
