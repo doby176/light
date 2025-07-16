@@ -4215,6 +4215,38 @@ async function loadRealTimeQQQGap() {
 function setGapFilters(gapPercent, gapDirection) {
     console.log(`Setting gap filters: ${gapPercent}% ${gapDirection}`);
     
+    // Check if gap is too small for trading opportunity
+    if (gapPercent < 0.14) {
+        const warningNotification = document.createElement('div');
+        warningNotification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff9800;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-weight: 600;
+            max-width: 300px;
+        `;
+        warningNotification.innerHTML = `
+            <div style="margin-bottom:8px;">⚠️ Gap Too Small</div>
+            <div style="font-size:0.9em;">Today's gap (${gapPercent}%) is below 0.14% and may not provide sufficient trading opportunity.</div>
+        `;
+        document.body.appendChild(warningNotification);
+        
+        // Remove warning after 5 seconds
+        setTimeout(() => {
+            if (warningNotification.parentNode) {
+                warningNotification.parentNode.removeChild(warningNotification);
+            }
+        }, 5000);
+        
+        return; // Don't set filters for very small gaps
+    }
+    
     // First, switch to the Gap tab
     openTab('gap');
     
@@ -4224,18 +4256,15 @@ function setGapFilters(gapPercent, gapDirection) {
         tickerSelect.value = 'QQQ';
     }
     
-    // Set the gap size based on the percentage
+    // Set the gap size based on the percentage using the correct filter options
     const gapSizeSelect = document.getElementById('gap-size');
     if (gapSizeSelect) {
         let gapSize = '';
-        if (gapPercent < 0.15) gapSize = '0.00-0.15';
-        else if (gapPercent < 0.35) gapSize = '0.15-0.35';
-        else if (gapPercent < 0.55) gapSize = '0.35-0.55';
-        else if (gapPercent < 0.75) gapSize = '0.55-0.75';
-        else if (gapPercent < 1.00) gapSize = '0.75-1.00';
-        else if (gapPercent < 1.50) gapSize = '1.00-1.50';
-        else if (gapPercent < 2.00) gapSize = '1.50-2.00';
-        else gapSize = '2.00+';
+        if (gapPercent < 0.35) gapSize = '0.15-0.35%';
+        else if (gapPercent < 0.5) gapSize = '0.35-0.5%';
+        else if (gapPercent < 1.0) gapSize = '0.5-1%';
+        else if (gapPercent < 1.5) gapSize = '1-1.5%';
+        else gapSize = '1.5%+';
         
         gapSizeSelect.value = gapSize;
         console.log(`Set gap size to: ${gapSize}`);
