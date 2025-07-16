@@ -3,6 +3,8 @@ import boto3
 import os
 import time
 import json
+import requests
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for
 from flask_limiter import Limiter
 from flask_session import Session
@@ -1162,6 +1164,153 @@ def get_earnings_by_bin():
         return jsonify({'dates': sorted(dates)})
     except Exception as e:
         logging.error(f"Error processing earnings by bin: {str(e)}")
+        return jsonify({'error': 'Server error'}), 500
+
+# Alpha Vantage API configuration
+ALPHA_VANTAGE_API_KEY = "9K03GJJCB96AJCO3"
+ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
+
+def get_real_time_gap_data(ticker, date):
+    """
+    Fetches real-time gap data for a specific ticker and date using Alpha Vantage API.
+    Returns a dictionary with gap details or an error message.
+    """
+    try:
+        # Construct the Alpha Vantage API URL for daily time series
+        params = {
+            'function': 'TIME_SERIES_DAILY',
+            'symbol': ticker,
+            'apikey': ALPHA_VANTAGE_API_KEY,
+            'outputsize': 'compact'  # Get last 100 days of data
+        }
+
+        response = requests.get(ALPHA_VANTAGE_BASE_URL, params=params)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        data = response.json()
+
+        # Check for API errors
+        if 'Error Message' in data:
+            logging.error(f"Alpha Vantage API error: {data['Error Message']}")
+            return {'error': f'Alpha Vantage API error: {data["Error Message"]}'}
+        
+        if 'Note' in data:
+            logging.error(f"Alpha Vantage API note: {data['Note']}")
+            return {'error': f'Alpha Vantage API note: {data["Note"]}'}
+
+        if 'Time Series (Daily)' not in data:
+            logging.error(f"Alpha Vantage API returned no data for {ticker}")
+            return {'error': f'No data available for {ticker} from Alpha Vantage.'}
+
+        # Extract the daily time series data
+        time_series_data = data['Time Series (Daily)']
+        
+        # Get today's date and yesterday's date
+        today = datetime.now()
+        yesterday = today - timedelta(days=1)
+        
+        # Adjust for weekends (skip Saturday and Sunday)
+        while yesterday.weekday() >= 5:  # Saturday (5) or Sunday (6)
+            yesterday -= timedelta(days=1)
+        
+        # Format dates as YYYY-MM-DD (Alpha Vantage format)
+        today_str = today.strftime('%Y-%m-%d')
+        yesterday_str = yesterday.strftime('%Y-%m-%d')
+        
+        # Get available dates from the API response
+        available_dates = list(time_series_data.keys())
+        available_dates.sort(reverse=True)  # Sort in descending order (most recent first)
+        
+        logging.debug(f"Available dates for {ticker}: {available_dates[:5]}")  # Show first 5 dates
+        
+        # Find the most recent trading day (today or most recent available)
+        target_date_str = None
+        prev_trading_day_str = None
+        
+        # Look for today's data first
+        if today_str in time_series_data:
+            target_date_str = today_str
+            # Find the previous trading day
+            for date_key in available_dates:
+                if date_key < today_str:
+                    prev_trading_day_str = date_key
+                    break
+        else:
+            # If today's data is not available, use the most recent available date
+            if available_dates:
+                target_date_str = available_dates[0]
+                if len(available_dates) > 1:
+                    prev_trading_day_str = available_dates[1]
+        
+        if not target_date_str or not prev_trading_day_str:
+            logging.error(f"Could not find sufficient data for {ticker}")
+            return {'error': f'Insufficient data available for {ticker}. Need at least 2 trading days.'}
+        
+        # Get today's open price
+        today_data = time_series_data[target_date_str]
+        today_open = float(today_data['1. open'])
+        
+        # Get yesterday's close price
+        yesterday_data = time_series_data[prev_trading_day_str]
+        yesterday_close = float(yesterday_data['4. close'])
+        
+        # Calculate gap percentage
+        gap_pct = ((today_open - yesterday_close) / yesterday_close) * 100
+        
+        # Determine gap direction
+        gap_direction = 'Up' if gap_pct > 0 else 'Down'
+        
+        # Get additional data for today
+        today_high = float(today_data['2. high'])
+        today_low = float(today_data['3. low'])
+        today_close = float(today_data['4. close'])
+        today_volume = float(today_data['5. volume'])
+        
+        # Calculate additional metrics
+        day_range = today_high - today_low
+        day_range_pct = (day_range / today_open) * 100
+        
+        return {
+            'ticker': ticker,
+            'date': target_date_str,
+            'previous_trading_day': prev_trading_day_str,
+            'yesterday_close': round(yesterday_close, 2),
+            'today_open': round(today_open, 2),
+            'gap_pct': round(gap_pct, 2),
+            'gap_direction': gap_direction,
+            'today_high': round(today_high, 2),
+            'today_low': round(today_low, 2),
+            'today_close': round(today_close, 2),
+            'today_volume': int(today_volume),
+            'day_range': round(day_range, 2),
+            'day_range_pct': round(day_range_pct, 2),
+            'message': f"{ticker} gap: {gap_direction} {abs(round(gap_pct, 2))}% ({yesterday_close:.2f} → {today_open:.2f})"
+        }
+        
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching real-time gap data from Alpha Vantage: {str(e)}")
+        return {'error': f'Failed to fetch real-time gap data from Alpha Vantage: {str(e)}'}
+    except Exception as e:
+        logging.error(f"Unexpected error in get_real_time_gap_data: {str(e)}")
+        return {'error': 'Server error'}
+
+@app.route('/api/real_time_gap', methods=['GET'])
+@limiter.limit("10 per 12 hours")
+def get_real_time_gap():
+    ticker = request.args.get('ticker')
+    date = request.args.get('date')
+    logging.debug(f"Fetching real-time gap for ticker={ticker}, date={date}")
+    if not ticker or not date:
+        return jsonify({'error': 'Ticker and date are required for real-time gap data.'}), 400
+    if ticker not in TICKERS:
+        return jsonify({'error': 'Invalid ticker'}), 400
+    
+    try:
+        gap_data = get_real_time_gap_data(ticker, date)
+        if 'error' in gap_data:
+            return jsonify(gap_data), 404
+        return jsonify(gap_data)
+    except Exception as e:
+        logging.error(f"Error processing real-time gap request: {str(e)}")
         return jsonify({'error': 'Server error'}), 500
 
 if __name__ == '__main__':
