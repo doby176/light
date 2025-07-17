@@ -4408,13 +4408,8 @@ function displayQQQData(data) {
                     gapValueElement.style.cursor = 'pointer';
                     gapValueElement.title = 'Click to populate gap insights filters';
                     gapValueElement.addEventListener('click', () => populateGapFilters(gapValue));
-                } else {
-                    // Gap is too small - show warning on click
-                    const gapValueElement = item.querySelector('.qqq-data-value');
-                    gapValueElement.style.cursor = 'pointer';
-                    gapValueElement.title = 'Gap too small for actionable trades';
-                    gapValueElement.addEventListener('click', () => showSmallGapMessage());
                 }
+                // Gaps under 0.15% are not clickable at all
             }
             
             grid.appendChild(item);
