@@ -2005,6 +2005,17 @@ footer p {
     margin-top: var(--spacing-xs) !important;
 }
 
+.gap-filters-test-note {
+    font-size: 0.85rem;
+    color: #856404;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    font-style: italic;
+}
+
 .gap-filters-details {
     margin: var(--spacing-sm) 0;
 }
