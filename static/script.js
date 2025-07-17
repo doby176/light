@@ -4141,6 +4141,16 @@ async function loadGapInsights(event) {
         // Add market data summary if available
         let marketDataHtml = '';
         if (insights.market_data && insights.market_data.current_open) {
+            const nqInfo = insights.market_data.nq_last ? 
+                `<div class="market-data-item">
+                    <span class="market-data-label">NQ Price:</span>
+                    <span class="market-data-value">${insights.market_data.nq_last}</span>
+                </div>
+                <div class="market-data-item">
+                    <span class="market-data-label">NQ/QQQ Ratio:</span>
+                    <span class="market-data-value">${insights.market_data.nq_qqq_ratio}</span>
+                </div>` : '';
+            
             marketDataHtml = `
                 <div class="market-data-summary">
                     <h4>Current Market Data</h4>
@@ -4157,6 +4167,7 @@ async function loadGapInsights(event) {
                             <span class="market-data-label">Gap Direction:</span>
                             <span class="market-data-value ${insights.market_data.gap_direction}">${insights.market_data.gap_direction.toUpperCase()}</span>
                         </div>
+                        ${nqInfo}
                     </div>
                 </div>
             `;

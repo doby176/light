@@ -930,7 +930,7 @@ def get_gap_insights():
         median_move_before_reversal_price = calculate_price_levels(median_move_before_reversal_pct, current_prev_close, reversal_direction) if current_prev_close else None
         average_move_before_reversal_price = calculate_price_levels(average_move_before_reversal_pct, current_prev_close, reversal_direction) if current_prev_close else None
 
-        # Get live NQ/QQQ ratio if possible
+        # Get live NQ/QQQ ratio using ThinkOrSwim logic
         nq_last = None
         try:
             # Try to fetch live NQ price from Yahoo Finance (symbol: NQ=F)
@@ -938,15 +938,18 @@ def get_gap_insights():
             nq_json = nq_resp.json()
             nq_last = nq_json['chart']['result'][0]['meta']['regularMarketPrice']
         except Exception as e:
+            logging.warning(f"Could not fetch NQ price: {e}")
             nq_last = None
 
-        nq_qqq_ratio = None
-        if nq_last and current_open_price:
+        # Calculate conversion factor exactly like ThinkOrSwim script
+        # conversionFactor = if qqq != 0 then nq / qqq else 45.34;
+        if nq_last and current_open_price and current_open_price != 0:
             nq_qqq_ratio = nq_last / current_open_price
         else:
-            nq_qqq_ratio = 50  # fallback to 50x if live not available
+            nq_qqq_ratio = 45.34  # fallback to 45.34 like in ThinkOrSwim script
 
         def convert_qqq_to_nq(qqq_price):
+            """Convert QQQ price to NQ using ThinkOrSwim conversion logic"""
             if not qqq_price:
                 return None
             return round(qqq_price * nq_qqq_ratio, 1)
@@ -1006,7 +1009,7 @@ def get_gap_insights():
                 'current_prev_close': current_prev_close,
                 'gap_direction': gap_direction,
                 'nq_last': nq_last,
-                'nq_qqq_ratio': nq_qqq_ratio
+                'nq_qqq_ratio': round(nq_qqq_ratio, 2) if nq_qqq_ratio else None
             }
         }
         logging.debug(f"Computed insights: {insights}")
