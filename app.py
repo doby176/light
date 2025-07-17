@@ -12,6 +12,11 @@ import sqlite3
 import uuid
 import bcrypt
 from werkzeug.exceptions import TooManyRequests
+import requests
+from bs4 import BeautifulSoup
+import re
+from datetime import datetime, timezone, timedelta
+import pytz
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -1163,6 +1168,160 @@ def get_earnings_by_bin():
     except Exception as e:
         logging.error(f"Error processing earnings by bin: {str(e)}")
         return jsonify({'error': 'Server error'}), 500
+
+# Global cache for QQQ data to prevent multiple scraping
+qqq_data_cache = {
+    'data': None,
+    'timestamp': None,
+    'market_date': None  # Store the market date the data represents
+}
+
+def is_market_open():
+    """Check if US market is currently open (9:31 AM - 4:00 PM ET, Mon-Fri)"""
+    et_tz = pytz.timezone('US/Eastern')
+    now_et = datetime.now(et_tz)
+    
+    # Check if it's a weekday (Monday = 0, Sunday = 6)
+    if now_et.weekday() >= 5:  # Saturday or Sunday
+        return False
+    
+    # Check if it's within market hours (9:31 AM - 4:00 PM ET)
+    # We use 9:31 AM to ensure market data is updated
+    market_open = now_et.replace(hour=9, minute=31, second=0, microsecond=0)
+    market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+    
+    return market_open <= now_et <= market_close
+
+def get_market_date():
+    """Get the current market date (today if market is open, previous trading day if closed)"""
+    et_tz = pytz.timezone('US/Eastern')
+    now_et = datetime.now(et_tz)
+    
+    # If market is closed, we need yesterday's data
+    if not is_market_open():
+        # Go back to previous trading day
+        days_back = 1
+        while days_back <= 7:  # Look back up to 7 days
+            prev_day = now_et - timedelta(days=days_back)
+            if prev_day.weekday() < 5:  # Monday-Friday
+                return prev_day.strftime('%Y-%m-%d')
+            days_back += 1
+        return now_et.strftime('%Y-%m-%d')  # Fallback
+    
+    return now_et.strftime('%Y-%m-%d')
+
+def should_refresh_qqq_data():
+    """Determine if we need to refresh QQQ data - once per day at 9:31 AM ET"""
+    current_market_date = get_market_date()
+    
+    # If we don't have cached data, we need to scrape
+    if not qqq_data_cache['data'] or not qqq_data_cache['market_date']:
+        return True
+    
+    # If the cached data is for a different market date, we need fresh data
+    if qqq_data_cache['market_date'] != current_market_date:
+        return True
+    
+    # If we already have today's data, don't scrape again
+    return False
+
+def scrape_qqq_data():
+    """Scrape QQQ data from CNBC website with market-aware caching"""
+    global qqq_data_cache
+    
+    # Check if we need to refresh based on market conditions
+    if not should_refresh_qqq_data():
+        logging.info("Returning cached QQQ data (market-aware cache)")
+        return qqq_data_cache['data']
+    
+    try:
+        logging.info("Performing single QQQ data scrape from CNBC")
+        url = "https://www.cnbc.com/quotes/QQQ"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Find the Summary section with Key Stats
+        summary_section = soup.find('div', class_='Summary-subsection')
+        if not summary_section:
+            return None
+        
+        # Look for the Key Stats title
+        key_stats_title = summary_section.find('h3', class_='Summary-title', string=lambda text: text and 'KEY STATS' in text.upper())
+        if not key_stats_title:
+            return None
+        
+        # Find the stats list
+        stats_list = summary_section.find('ul', class_='Summary-data')
+        if not stats_list:
+            return None
+        
+        # Extract the data
+        data = {}
+        stats_items = stats_list.find_all('li', class_='Summary-stat')
+        
+        for item in stats_items:
+            label_elem = item.find('span', class_='Summary-label')
+            value_elem = item.find('span', class_='Summary-value')
+            
+            if label_elem and value_elem:
+                label = label_elem.get_text(strip=True)
+                value = value_elem.get_text(strip=True)
+                
+                if label in ['Open', 'Prev Close']:
+                    data[label] = value
+        
+        # Calculate gap percentage if we have both Open and Prev Close
+        if 'Open' in data and 'Prev Close' in data:
+            try:
+                open_price = float(data['Open'])
+                prev_close = float(data['Prev Close'])
+                gap_percentage = ((open_price - prev_close) / prev_close) * 100
+                data['Gap %'] = f"{gap_percentage:.2f}%"
+                data['Gap Value'] = gap_percentage  # Store numeric value for calculations
+            except (ValueError, ZeroDivisionError):
+                data['Gap %'] = "N/A"
+                data['Gap Value'] = None
+        
+        # Cache the data with market date
+        qqq_data_cache['data'] = data
+        qqq_data_cache['timestamp'] = time.time()
+        qqq_data_cache['market_date'] = get_market_date()
+        
+        logging.info(f"QQQ data scraped and cached successfully for market date: {qqq_data_cache['market_date']}")
+        return data
+        
+    except Exception as e:
+        logging.error(f"Error scraping QQQ data: {str(e)}")
+        return None
+
+@app.route('/api/qqq_data', methods=['GET'])
+@limiter.limit("10 per hour")
+def get_qqq_data():
+    """API endpoint to get current QQQ data"""
+    try:
+        data = scrape_qqq_data()
+        if data:
+            return jsonify({
+                'success': True,
+                'data': data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Unable to fetch QQQ data'
+            }), 500
+    except Exception as e:
+        logging.error(f"Error in QQQ data API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Server error'
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
