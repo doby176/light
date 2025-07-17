@@ -4426,19 +4426,17 @@ function displayQQQData(data) {
 }
 
 function populateGapFilters(gapValue) {
-    // Temporarily allow gaps under 0.15% for testing
-    // if (Math.abs(gapValue) < 0.15) {
-    //     showSmallGapMessage();
-    //     return;
-    // }
+    // Check if gap is too small
+    if (Math.abs(gapValue) < 0.15) {
+        showSmallGapMessage();
+        return;
+    }
     
     // Determine gap size bin
     let gapSizeBin = '';
     const absGap = Math.abs(gapValue);
     
-    if (absGap < 0.15) {
-        gapSizeBin = '0.15-0.35%'; // Temporarily map small gaps to this bin for testing
-    } else if (absGap >= 0.15 && absGap < 0.35) {
+    if (absGap >= 0.15 && absGap < 0.35) {
         gapSizeBin = '0.15-0.35%';
     } else if (absGap >= 0.35 && absGap < 0.5) {
         gapSizeBin = '0.35-0.5%';
@@ -4516,8 +4514,6 @@ function showGapFiltersPopulatedMessage(gapSizeBin, dayOfWeek, gapDirection, gap
     
     const messageDiv = document.createElement('div');
     messageDiv.className = 'gap-filters-message';
-    const isSmallGap = Math.abs(gapValue) < 0.15;
-    const testNote = isSmallGap ? '<p class="gap-filters-test-note">⚠️ Testing mode: Small gap mapped to nearest bin for price calculation testing</p>' : '';
     
     messageDiv.innerHTML = `
         <div class="gap-filters-icon">✅</div>
@@ -4541,7 +4537,6 @@ function showGapFiltersPopulatedMessage(gapSizeBin, dayOfWeek, gapDirection, gap
                     <span class="filter-value">${gapDirection === 'up' ? 'Gap Up' : 'Gap Down'}</span>
                 </div>
             </div>
-            ${testNote}
             <p class="gap-filters-note">Click "Get Insights" to view historical data and price calculations for similar gaps.</p>
         </div>
     `;
