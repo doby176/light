@@ -846,6 +846,14 @@ form button:disabled::before {
     margin-bottom: var(--spacing-lg);
 }
 
+.insights-row.three-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.insights-row.two-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
 .insight-metric {
     background: var(--light-grey);
     padding: var(--spacing-lg);
@@ -886,6 +894,41 @@ form button:disabled::before {
     font-size: 0.85rem;
     color: var(--dark-grey);
     font-style: italic;
+}
+
+.metric-up-percentage,
+.metric-high-percentage,
+.metric-return-percentage {
+    font-size: 1.2rem;
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metric-up-percentage {
+    color: var(--accent-green);
+}
+
+.metric-high-percentage {
+    color: var(--primary-blue);
+}
+
+.metric-return-percentage {
+    color: var(--accent-orange);
+}
+
+.metric-same-direction,
+.metric-opposite-direction {
+    font-size: 0.9rem;
+    color: var(--charcoal);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metric-same-direction {
+    color: var(--accent-green);
+}
+
+.metric-opposite-direction {
+    color: var(--accent-red);
 }
 
 /* Sample/Upgrade Notices */

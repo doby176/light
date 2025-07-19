@@ -57,6 +57,7 @@
                 <button class="tab-button" onclick="openTab('gap-insights')">Nasdaq Gap Insights</button>
                 <button class="tab-button" onclick="openTab('gap-analysis')">Nasdaq Gap Analysis</button>
                 <button class="tab-button" onclick="openTab('events-analysis')">News Event Analysis</button>
+                <button class="tab-button" onclick="openTab('event-insights')">News Event Insights</button>
                 <button class="tab-button" onclick="openTab('earnings-analysis')">Earnings Analysis</button>
             </div>
             <!-- Market Simulator Section -->
@@ -325,6 +326,53 @@
                 </form>
                 <div id="gap-insights-results">
                     <p>Select a gap size, day, and direction to view Nasdaq gap insights and statistics.</p>
+                </div>
+            </div>
+            <!-- News Event Insights Section -->
+            <div id="event-insights" class="tab-content">
+                <h2>News Event Insights</h2>
+                <p>Analyze market reactions to key news events with detailed metrics and insights from event-driven price action patterns.</p>
+                
+                <div class="filter-toggle">
+                    <label><input type="radio" name="event-insights-filter-type" value="quarter" checked> Filter by Event Type and Quarter</label>
+                    <label><input type="radio" name="event-insights-filter-type" value="date"> Filter by Event Type and Date</label>
+                </div>
+                
+                <form id="event-insights-form">
+                    <div id="quarter-filter" class="filter-section active">
+                        <label for="event-insights-type-select">Select Event Type:</label>
+                        <select id="event-insights-type-select" name="event_type">
+                            <option value="">Select event type</option>
+                            <option value="CPI">CPI</option>
+                            <option value="PPI">PPI</option>
+                            <option value="FOMC">FOMC</option>
+                            <option value="NFP">NFP</option>
+                        </select>
+                        <label for="quarter-select">Select Quarter:</label>
+                        <select id="quarter-select" name="quarter">
+                            <option value="">Select quarter</option>
+                            <option value="Q1">Q1</option>
+                            <option value="Q2">Q2</option>
+                            <option value="Q3">Q3</option>
+                            <option value="Q4">Q4</option>
+                        </select>
+                    </div>
+                    <div id="date-filter" class="filter-section">
+                        <label for="event-insights-type-select-date">Select Event Type:</label>
+                        <select id="event-insights-type-select-date" name="event_type">
+                            <option value="">Select event type</option>
+                            <option value="CPI">CPI</option>
+                            <option value="PPI">PPI</option>
+                            <option value="FOMC">FOMC</option>
+                            <option value="NFP">NFP</option>
+                        </select>
+                        <label for="date-insights-select">Select Date:</label>
+                        <input type="date" id="date-insights-select" name="date">
+                    </div>
+                    <button type="submit">Get Event Insights</button>
+                </form>
+                <div id="event-insights-results">
+                    <p>Select an event type and quarter/date to view news event insights and statistics.</p>
                 </div>
             </div>
             <!-- News Event Analysis Section -->

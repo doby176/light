@@ -359,6 +359,7 @@ GAP_DATA_PATH = os.path.join(DATA_DIR, "qqq_central_data_updated.csv")
 EVENTS_DATA_PATH = os.path.join(DATA_DIR, "news_events.csv")
 EARNINGS_DATA_PATH = os.path.join(DATA_DIR, "earnings_data.csv")
 ECONOMIC_DATA_BINNED_PATH = os.path.join(DATA_DIR, "economic_data_binned.csv")
+EVENT_ANALYSIS_DATA_PATH = os.path.join(DATA_DIR, "event_analysis_metrics.csv")
 
 QQQ_DB_PATHS = [
     os.path.join(DB_DIR, "stock_data_qqq_part1.db"),
@@ -931,6 +932,169 @@ def get_gap_insights():
         return jsonify({'insights': insights})
     except Exception as e:
         logging.error(f"Error processing gap insights: {str(e)}")
+        return jsonify({'error': 'Server error'}), 500
+
+@app.route('/api/event_insights', methods=['GET'])
+@limiter.limit("3 per 12 hours")
+def get_event_insights():
+    # Check gap insights action limit (separate 2-click limit)
+    if not is_sample_mode():
+        # Main site - check gap insights limit
+        main_action = request.args.get('main_action')
+        if main_action == 'get_insights':
+            if not check_gap_insights_limit():
+                logging.info(f"Event insights limit exceeded for user: {session.get('user_id')}")
+                return jsonify({
+                    'error': 'Event Insights limit reached: You\'ve used your 2 free Event Insights. Please wait 12 hours or upgrade your plan.',
+                    'limit_reached': True
+                }), 429
+    
+    try:
+        event_type = request.args.get('event_type')
+        quarter = request.args.get('quarter')
+        date = request.args.get('date')
+        filter_type = request.args.get('filter_type', 'quarter')
+        
+        logging.debug(f"Fetching event insights for event_type={event_type}, quarter={quarter}, date={date}, filter_type={filter_type}")
+        
+        if not os.path.exists(EVENT_ANALYSIS_DATA_PATH):
+            logging.error(f"Event analysis data file not found: {EVENT_ANALYSIS_DATA_PATH}")
+            return jsonify({'error': 'Event analysis data file not found. Please contact support.'}), 404
+        
+        try:
+            df = pd.read_csv(EVENT_ANALYSIS_DATA_PATH)
+            logging.debug(f"Loaded event analysis data with shape: {df.shape}")
+        except Exception as e:
+            logging.error(f"Error reading event analysis data file {EVENT_ANALYSIS_DATA_PATH}: {str(e)}")
+            return jsonify({'error': f'Failed to load event analysis data: {str(e)}'}), 500
+        
+        required_columns = [
+            'event_type', 'quarter', 'date', 'percent_move_830_831', 'direction',
+            'percent_move_930_959_extreme', 'direction_930_959_extreme',
+            'percent_move_930_1030_x', 'direction_930_1030_x',
+            'touched_premarket_level_x', 'percent_move_same_direction',
+            'percent_move_opposite_direction', 'touched_premarket_level',
+            'returned_to_opposite_level'
+        ]
+        
+        if not all(col in df.columns for col in required_columns):
+            logging.error("Invalid event analysis data format: missing required columns")
+            return jsonify({'error': 'Invalid event analysis data format'}), 400
+        
+        # Filter data based on filter type
+        if filter_type == 'quarter':
+            if not event_type or not quarter:
+                return jsonify({'error': 'Event type and quarter are required'}), 400
+            filtered_df = df[
+                (df['event_type'] == event_type) &
+                (df['quarter'] == quarter)
+            ].copy()
+        else:  # date filter
+            if not event_type or not date:
+                return jsonify({'error': 'Event type and date are required'}), 400
+            filtered_df = df[
+                (df['event_type'] == event_type) &
+                (df['date'] == date)
+            ].copy()
+        
+        logging.debug(f"Filtered DataFrame shape: {filtered_df.shape}")
+        if filtered_df.empty:
+            logging.debug(f"No data found for event_type={event_type}, quarter={quarter}, date={date}")
+            return jsonify({'insights': {}, 'message': 'No data found for the selected criteria'})
+        
+        # Calculate insights for each metric
+        insights = {}
+        
+        # 1. 8:30-8:31 PRE MARKET reaction
+        premarket_moves = filtered_df['percent_move_830_831'].dropna()
+        premarket_directions = filtered_df['direction'].dropna()
+        
+        if not premarket_moves.empty:
+            up_count = (premarket_directions == 'Up').sum()
+            down_count = (premarket_directions == 'Down').sum()
+            total_count = len(premarket_directions)
+            up_percentage = (up_count / total_count) * 100 if total_count > 0 else 0
+            
+            insights['premarket_reaction'] = {
+                'median': round(premarket_moves.median(), 2),
+                'average': round(premarket_moves.mean(), 2),
+                'up_percentage': round(up_percentage, 2),
+                'description': '8:30-8:31 PRE MARKET reaction to data release move %'
+            }
+        
+        # 2. Move between 9:30-10:00 to highest high or lowest low
+        extreme_moves = filtered_df['percent_move_930_959_extreme'].dropna()
+        extreme_directions = filtered_df['direction_930_959_extreme'].dropna()
+        
+        if not extreme_moves.empty:
+            up_count = (extreme_directions == 'Up').sum()
+            down_count = (extreme_directions == 'Down').sum()
+            total_count = len(extreme_directions)
+            up_percentage = (up_count / total_count) * 100 if total_count > 0 else 0
+            
+            insights['extreme_moves_930_1000'] = {
+                'median': round(extreme_moves.median(), 2),
+                'average': round(extreme_moves.mean(), 2),
+                'up_percentage': round(up_percentage, 2),
+                'description': 'Move between 9:30-10:00 to highest high or lowest low'
+            }
+        
+        # 3. Move between 9:30-10:30 close (no extreme moves)
+        close_moves = filtered_df['percent_move_930_1030_x'].dropna()
+        close_directions = filtered_df['direction_930_1030_x'].dropna()
+        
+        if not close_moves.empty:
+            up_count = (close_directions == 'Up').sum()
+            down_count = (close_directions == 'Down').sum()
+            total_count = len(close_directions)
+            up_percentage = (up_count / total_count) * 100 if total_count > 0 else 0
+            
+            insights['close_moves_930_1030'] = {
+                'median': round(close_moves.median(), 2),
+                'average': round(close_moves.mean(), 2),
+                'up_percentage': round(up_percentage, 2),
+                'description': 'Move between 9:30-10:30 close (no extreme moves)'
+            }
+        
+        # 4. First touch of pre market low or high
+        touch_levels = filtered_df['touched_premarket_level_x'].dropna()
+        same_direction_moves = filtered_df['percent_move_same_direction'].dropna()
+        opposite_direction_moves = filtered_df['percent_move_opposite_direction'].dropna()
+        
+        if not touch_levels.empty:
+            high_count = (touch_levels == 'High').sum()
+            low_count = (touch_levels == 'Low').sum()
+            total_count = len(touch_levels)
+            high_percentage = (high_count / total_count) * 100 if total_count > 0 else 0
+            
+            insights['premarket_level_touch'] = {
+                'high_percentage': round(high_percentage, 2),
+                'same_direction_median': round(same_direction_moves.median(), 2) if not same_direction_moves.empty else 0,
+                'same_direction_average': round(same_direction_moves.mean(), 2) if not same_direction_moves.empty else 0,
+                'opposite_direction_median': round(opposite_direction_moves.median(), 2) if not opposite_direction_moves.empty else 0,
+                'opposite_direction_average': round(opposite_direction_moves.mean(), 2) if not opposite_direction_moves.empty else 0,
+                'description': 'First touch of pre market low or high and subsequent moves'
+            }
+        
+        # 5. Return to opposite pre market level
+        touch_levels_final = filtered_df['touched_premarket_level'].dropna()
+        returned_to_opposite = filtered_df['returned_to_opposite_level'].dropna()
+        
+        if not returned_to_opposite.empty:
+            yes_count = (returned_to_opposite == 'Yes').sum()
+            no_count = (returned_to_opposite == 'No').sum()
+            total_count = len(returned_to_opposite)
+            return_percentage = (yes_count / total_count) * 100 if total_count > 0 else 0
+            
+            insights['return_to_opposite_level'] = {
+                'return_percentage': round(return_percentage, 2),
+                'description': '% of price return to pre market high/low after hitting opposite level'
+            }
+        
+        logging.debug(f"Computed event insights: {insights}")
+        return jsonify({'insights': insights})
+    except Exception as e:
+        logging.error(f"Error processing event insights: {str(e)}")
         return jsonify({'error': 'Server error'}), 500
 
 @app.route('/api/years', methods=['GET'])

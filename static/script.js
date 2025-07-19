@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formEventsForm = document.getElementById('events-form');
         const formEarningsForm = document.getElementById('earnings-form');
         const formGapInsights = document.getElementById('gap-insights-form');
+        const formEventInsights = document.getElementById('event-insights-form');
         
         if (formSimulator) formSimulator.addEventListener('submit', (e) => loadChart(e, 'market-simulator'));
         if (formGap) formGap.addEventListener('submit', (e) => loadChart(e, 'gap-analysis'));
@@ -65,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formEventsForm) formEventsForm.addEventListener('submit', loadEventDates);
         if (formEarningsForm) formEarningsForm.addEventListener('submit', loadEarningsDates);
         if (formGapInsights) formGapInsights.addEventListener('submit', loadGapInsights);
+        if (formEventInsights) formEventInsights.addEventListener('submit', loadEventInsights);
         
         // Replay control listeners (Market Simulator)
         const playSimulator = document.getElementById('play-replay-simulator');
@@ -140,6 +142,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const earningsFilterRadios = document.querySelectorAll('input[name="earnings-filter-type"]');
         earningsFilterRadios.forEach(radio => {
             radio.addEventListener('change', toggleEarningsFilterSection);
+        });
+        
+        // Handle filter type toggle for event insights
+        const eventInsightsFilterRadios = document.querySelectorAll('input[name="event-insights-filter-type"]');
+        eventInsightsFilterRadios.forEach(radio => {
+            radio.addEventListener('change', toggleEventInsightsFilterSection);
         });
 
         // Initialize ticker selects for all tabs
@@ -2011,6 +2019,23 @@ function toggleEarningsFilterSection() {
         tickerOnlyFilter.classList.add('active');
         document.getElementById('earnings-ticker-select').value = '';
         document.getElementById('earnings-bin-select').value = '';
+    }
+}
+
+function toggleEventInsightsFilterSection() {
+    const quarterFilter = document.getElementById('quarter-filter');
+    const dateFilter = document.getElementById('date-filter');
+    const filterType = document.querySelector('input[name="event-insights-filter-type"]:checked').value;
+
+    quarterFilter.classList.remove('active');
+    dateFilter.classList.remove('active');
+
+    if (filterType === 'quarter') {
+        quarterFilter.classList.add('active');
+        document.getElementById('date-insights-select').value = '';
+    } else {
+        dateFilter.classList.add('active');
+        document.getElementById('quarter-select').value = '';
     }
 }
 
@@ -4198,6 +4223,203 @@ async function loadGapInsights(event) {
         console.error('Error loading gap insights:', error.message);
         insightsContainer.innerHTML = '<p>Failed to load gap insights: ' + error.message + '. Please try again later.</p>';
         alert('Failed to load gap insights: ' + error.message);
+    }
+}
+
+async function loadEventInsights(event) {
+    event.preventDefault();
+    const eventType = document.getElementById('event-insights-type-select').value || document.getElementById('event-insights-type-select-date').value;
+    const quarter = document.getElementById('quarter-select').value;
+    const date = document.getElementById('date-insights-select').value;
+    const filterType = document.querySelector('input[name="event-insights-filter-type"]:checked').value;
+    const insightsContainer = document.getElementById('event-insights-results');
+    const form = document.getElementById('event-insights-form');
+    const button = form.querySelector('button[type="submit"]');
+    const selects = form.querySelectorAll('select');
+    const inputs = form.querySelectorAll('input');
+
+    // Check rate limit state
+    const rateLimitResetTime = localStorage.getItem('eventInsightsRateLimitReset');
+    if (rateLimitResetTime && Date.now() < parseInt(rateLimitResetTime)) {
+        insightsContainer.innerHTML = `<p style="color: red; font-weight: bold;">Rate limit exceeded: You have reached the limit of 3 requests per 12 hours. Please wait until ${new Date(parseInt(rateLimitResetTime)).toLocaleTimeString()} to try again.</p>`;
+        button.disabled = true;
+        button.textContent = 'Rate Limit Exceeded';
+        selects.forEach(select => select.disabled = true);
+        inputs.forEach(input => input.disabled = true);
+        return;
+    }
+
+    if (!eventType || (filterType === 'quarter' && !quarter) || (filterType === 'date' && !date)) {
+        insightsContainer.innerHTML = '<p>Please select an event type and quarter/date.</p>';
+        return;
+    }
+    
+    console.log(`Fetching event insights for event_type=${eventType}, quarter=${quarter}, date=${date}, filter_type=${filterType}`);
+    
+    // Add action parameters for rate limiting
+    const isInSampleMode = window.SAMPLE_MODE || window.location.pathname.includes('/sample');
+    let url = `/api/event_insights?event_type=${encodeURIComponent(eventType)}&filter_type=${encodeURIComponent(filterType)}`;
+    if (filterType === 'quarter') {
+        url += `&quarter=${encodeURIComponent(quarter)}`;
+    } else {
+        url += `&date=${encodeURIComponent(date)}`;
+    }
+    if (!isInSampleMode) {
+        // Main site - add main_action parameter for Get Insights button (separate 2-click limit)
+        url += '&main_action=get_insights';
+    }
+    
+    console.log('Fetching URL:', url);
+    insightsContainer.innerHTML = '<p>Loading event insights...</p>';
+    
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        console.log('Response status:', response.status);
+        
+        if (response.status === 429) {
+            const data = await response.json();
+            console.error('Rate limit error:', data.error);
+            
+            // Handle event insights action limit (separate 2-click limit)
+            if (data.limit_reached && !isInSampleMode) {
+                // Event insights limit reached - show special message for 2-click limit
+                insightsContainer.innerHTML = `
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px; margin: 10px 0; text-align: center;">
+                        <h4 style="color: #721c24; margin: 0 0 10px 0;">📊 Event Insights Limit Reached</h4>
+                        <p style="color: #721c24; margin: 0 0 15px 0; font-size: 16px;">You've used your 2 free Event Insights requests. Please wait 12 hours or upgrade your plan.</p>
+                        <p style="color: #6c757d; margin: 0; font-size: 14px;">Event Insights have a separate 2-request limit that resets in 12 hours</p>
+                    </div>
+                `;
+                button.disabled = true;
+                button.textContent = 'Insights Limit Reached';
+                selects.forEach(select => select.disabled = true);
+                inputs.forEach(input => input.disabled = true);
+                // Set timeout for 12 hours reset
+                const resetTime = Date.now() + 12 * 60 * 60 * 1000;
+                localStorage.setItem('eventInsightsActionLimitReset', resetTime);
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = 'Get Event Insights';
+                    selects.forEach(select => select.disabled = false);
+                    inputs.forEach(input => input.disabled = false);
+                    localStorage.removeItem('eventInsightsActionLimitReset');
+                    insightsContainer.innerHTML = '<p>Select an event type and quarter/date to view event insights.</p>';
+                }, 12 * 60 * 60 * 1000);
+            } else {
+                // Regular rate limit exceeded
+                insightsContainer.innerHTML = `<p style="color: red; font-weight: bold;">${data.error}</p>`;
+                button.disabled = true;
+                button.textContent = 'Rate Limit Exceeded';
+                selects.forEach(select => select.disabled = true);
+                inputs.forEach(input => input.disabled = true);
+                const resetTime = Date.now() + 12 * 60 * 60 * 1000;
+                localStorage.setItem('eventInsightsRateLimitReset', resetTime);
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = 'Get Event Insights';
+                    selects.forEach(select => select.disabled = false);
+                    inputs.forEach(input => input.disabled = false);
+                    localStorage.removeItem('eventInsightsRateLimitReset');
+                    insightsContainer.innerHTML = '<p>Select an event type and quarter/date to view event insights.</p>';
+                }, 1000);
+            }
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Event insights API response:', JSON.stringify(data, null, 2));
+        
+        if (data.error) {
+            console.error('Error from event insights API:', data.error);
+            insightsContainer.innerHTML = `<p>${data.error}</p>`;
+            return;
+        }
+        
+        if (!data.insights || Object.keys(data.insights).length === 0) {
+            console.log('No event insights found:', data.message || 'No insights returned');
+            insightsContainer.innerHTML = `<p>${data.message || 'No event insights found for the selected criteria'}</p>`;
+            return;
+        }
+        
+        console.log('Rendering event insights:', data.insights);
+
+        const insights = data.insights;
+        const container = document.createElement('div');
+        container.className = 'insights-container';
+        
+        const filterText = filterType === 'quarter' ? `${eventType} events in ${quarter}` : `${eventType} events on ${date}`;
+        container.innerHTML = `<h3>News Event Insights for ${filterText}</h3>`;
+
+        // First row: 3 metrics
+        const row1 = document.createElement('div');
+        row1.className = 'insights-row three-metrics';
+        ['premarket_reaction', 'extreme_moves_930_1000', 'close_moves_930_1030'].forEach(key => {
+            if (insights[key]) {
+                const metric = document.createElement('div');
+                metric.className = 'insight-metric';
+                metric.innerHTML = `
+                    <div class="metric-name tooltip" title="${insights[key].description}">${key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</div>
+                    <div class="metric-median tooltip" title="The median is often preferred over the average (mean) when dealing with data that contains outliers or is skewed because it provides a more accurate representation of the central tendency in such cases.">${insights[key].median}%</div>
+                    <div class="metric-average">Avg: ${insights[key].average}%</div>
+                    <div class="metric-up-percentage">Up: ${insights[key].up_percentage}%</div>
+                    <div class="metric-description">${insights[key].description}</div>
+                `;
+                row1.appendChild(metric);
+            }
+        });
+        container.appendChild(row1);
+
+        // Second row: 2 metrics
+        const row2 = document.createElement('div');
+        row2.className = 'insights-row two-metrics';
+        ['premarket_level_touch', 'return_to_opposite_level'].forEach(key => {
+            if (insights[key]) {
+                const metric = document.createElement('div');
+                metric.className = 'insight-metric';
+                
+                if (key === 'premarket_level_touch') {
+                    metric.innerHTML = `
+                        <div class="metric-name tooltip" title="${insights[key].description}">${key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</div>
+                        <div class="metric-high-percentage">High Touch: ${insights[key].high_percentage}%</div>
+                        <div class="metric-same-direction">Same Dir: ${insights[key].same_direction_median}% (med) / ${insights[key].same_direction_average}% (avg)</div>
+                        <div class="metric-opposite-direction">Opposite Dir: ${insights[key].opposite_direction_median}% (med) / ${insights[key].opposite_direction_average}% (avg)</div>
+                        <div class="metric-description">${insights[key].description}</div>
+                    `;
+                } else {
+                    metric.innerHTML = `
+                        <div class="metric-name tooltip" title="${insights[key].description}">${key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</div>
+                        <div class="metric-return-percentage">${insights[key].return_percentage}%</div>
+                        <div class="metric-description">${insights[key].description}</div>
+                    `;
+                }
+                row2.appendChild(metric);
+            }
+        });
+        container.appendChild(row2);
+
+        insightsContainer.innerHTML = '';
+        insightsContainer.appendChild(container);
+        console.log('Event insights rendered successfully');
+
+        gtag('event', 'event_insights_load', {
+            'event_category': 'Event Insights',
+            'event_label': `${eventType}_${filterType}_${quarter || date}`
+        });
+    } catch (error) {
+        console.error('Error loading event insights:', error.message);
+        insightsContainer.innerHTML = '<p>Failed to load event insights: ' + error.message + '. Please try again later.</p>';
+        alert('Failed to load event insights: ' + error.message);
     }
 }
 
