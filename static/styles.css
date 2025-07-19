@@ -846,6 +846,20 @@ form button:disabled::before {
     margin-bottom: var(--spacing-lg);
 }
 
+.insights-row.four-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.insights-row.two-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.insights-row.one-metric {
+    grid-template-columns: 1fr;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
 .insight-metric {
     background: var(--light-grey);
     padding: var(--spacing-lg);
@@ -880,6 +894,27 @@ form button:disabled::before {
 
 .metric-average {
     color: var(--accent-green);
+}
+
+.metric-direction-bias {
+    font-size: 0.9rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--charcoal);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metric-opposite {
+    font-size: 0.9rem;
+    color: var(--dark-grey);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metric-counts {
+    font-size: 0.8rem;
+    color: var(--dark-grey);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--medium-grey);
 }
 
 .metric-description {

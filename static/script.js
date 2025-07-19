@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formEventsForm = document.getElementById('events-form');
         const formEarningsForm = document.getElementById('earnings-form');
         const formGapInsights = document.getElementById('gap-insights-form');
+        const formNewsEventInsights = document.getElementById('news-event-insights-form');
         
         if (formSimulator) formSimulator.addEventListener('submit', (e) => loadChart(e, 'market-simulator'));
         if (formGap) formGap.addEventListener('submit', (e) => loadChart(e, 'gap-analysis'));
@@ -65,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formEventsForm) formEventsForm.addEventListener('submit', loadEventDates);
         if (formEarningsForm) formEarningsForm.addEventListener('submit', loadEarningsDates);
         if (formGapInsights) formGapInsights.addEventListener('submit', loadGapInsights);
+        if (formNewsEventInsights) formNewsEventInsights.addEventListener('submit', loadNewsEventInsights);
         
         // Replay control listeners (Market Simulator)
         const playSimulator = document.getElementById('play-replay-simulator');
@@ -142,6 +144,12 @@ document.addEventListener('DOMContentLoaded', () => {
             radio.addEventListener('change', toggleEarningsFilterSection);
         });
 
+        // Handle filter type toggle for news event insights
+        const eventInsightsFilterRadios = document.querySelectorAll('input[name="event-insights-filter-type"]');
+        eventInsightsFilterRadios.forEach(radio => {
+            radio.addEventListener('change', toggleEventInsightsFilterSection);
+        });
+
         // Initialize ticker selects for all tabs
         const tickerSimulator = document.getElementById('ticker-select-simulator');
         const tickerGap = document.getElementById('ticker-select-gap');
@@ -150,6 +158,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tickerSimulator) tickerSimulator.addEventListener('change', () => loadDates('ticker-select-simulator', 'date-simulator'));
         if (tickerGap) tickerGap.addEventListener('change', () => loadDates('ticker-select-gap', 'date-gap'));
         if (tickerEvents) tickerEvents.addEventListener('change', () => loadDates('ticker-select-events', 'date-events'));
+        
+        // Event type select listeners for news event insights
+        const eventInsightsTypeSelect = document.getElementById('event-insights-type-select');
+        const eventInsightsTypeBinSelect = document.getElementById('event-insights-type-bin-select');
+        const eventInsightsBinSelect = document.getElementById('event-insights-bin-select');
+        
+        if (eventInsightsTypeSelect) eventInsightsTypeSelect.addEventListener('change', populateEventInsightsBinOptions);
+        if (eventInsightsTypeBinSelect) eventInsightsTypeBinSelect.addEventListener('change', populateEventInsightsBinOptions);
     }
 });
 
@@ -4591,4 +4607,232 @@ function openTab(tabName) {
         'event_category': 'Navigation',
         'event_label': tabName
     });
+}
+
+// News Event Insights Functions
+function toggleEventInsightsFilterSection() {
+    const eventOnlyFilter = document.getElementById('event-only-filter');
+    const eventBinFilter = document.getElementById('event-bin-filter');
+    
+    if (eventOnlyFilter && eventBinFilter) {
+        const selectedValue = document.querySelector('input[name="event-insights-filter-type"]:checked').value;
+        
+        if (selectedValue === 'event-only') {
+            eventOnlyFilter.classList.add('active');
+            eventBinFilter.classList.remove('active');
+        } else {
+            eventOnlyFilter.classList.remove('active');
+            eventBinFilter.classList.add('active');
+        }
+    }
+}
+
+function populateEventInsightsBinOptions() {
+    const eventTypeSelect = document.querySelector('input[name="event-insights-filter-type"]:checked').value === 'event-only' 
+        ? document.getElementById('event-insights-type-select') 
+        : document.getElementById('event-insights-type-bin-select');
+    const binSelect = document.getElementById('event-insights-bin-select');
+    
+    if (!eventTypeSelect || !binSelect) return;
+    
+    const eventType = eventTypeSelect.value;
+    
+    // Clear existing options
+    binSelect.innerHTML = '<option value="">Select range</option>';
+    
+    if (!eventType) return;
+    
+    // Define bin options for each event type
+    const binOptions = {
+        'NFP': ['<0K', '0-100K', '100-200K', '200-300K', '>300K'],
+        'CPI': ['<0%', '0-1%', '1-2%', '2-3%', '3-5%', '>5%'],
+        'PPI': ['<0%', '0-2%', '2-4%', '4-8%', '>8%']
+    };
+    
+    const options = binOptions[eventType] || [];
+    
+    options.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option;
+        optionElement.textContent = option;
+        binSelect.appendChild(optionElement);
+    });
+}
+
+async function loadNewsEventInsights(event) {
+    event.preventDefault();
+    
+    const filterType = document.querySelector('input[name="event-insights-filter-type"]:checked').value;
+    const eventType = filterType === 'event-only' 
+        ? document.getElementById('event-insights-type-select').value
+        : document.getElementById('event-insights-type-bin-select').value;
+    const binValue = filterType === 'event-bin' ? document.getElementById('event-insights-bin-select').value : null;
+    
+    const insightsContainer = document.getElementById('news-event-insights-results');
+    const form = document.getElementById('news-event-insights-form');
+    const button = form.querySelector('button[type="submit"]');
+    const selects = form.querySelectorAll('select');
+
+    if (!eventType) {
+        insightsContainer.innerHTML = '<p>Please select an event type.</p>';
+        return;
+    }
+    
+    if (filterType === 'event-bin' && !binValue) {
+        insightsContainer.innerHTML = '<p>Please select a data range.</p>';
+        return;
+    }
+    
+    console.log(`Fetching news event insights for event_type=${eventType}, bin=${binValue}`);
+    
+    // Add action parameters for rate limiting
+    const isInSampleMode = window.SAMPLE_MODE || window.location.pathname.includes('/sample');
+    let url = `/api/news_event_insights?event_type=${encodeURIComponent(eventType)}`;
+    if (binValue) {
+        url += `&bin=${encodeURIComponent(binValue)}`;
+    }
+    if (!isInSampleMode) {
+        url += '&main_action=get_insights';
+    }
+    
+    console.log('Fetching URL:', url);
+    insightsContainer.innerHTML = '<p>Loading news event insights...</p>';
+    
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.status === 429) {
+            const data = await response.json();
+            console.error('Rate limit error:', data.error);
+            
+            insightsContainer.innerHTML = `
+                <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px; margin: 10px 0; text-align: center;">
+                    <h4 style="color: #721c24; margin: 0 0 10px 0;">📊 News Event Insights Limit Reached</h4>
+                    <p style="color: #721c24; margin: 0 0 15px 0; font-size: 16px;">You've used your 3 free News Event Insights requests. Please wait 12 hours or upgrade your plan.</p>
+                    <p style="color: #6c757d; margin: 0; font-size: 14px;">News Event Insights have a 3-request limit that resets in 12 hours</p>
+                </div>
+            `;
+            button.disabled = true;
+            button.textContent = 'Insights Limit Reached';
+            selects.forEach(select => select.disabled = true);
+            
+            // Set timeout for 12 hours reset
+            const resetTime = Date.now() + 12 * 60 * 60 * 1000;
+            localStorage.setItem('newsEventInsightsActionLimitReset', resetTime);
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = 'Get Event Insights';
+                selects.forEach(select => select.disabled = false);
+                localStorage.removeItem('newsEventInsightsActionLimitReset');
+                insightsContainer.innerHTML = '<p>Select an event type and optionally a data range to view news event insights.</p>';
+            }, 12 * 60 * 60 * 1000);
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('News event insights API response:', JSON.stringify(data, null, 2));
+        
+        if (data.error) {
+            console.error('Error from news event insights API:', data.error);
+            insightsContainer.innerHTML = `<p>${data.error}</p>`;
+            return;
+        }
+        
+        if (!data.insights || Object.keys(data.insights).length === 0) {
+            console.log('No news event insights found:', data.message || 'No insights returned');
+            insightsContainer.innerHTML = `<p>${data.message || 'No news event insights found for the selected criteria'}</p>`;
+            return;
+        }
+        
+        console.log('Rendering news event insights:', data.insights);
+        
+        const insights = data.insights;
+        const container = document.createElement('div');
+        container.className = 'insights-container';
+        
+        const filterText = binValue ? `${eventType} - ${binValue}` : eventType;
+        container.innerHTML = `<h3>News Event Insights for ${filterText}</h3>`;
+
+        // First row: 4 metrics
+        const row1 = document.createElement('div');
+        row1.className = 'insights-row four-metrics';
+        
+        const firstRowMetrics = ['premarket_reaction', 'extreme_moves_930_1000', 'regular_moves_930_1030', 'premarket_level_touch'];
+        firstRowMetrics.forEach(key => {
+            if (insights[key]) {
+                const metric = document.createElement('div');
+                metric.className = 'insight-metric';
+                
+                let valueDisplay = '';
+                if (key === 'premarket_level_touch') {
+                    // Special handling for premarket level touch with both same and opposite direction
+                    valueDisplay = `
+                        <div class="metric-median">${insights[key].median}%</div>
+                        <div class="metric-average">Avg: ${insights[key].average}%</div>
+                        <div class="metric-direction-bias">Touch Bias: ${insights[key].touch_bias}</div>
+                        <div class="metric-opposite">Opposite: ${insights[key].opposite_median}%</div>
+                    `;
+                } else {
+                    valueDisplay = `
+                        <div class="metric-median">${insights[key].median}%</div>
+                        <div class="metric-average">Avg: ${insights[key].average}%</div>
+                        <div class="metric-direction-bias">Bias: ${insights[key].direction_bias}</div>
+                    `;
+                }
+                
+                metric.innerHTML = `
+                    <div class="metric-name">${key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</div>
+                    ${valueDisplay}
+                    <div class="metric-description">${insights[key].description}</div>
+                    <div class="metric-counts">${insights[key].up_count || 0} Up, ${insights[key].down_count || 0} Down (${insights[key].total_count || 0} total)</div>
+                `;
+                row1.appendChild(metric);
+            }
+        });
+        container.appendChild(row1);
+
+        // Second row: 1 metric (return to opposite level)
+        const row2 = document.createElement('div');
+        row2.className = 'insights-row one-metric';
+        
+        if (insights['return_to_opposite_level']) {
+            const metric = document.createElement('div');
+            metric.className = 'insight-metric';
+            metric.innerHTML = `
+                <div class="metric-name">Return To Opposite Level</div>
+                <div class="metric-average">${insights['return_to_opposite_level'].average}%</div>
+                <div class="metric-description">${insights['return_to_opposite_level'].description}</div>
+                <div class="metric-counts">${insights['return_to_opposite_level'].return_count} Returned, ${insights['return_to_opposite_level'].no_return_count} Not Returned (${insights['return_to_opposite_level'].total_count} total)</div>
+            `;
+            row2.appendChild(metric);
+        }
+        container.appendChild(row2);
+
+        insightsContainer.innerHTML = '';
+        insightsContainer.appendChild(container);
+        console.log('News event insights rendered successfully');
+
+        gtag('event', 'news_event_insights_load', {
+            'event_category': 'News Event Insights',
+            'event_label': `${eventType}_${binValue || 'all'}`
+        });
+        
+    } catch (error) {
+        console.error('Error loading news event insights:', error.message);
+        insightsContainer.innerHTML = '<p>Failed to load news event insights: ' + error.message + '. Please try again later.</p>';
+        alert('Failed to load news event insights: ' + error.message);
+    }
 }
