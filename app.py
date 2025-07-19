@@ -30,7 +30,7 @@ app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key-12345')
 app.config['SESSION_COOKIE_NAME'] = 'onemchart_session'
-app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to False for development
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
@@ -48,14 +48,26 @@ def get_session_key():
     return session['user_id']
 
 # Configure Flask-Limiter with Redis
-limiter = Limiter(
-    get_session_key,
-    app=app,
-    default_limits=["10 per 12 hours"],
-    storage_uri=os.environ.get('REDIS_URL', 'redis://localhost:6379'),
-    storage_options={"socket_connect_timeout": 30, "socket_timeout": 30},
-    headers_enabled=True
-)
+try:
+    limiter = Limiter(
+        get_session_key,
+        app=app,
+        default_limits=["10 per 12 hours"],
+        storage_uri=os.environ.get('REDIS_URL', 'redis://localhost:6379'),
+        storage_options={"socket_connect_timeout": 30, "socket_timeout": 30},
+        headers_enabled=True
+    )
+except Exception as e:
+    logging.error(f"Failed to configure Redis limiter: {str(e)}")
+    # Fallback to in-memory storage
+    limiter = Limiter(
+        get_session_key,
+        app=app,
+        default_limits=["10 per 12 hours"],
+        storage_uri="memory://",
+        headers_enabled=True
+    )
+    logging.warning("Using in-memory storage for rate limiting")
 
 # Helper function to check and enforce main site action limits (shared 10 clicks)
 def check_main_action_limit():
