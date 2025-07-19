@@ -282,7 +282,15 @@ try:
     logging.info("Successfully connected to Redis")
 except redis.ConnectionError as e:
     logging.error(f"Failed to connect to Redis: {str(e)}")
-    limiter.storage = limiter.storage_memory()
+    # Fallback to in-memory storage for rate limiting
+    from flask_limiter.util import get_remote_address
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=["10 per 12 hours"],
+        storage_uri="memory://",
+        headers_enabled=True
+    )
     logging.warning("Falling back to in-memory storage for rate limiting")
 
 # Custom error handler for rate limit exceeded
@@ -997,12 +1005,12 @@ def get_gap_insights():
             'median_time_of_low': {
                 'median': minutes_to_time(median_low_minutes),
                 'average': minutes_to_time(average_low_minutes),
-                'description': 'Median time of the day's low'
+                'description': 'Median time of the day\'s low'
             },
             'median_time_of_high': {
                 'median': minutes_to_time(median_high_minutes),
                 'average': minutes_to_time(average_high_minutes),
-                'description': 'Median time of the day's high'
+                'description': 'Median time of the day\'s high'
             },
             'reversal_after_fill_rate': {
                 'average': round(reversal_after_fill_rate, 2),
@@ -1293,9 +1301,12 @@ def get_news_event_insights():
             logging.error(f"Event analysis metrics file not found: {event_metrics_path}")
             return jsonify({'error': 'Event analysis data file not found. Please contact support.'}), 404
         
+        # Read CSV data using built-in csv module
         try:
-            df = pd.read_csv(event_metrics_path)
-            logging.debug(f"Loaded event analysis data with shape: {df.shape}")
+            with open(event_metrics_path, 'r', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                data = list(reader)
+            logging.debug(f"Loaded event analysis data with {len(data)} rows")
         except Exception as e:
             logging.error(f"Error reading event analysis data file {event_metrics_path}: {str(e)}")
             return jsonify({'error': f'Failed to load event analysis data: {str(e)}'}), 500
@@ -1310,103 +1321,131 @@ def get_news_event_insights():
             'returned_to_opposite_level'
         ]
         
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        if not data:
+            return jsonify({'error': 'Event analysis data file is empty'}), 400
+        
+        missing_columns = [col for col in required_columns if col not in data[0].keys()]
         if missing_columns:
             logging.error(f"Invalid event analysis data format: missing columns {missing_columns}")
             return jsonify({'error': f'Invalid event analysis data format: missing columns {missing_columns}'}), 400
         
         # Filter data based on parameters
+        filtered_data = data
         if event_type:
-            df = df[df['event_type'] == event_type]
+            filtered_data = [row for row in filtered_data if row['event_type'] == event_type]
         
         if bin_value:
-            df = df[df['bin'] == bin_value]
+            filtered_data = [row for row in filtered_data if row['bin'] == bin_value]
         
-        if df.empty:
+        if not filtered_data:
             logging.debug(f"No event analysis data found for event_type={event_type}, bin={bin_value}")
             return jsonify({'insights': {}, 'message': f'No event analysis data found for the selected criteria'})
         
-        logging.debug(f"Filtered DataFrame shape: {df.shape}")
+        logging.debug(f"Filtered data rows: {len(filtered_data)}")
+        
+        # Helper function to calculate median
+        def calculate_median(values):
+            if not values:
+                return 0
+            sorted_values = sorted(values)
+            n = len(sorted_values)
+            if n % 2 == 0:
+                return (sorted_values[n//2 - 1] + sorted_values[n//2]) / 2
+            else:
+                return sorted_values[n//2]
+        
+        # Helper function to calculate mean
+        def calculate_mean(values):
+            if not values:
+                return 0
+            return sum(values) / len(values)
+        
+        # Helper function to parse numeric values safely
+        def safe_float(value):
+            try:
+                return float(value) if value and value.strip() else None
+            except (ValueError, TypeError):
+                return None
         
         # Calculate insights for each metric
         insights = {}
         
         # 1. 8:30-8:31 PRE MARKET reaction to data release move %
-        pm_moves = df['percent_move_830_831'].dropna()
-        pm_directions = df['direction'].dropna()
+        pm_moves = [safe_float(row['percent_move_830_831']) for row in filtered_data if safe_float(row['percent_move_830_831']) is not None]
+        pm_directions = [row['direction'] for row in filtered_data if row['direction']]
         
-        if not pm_moves.empty:
+        if pm_moves:
             insights['premarket_reaction'] = {
-                'median': round(pm_moves.median(), 2),
-                'average': round(pm_moves.mean(), 2),
+                'median': round(calculate_median(pm_moves), 2),
+                'average': round(calculate_mean(pm_moves), 2),
                 'description': '8:30-8:31 PRE MARKET reaction to data release move %',
-                'direction_bias': 'Up' if (pm_directions == 'Up').sum() > (pm_directions == 'Down').sum() else 'Down',
-                'up_count': (pm_directions == 'Up').sum(),
-                'down_count': (pm_directions == 'Down').sum(),
+                'direction_bias': 'Up' if pm_directions.count('Up') > pm_directions.count('Down') else 'Down',
+                'up_count': pm_directions.count('Up'),
+                'down_count': pm_directions.count('Down'),
                 'total_count': len(pm_directions)
             }
         
         # 2. Move between 9:30 - 10:00 to highest high or lowest low
-        extreme_moves = df['percent_move_930_959_extreme'].dropna()
-        extreme_directions = df['direction_930_959_extreme'].dropna()
+        extreme_moves = [safe_float(row['percent_move_930_959_extreme']) for row in filtered_data if safe_float(row['percent_move_930_959_extreme']) is not None]
+        extreme_directions = [row['direction_930_959_extreme'] for row in filtered_data if row['direction_930_959_extreme']]
         
-        if not extreme_moves.empty:
+        if extreme_moves:
             insights['extreme_moves_930_1000'] = {
-                'median': round(extreme_moves.median(), 2),
-                'average': round(extreme_moves.mean(), 2),
+                'median': round(calculate_median(extreme_moves), 2),
+                'average': round(calculate_mean(extreme_moves), 2),
                 'description': 'Move between 9:30 - 10:00 to highest high or lowest low',
-                'direction_bias': 'Up' if (extreme_directions == 'Up').sum() > (extreme_directions == 'Down').sum() else 'Down',
-                'up_count': (extreme_directions == 'Up').sum(),
-                'down_count': (extreme_directions == 'Down').sum(),
+                'direction_bias': 'Up' if extreme_directions.count('Up') > extreme_directions.count('Down') else 'Down',
+                'up_count': extreme_directions.count('Up'),
+                'down_count': extreme_directions.count('Down'),
                 'total_count': len(extreme_directions)
             }
         
         # 3. Move between 9:30 - 10:30 close, no extreme moves
-        regular_moves = df['percent_move_930_1030_x'].dropna()
-        regular_directions = df['direction_930_1030_x'].dropna()
+        regular_moves = [safe_float(row['percent_move_930_1030_x']) for row in filtered_data if safe_float(row['percent_move_930_1030_x']) is not None]
+        regular_directions = [row['direction_930_1030_x'] for row in filtered_data if row['direction_930_1030_x']]
         
-        if not regular_moves.empty:
+        if regular_moves:
             insights['regular_moves_930_1030'] = {
-                'median': round(regular_moves.median(), 2),
-                'average': round(regular_moves.mean(), 2),
+                'median': round(calculate_median(regular_moves), 2),
+                'average': round(calculate_mean(regular_moves), 2),
                 'description': 'Move between 9:30 - 10:30 close, no extreme moves',
-                'direction_bias': 'Up' if (regular_directions == 'Up').sum() > (regular_directions == 'Down').sum() else 'Down',
-                'up_count': (regular_directions == 'Up').sum(),
-                'down_count': (regular_directions == 'Down').sum(),
+                'direction_bias': 'Up' if regular_directions.count('Up') > regular_directions.count('Down') else 'Down',
+                'up_count': regular_directions.count('Up'),
+                'down_count': regular_directions.count('Down'),
                 'total_count': len(regular_directions)
             }
         
         # 4. First touch of pre market low or high
-        touch_levels = df['touched_premarket_level_x'].dropna()
-        same_direction_moves = df['percent_move_same_direction'].dropna()
-        opposite_direction_moves = df['percent_move_opposite_direction'].dropna()
+        touch_levels = [row['touched_premarket_level_x'] for row in filtered_data if row['touched_premarket_level_x']]
+        same_direction_moves = [safe_float(row['percent_move_same_direction']) for row in filtered_data if safe_float(row['percent_move_same_direction']) is not None]
+        opposite_direction_moves = [safe_float(row['percent_move_opposite_direction']) for row in filtered_data if safe_float(row['percent_move_opposite_direction']) is not None]
         
-        if not touch_levels.empty:
+        if touch_levels:
             insights['premarket_level_touch'] = {
-                'median': round(same_direction_moves.median(), 2) if not same_direction_moves.empty else None,
-                'average': round(same_direction_moves.mean(), 2) if not same_direction_moves.empty else None,
+                'median': round(calculate_median(same_direction_moves), 2) if same_direction_moves else None,
+                'average': round(calculate_mean(same_direction_moves), 2) if same_direction_moves else None,
                 'description': 'First touch of pre market low or high - move in direction of touch',
-                'touch_bias': 'High' if (touch_levels == 'High').sum() > (touch_levels == 'Low').sum() else 'Low',
-                'high_count': (touch_levels == 'High').sum(),
-                'low_count': (touch_levels == 'Low').sum(),
+                'touch_bias': 'High' if touch_levels.count('High') > touch_levels.count('Low') else 'Low',
+                'high_count': touch_levels.count('High'),
+                'low_count': touch_levels.count('Low'),
                 'total_count': len(touch_levels),
-                'opposite_median': round(opposite_direction_moves.median(), 2) if not opposite_direction_moves.empty else None,
-                'opposite_average': round(opposite_direction_moves.mean(), 2) if not opposite_direction_moves.empty else None,
+                'opposite_median': round(calculate_median(opposite_direction_moves), 2) if opposite_direction_moves else None,
+                'opposite_average': round(calculate_mean(opposite_direction_moves), 2) if opposite_direction_moves else None,
                 'opposite_description': 'Move opposite to touch direction (reversal)'
             }
         
         # 5. % of price return to pre market high or low after hit the pre market high or low in other direction
-        return_levels = df['touched_premarket_level'].dropna()
-        returned_to_opposite = df['returned_to_opposite_level'].dropna()
+        return_levels = [row['touched_premarket_level'] for row in filtered_data if row['touched_premarket_level']]
+        returned_to_opposite = [row['returned_to_opposite_level'] for row in filtered_data if row['returned_to_opposite_level']]
         
-        if not return_levels.empty:
-            return_rate = (returned_to_opposite == 'Yes').sum() / len(returned_to_opposite) * 100 if not returned_to_opposite.empty else 0
+        if return_levels and returned_to_opposite:
+            return_rate = (returned_to_opposite.count('Yes') / len(returned_to_opposite)) * 100
             insights['return_to_opposite_level'] = {
                 'average': round(return_rate, 1),
                 'description': '% of price return to pre market high or low after hit the pre market high or low in other direction',
-                'return_count': (returned_to_opposite == 'Yes').sum() if not returned_to_opposite.empty else 0,
-                'no_return_count': (returned_to_opposite == 'No').sum() if not returned_to_opposite.empty else 0,
-                'total_count': len(returned_to_opposite) if not returned_to_opposite.empty else 0
+                'return_count': returned_to_opposite.count('Yes'),
+                'no_return_count': returned_to_opposite.count('No'),
+                'total_count': len(returned_to_opposite)
             }
         
         logging.debug(f"Calculated insights: {list(insights.keys())}")
@@ -1415,7 +1454,7 @@ def get_news_event_insights():
             'insights': insights,
             'event_type': event_type,
             'bin': bin_value,
-            'data_points': len(df)
+            'data_points': len(filtered_data)
         })
         
     except Exception as e:
