@@ -951,11 +951,11 @@ def get_event_insights():
     
     try:
         event_type = request.args.get('event_type')
-        quarter = request.args.get('quarter')
-        date = request.args.get('date')
-        filter_type = request.args.get('filter_type', 'quarter')
+        year = request.args.get('year')
+        bin_value = request.args.get('bin')
+        filter_type = request.args.get('filter_type', 'year')
         
-        logging.debug(f"Fetching event insights for event_type={event_type}, quarter={quarter}, date={date}, filter_type={filter_type}")
+        logging.debug(f"Fetching event insights for event_type={event_type}, year={year}, bin={bin_value}, filter_type={filter_type}")
         
         if not os.path.exists(EVENT_ANALYSIS_DATA_PATH):
             logging.error(f"Event analysis data file not found: {EVENT_ANALYSIS_DATA_PATH}")
@@ -969,7 +969,7 @@ def get_event_insights():
             return jsonify({'error': f'Failed to load event analysis data: {str(e)}'}), 500
         
         required_columns = [
-            'event_type', 'quarter', 'date', 'percent_move_830_831', 'direction',
+            'event_type', 'year', 'bin', 'percent_move_830_831', 'direction',
             'percent_move_930_959_extreme', 'direction_930_959_extreme',
             'percent_move_930_1030_x', 'direction_930_1030_x',
             'touched_premarket_level_x', 'percent_move_same_direction',
@@ -982,24 +982,24 @@ def get_event_insights():
             return jsonify({'error': 'Invalid event analysis data format'}), 400
         
         # Filter data based on filter type
-        if filter_type == 'quarter':
-            if not event_type or not quarter:
-                return jsonify({'error': 'Event type and quarter are required'}), 400
+        if filter_type == 'year':
+            if not event_type or not year:
+                return jsonify({'error': 'Event type and year are required'}), 400
             filtered_df = df[
                 (df['event_type'] == event_type) &
-                (df['quarter'] == quarter)
+                (df['year'] == year)
             ].copy()
-        else:  # date filter
-            if not event_type or not date:
-                return jsonify({'error': 'Event type and date are required'}), 400
+        else:  # bin filter
+            if not event_type or not bin_value:
+                return jsonify({'error': 'Event type and economic impact range are required'}), 400
             filtered_df = df[
                 (df['event_type'] == event_type) &
-                (df['date'] == date)
+                (df['bin'] == bin_value)
             ].copy()
         
         logging.debug(f"Filtered DataFrame shape: {filtered_df.shape}")
         if filtered_df.empty:
-            logging.debug(f"No data found for event_type={event_type}, quarter={quarter}, date={date}")
+            logging.debug(f"No data found for event_type={event_type}, year={year}, bin={bin_value}")
             return jsonify({'insights': {}, 'message': 'No data found for the selected criteria'})
         
         # Calculate insights for each metric

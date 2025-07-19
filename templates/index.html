@@ -334,12 +334,12 @@
                 <p>Analyze market reactions to key news events with detailed metrics and insights from event-driven price action patterns.</p>
                 
                 <div class="filter-toggle">
-                    <label><input type="radio" name="event-insights-filter-type" value="quarter" checked> Filter by Event Type and Quarter</label>
-                    <label><input type="radio" name="event-insights-filter-type" value="date"> Filter by Event Type and Date</label>
+                    <label><input type="radio" name="event-insights-filter-type" value="year" checked> Filter by Event Type and Year</label>
+                    <label><input type="radio" name="event-insights-filter-type" value="bin"> Filter by Event Type and Economic Impact Range</label>
                 </div>
                 
                 <form id="event-insights-form">
-                    <div id="quarter-filter" class="filter-section active">
+                    <div id="year-filter" class="filter-section active">
                         <label for="event-insights-type-select">Select Event Type:</label>
                         <select id="event-insights-type-select" name="event_type">
                             <option value="">Select event type</option>
@@ -348,31 +348,32 @@
                             <option value="FOMC">FOMC</option>
                             <option value="NFP">NFP</option>
                         </select>
-                        <label for="quarter-select">Select Quarter:</label>
-                        <select id="quarter-select" name="quarter">
-                            <option value="">Select quarter</option>
-                            <option value="Q1">Q1</option>
-                            <option value="Q2">Q2</option>
-                            <option value="Q3">Q3</option>
-                            <option value="Q4">Q4</option>
+                        <label for="year-insights-select">Select Year:</label>
+                        <select id="year-insights-select" name="year">
+                            <option value="">Select year</option>
                         </select>
                     </div>
-                    <div id="date-filter" class="filter-section">
-                        <label for="event-insights-type-select-date">Select Event Type:</label>
-                        <select id="event-insights-type-select-date" name="event_type">
+                    <div id="bin-filter" class="filter-section">
+                        <label for="event-insights-type-select-bin">Select Event Type:</label>
+                        <select id="event-insights-type-select-bin" name="event_type">
                             <option value="">Select event type</option>
                             <option value="CPI">CPI</option>
                             <option value="PPI">PPI</option>
                             <option value="FOMC">FOMC</option>
                             <option value="NFP">NFP</option>
                         </select>
-                        <label for="date-insights-select">Select Date:</label>
-                        <input type="date" id="date-insights-select" name="date">
+                        <label for="bin-insights-select">Select Economic Impact Range:</label>
+                        <select id="bin-insights-select" name="bin">
+                            <option value="">Select range</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
                     </div>
                     <button type="submit">Get Event Insights</button>
                 </form>
                 <div id="event-insights-results">
-                    <p>Select an event type and quarter/date to view news event insights and statistics.</p>
+                    <p>Select an event type and year/economic impact range to view news event insights and statistics.</p>
                 </div>
             </div>
             <!-- News Event Analysis Section -->
