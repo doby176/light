@@ -2028,8 +2028,8 @@ function toggleEarningsFilterSection() {
 }
 
 function toggleEventInsightsFilterSection() {
-    const eventOnlyFilter = document.getElementById('event-only-filter');
-    const binFilter = document.getElementById('bin-filter');
+    const eventOnlyFilter = document.getElementById('event-insights-event-only-filter');
+    const binFilter = document.getElementById('event-insights-bin-filter');
     const filterType = document.querySelector('input[name="event-insights-filter-type"]:checked').value;
 
     eventOnlyFilter.classList.remove('active');
