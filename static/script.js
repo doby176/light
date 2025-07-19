@@ -4778,13 +4778,23 @@ async function loadNewsEventInsights(event) {
                 
                 let valueDisplay = '';
                 if (key === 'premarket_level_touch') {
-                    // Special handling for premarket level touch - show which level gets hit first
+                    // Special handling for premarket level touch - show which level gets hit first with nested cards
                     valueDisplay = `
                         <div class="metric-median">${insights[key].touch_bias}</div>
                         <div class="metric-average">High: ${insights[key].high_percentage}%</div>
                         <div class="metric-direction-bias">Low: ${insights[key].low_percentage}%</div>
-                        <div class="metric-opposite">Same Dir: ${insights[key].same_direction_median}% (Avg: ${insights[key].same_direction_average}%)</div>
-                        <div class="metric-opposite">Reversal: ${insights[key].opposite_direction_median}% (Avg: ${insights[key].opposite_direction_average}%)</div>
+                        
+                        <div class="nested-metric-card">
+                            <div class="nested-metric-title">Same Direction Moves</div>
+                            <div class="nested-metric-median">${insights[key].same_direction_median}%</div>
+                            <div class="nested-metric-average">Avg: ${insights[key].same_direction_average}%</div>
+                        </div>
+                        
+                        <div class="nested-metric-card">
+                            <div class="nested-metric-title">Reversal Moves</div>
+                            <div class="nested-metric-median">${insights[key].opposite_direction_median}%</div>
+                            <div class="nested-metric-average">Avg: ${insights[key].opposite_direction_average}%</div>
+                        </div>
                     `;
                 } else {
                     valueDisplay = `

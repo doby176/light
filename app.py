@@ -6,7 +6,10 @@ import json
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for
 from flask_limiter import Limiter
 from flask_session import Session
-# import pandas as pd  # Temporarily disabled due to Python 3.13 compatibility issues
+try:
+    import pandas as pd
+except ImportError:
+    from pandas_replacement import pd
 import csv
 import logging
 import sqlite3
