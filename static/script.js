@@ -2041,9 +2041,34 @@ function activateMeasurementTool(section) {
         const priceScale = chart.priceScale();
         const timeScale = chart.timeScale();
         
-        // Convert click coordinates to price
-        const price = priceScale.coordinateToPrice(param.point.y);
-        const time = timeScale.coordinateToTime(param.point.x);
+        console.log('Price scale methods:', Object.getOwnPropertyNames(priceScale));
+        console.log('Time scale methods:', Object.getOwnPropertyNames(timeScale));
+        console.log('Click point:', param.point);
+        
+        // Try different method names for coordinate conversion
+        let price = null;
+        let time = null;
+        
+        try {
+            // Try different possible method names
+            if (priceScale.coordinateToPrice) {
+                price = priceScale.coordinateToPrice(param.point.y);
+            } else if (priceScale.priceForCoordinate) {
+                price = priceScale.priceForCoordinate(param.point.y);
+            } else if (priceScale.coordinateToLogical) {
+                price = priceScale.coordinateToLogical(param.point.y);
+            }
+            
+            if (timeScale.coordinateToTime) {
+                time = timeScale.coordinateToTime(param.point.x);
+            } else if (timeScale.timeForCoordinate) {
+                time = timeScale.timeForCoordinate(param.point.x);
+            } else if (timeScale.coordinateToLogical) {
+                time = timeScale.coordinateToLogical(param.point.x);
+            }
+        } catch (error) {
+            console.log('Error converting coordinates:', error);
+        }
         
         console.log('Converted coordinates - price:', price, 'time:', time);
         
