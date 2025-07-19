@@ -4783,8 +4783,8 @@ async function loadNewsEventInsights(event) {
                         <div class="metric-median">${insights[key].touch_bias}</div>
                         <div class="metric-average">High: ${insights[key].high_percentage}%</div>
                         <div class="metric-direction-bias">Low: ${insights[key].low_percentage}%</div>
-                        <div class="metric-opposite">Same Dir: ${insights[key].same_direction_median}%</div>
-                        <div class="metric-opposite">Reversal: ${insights[key].opposite_direction_median}%</div>
+                        <div class="metric-opposite">Same Dir: ${insights[key].same_direction_median}% (Avg: ${insights[key].same_direction_average}%)</div>
+                        <div class="metric-opposite">Reversal: ${insights[key].opposite_direction_median}% (Avg: ${insights[key].opposite_direction_average}%)</div>
                     `;
                 } else {
                     valueDisplay = `
