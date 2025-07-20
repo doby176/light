@@ -1492,7 +1492,15 @@ footer p {
     opacity: 0.8;
 }
 
-.footer .downpic-image {
+.footer .buttom1-image {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    height: auto;
+    z-index: 1;
+}
+
+.footer .buttom2-image {
     position: absolute;
     bottom: 0;
     left: 0;
