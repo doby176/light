@@ -157,14 +157,7 @@ header::before {
     transform: scale(1.02);
 }
 
-.landing-header .candles-image {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    height: auto;
-    z-index: 1;
-}
+
 
 /* Animation on page load */
 @keyframes slideInCandles {
