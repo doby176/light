@@ -101,6 +101,77 @@ header::before {
     pointer-events: none;
 }
 
+.candles-image {
+    height: 60px;
+    margin-right: 15px;
+    border-radius: 8px;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    transition: var(--transition-medium);
+}
+
+.candles-image:hover {
+    transform: scale(1.02);
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+}
+
+/* Header content container for home page */
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: var(--spacing-lg);
+}
+
+/* Sliding candles image for home page */
+.candles-image-slide {
+    max-width: 450px;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+    transition: transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: translateX(-80px);
+    opacity: 0.9;
+    position: absolute;
+    left: 0;
+    margin-left: -100px; /* Start off-screen to the left */
+    z-index: 1;
+}
+
+.candles-image-slide:hover {
+    transform: translateX(-60px) scale(1.05);
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+    opacity: 1;
+}
+
+/* Logo positioning for home page */
+.landing-header .logo {
+    position: relative;
+    z-index: 2;
+    transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.landing-header .logo:hover {
+    transform: scale(1.02);
+}
+
+/* Animation on page load */
+@keyframes slideInCandles {
+    0% {
+        transform: translateX(-150px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(-80px);
+        opacity: 0.9;
+    }
+}
+
+.candles-image-slide {
+    animation: slideInCandles 1.5s ease-out forwards;
+}
+
 .logo {
     max-width: 450px;
     width: 100%;
@@ -846,6 +917,20 @@ form button:disabled::before {
     margin-bottom: var(--spacing-lg);
 }
 
+.insights-row.four-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.insights-row.two-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.insights-row.one-metric {
+    grid-template-columns: 1fr;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
 .insight-metric {
     background: var(--light-grey);
     padding: var(--spacing-lg);
@@ -880,6 +965,27 @@ form button:disabled::before {
 
 .metric-average {
     color: var(--accent-green);
+}
+
+.metric-direction-bias {
+    font-size: 0.9rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--charcoal);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metric-opposite {
+    font-size: 0.9rem;
+    color: var(--dark-grey);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metric-counts {
+    font-size: 0.8rem;
+    color: var(--dark-grey);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--medium-grey);
 }
 
 .metric-description {
@@ -2097,4 +2203,50 @@ footer p {
         box-shadow: none;
         border: 1px solid #ccc;
     }
+}
+
+/* Nested metric cards for premarket level touch */
+.nested-metric-card {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.nested-metric-title {
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.nested-metric-median {
+    font-size: 18px;
+    font-weight: bold;
+    color: #007bff;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.nested-metric-average {
+    font-size: 14px;
+    color: #28a745;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Measurement Tool Button Styles */
+.drawing-tool-btn.active {
+    background: #4CAF50 !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    transform: translateY(-1px);
+}
+
+.drawing-tool-btn.active:hover {
+    background: #45a049 !important;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
 }

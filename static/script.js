@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formEventsForm = document.getElementById('events-form');
         const formEarningsForm = document.getElementById('earnings-form');
         const formGapInsights = document.getElementById('gap-insights-form');
+        const formNewsEventInsights = document.getElementById('news-event-insights-form');
         
         if (formSimulator) formSimulator.addEventListener('submit', (e) => loadChart(e, 'market-simulator'));
         if (formGap) formGap.addEventListener('submit', (e) => loadChart(e, 'gap-analysis'));
@@ -65,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formEventsForm) formEventsForm.addEventListener('submit', loadEventDates);
         if (formEarningsForm) formEarningsForm.addEventListener('submit', loadEarningsDates);
         if (formGapInsights) formGapInsights.addEventListener('submit', loadGapInsights);
+        if (formNewsEventInsights) formNewsEventInsights.addEventListener('submit', loadNewsEventInsights);
         
         // Replay control listeners (Market Simulator)
         const playSimulator = document.getElementById('play-replay-simulator');
@@ -136,10 +138,16 @@ document.addEventListener('DOMContentLoaded', () => {
             radio.addEventListener('change', toggleFilterSection);
         });
 
-        // Handle filter type toggle for earnings
+                // Handle filter type toggle for earnings
         const earningsFilterRadios = document.querySelectorAll('input[name="earnings-filter-type"]');
         earningsFilterRadios.forEach(radio => {
             radio.addEventListener('change', toggleEarningsFilterSection);
+        });
+
+        // Handle filter type toggle for news event insights
+        const eventInsightsFilterRadios = document.querySelectorAll('input[name="event-insights-filter-type"]');
+        eventInsightsFilterRadios.forEach(radio => {
+            radio.addEventListener('change', toggleEventInsightsFilterSection);
         });
 
         // Initialize ticker selects for all tabs
@@ -148,8 +156,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const tickerEvents = document.getElementById('ticker-select-events');
         
         if (tickerSimulator) tickerSimulator.addEventListener('change', () => loadDates('ticker-select-simulator', 'date-simulator'));
-        if (tickerGap) tickerGap.addEventListener('change', () => loadDates('ticker-select-gap', 'date-gap'));
+                if (tickerGap) tickerGap.addEventListener('change', () => loadDates('ticker-select-gap', 'date-gap'));
         if (tickerEvents) tickerEvents.addEventListener('change', () => loadDates('ticker-select-events', 'date-events'));
+        
+        // Event type select listeners for news event insights
+        const eventInsightsTypeSelect = document.getElementById('event-insights-type-select');
+        const eventInsightsTypeBinSelect = document.getElementById('event-insights-type-bin-select');
+        const eventInsightsBinSelect = document.getElementById('event-insights-bin-select');
+        
+        if (eventInsightsTypeSelect) eventInsightsTypeSelect.addEventListener('change', populateEventInsightsBinOptions);
+        if (eventInsightsTypeBinSelect) eventInsightsTypeBinSelect.addEventListener('change', populateEventInsightsBinOptions);
     }
 });
 
@@ -177,6 +193,14 @@ let drawingTools = {
     gap: { active: null, lines: [], pendingTool: null },
     events: { active: null, lines: [], pendingTool: null },
     earnings: { active: null, lines: [], pendingTool: null }
+};
+
+// Measurement Tool State
+let measurementTool = {
+    simulator: { isActive: false, startPoint: null, endPoint: null, line: null, overlay: null },
+    gap: { isActive: false, startPoint: null, endPoint: null, line: null, overlay: null },
+    events: { isActive: false, startPoint: null, endPoint: null, line: null, overlay: null },
+    earnings: { isActive: false, startPoint: null, endPoint: null, line: null, overlay: null }
 };
 
 // User zoom tracking - to prevent auto-fit during manual zoom
@@ -891,6 +915,11 @@ function renderChart(section, candles, currentCandleIndex = -1, minuteIndex = nu
                 setupDrawingClickHandler(section, pendingTool);
                 console.log(`Set up pending drawing tool: ${pendingTool} for ${section}`);
             }
+            
+            // Initialize measurement tool if it was active
+            if (measurementTool[section] && measurementTool[section].isActive) {
+                activateMeasurementTool(section);
+            }
         }
     }
 
@@ -962,6 +991,19 @@ function renderChart(section, candles, currentCandleIndex = -1, minuteIndex = nu
         }
         
         console.log('Chart data updated successfully');
+        
+        // Store the chart data for measurement tool
+        if (section === 'simulator') {
+            chartDataSimulator = candlestickData;
+        } else if (section === 'gap') {
+            chartDataGap = candlestickData;
+        } else if (section === 'events') {
+            chartDataEvents = candlestickData;
+        } else if (section === 'earnings') {
+            chartDataEarnings = candlestickData;
+        }
+        console.log(`Chart data stored for ${section}: ${candlestickData.length} candles`);
+        
     } catch (error) {
         console.error('Error updating chart data:', error);
     }
@@ -981,6 +1023,10 @@ function destroyChart(section) {
     // Clear indicators for this section
     indicatorSeries[section] = {};
     drawingTools[section] = { active: null, lines: [], pendingTool: null };
+    // Clear measurement tool
+    if (measurementTool[section]) {
+        deactivateMeasurementTool(section);
+    }
     // Reset user zoom state
     userZoomState[section] = false;
     // Clear click handlers
@@ -1803,6 +1849,8 @@ function setupIndicatorListeners(section) {
             
             if (tool === 'clear') {
                 clearAllDrawings(section);
+            } else if (tool === 'measure') {
+                toggleMeasurementTool(section);
             } else {
                 activateDrawingTool(section, tool);
             }
@@ -1818,7 +1866,7 @@ function activateDrawingTool(section, tool) {
     const buttons = document.querySelectorAll(`#chart-indicators-${section} .drawing-tool-btn`);
     buttons.forEach(btn => btn.classList.remove('active'));
     
-    // Show coming soon message
+    // Show coming soon message for other drawing tools
     alert('Drawing tools are coming soon! 📈\n\nLightweight Charts requires a custom overlay system for drawing tools. This feature is being developed and will be available in a future update.');
     
     console.log(`Drawing tool ${tool} clicked for ${section} - showing coming soon message`);
@@ -1961,9 +2009,396 @@ function deactivateDrawingTool(section) {
 }
 
 function clearAllDrawings(section) {
-    // Show the same coming soon message
+    // Clear measurement tool if active
+    if (measurementTool[section] && measurementTool[section].isActive) {
+        deactivateMeasurementTool(section);
+        const button = document.getElementById(`measure-tool-${section}`);
+        if (button) {
+            button.classList.remove('active');
+            button.style.background = '';
+        }
+    }
+    
+    // Show coming soon message for other drawing tools
     alert('Drawing tools are coming soon! 📈\n\nLightweight Charts requires a custom overlay system for drawing tools. This feature is being developed and will be available in a future update.');
     console.log(`Clear drawings clicked for ${section} - showing coming soon message`);
+}
+
+// Measurement Tool Functions
+function activateMeasurementTool(section) {
+    if (!chartInstances[section] || !chartInstances[section].chart) {
+        console.error(`No chart instance found for section: ${section}`);
+        return;
+    }
+    
+    measurementTool[section].isActive = true;
+    const chart = chartInstances[section].chart;
+    
+    // Change cursor to indicate measurement mode
+    const chartContainer = document.getElementById(`chart-${section}`);
+    if (chartContainer) {
+        chartContainer.style.cursor = 'crosshair';
+    }
+    
+    // Add click event listener to chart
+    chart.subscribeClick((param) => {
+        console.log('Chart clicked - measurement tool active:', measurementTool[section].isActive);
+        console.log('Click param:', param);
+        
+        if (!measurementTool[section].isActive) {
+            console.log('Measurement tool not active, ignoring click');
+            return;
+        }
+        
+        // Get click coordinates
+        const clickX = param.point.x;
+        const clickY = param.point.y;
+        
+        console.log('Click coordinates:', { x: clickX, y: clickY });
+        
+        // Store raw coordinates for now - we'll implement proper conversion
+        const time = param.time || Date.now();
+        const price = null; // We'll need to implement price calculation
+        
+        console.log('Using time from param:', time);
+        
+        // For now, let's use a simpler approach - store the click coordinates
+        // and we'll implement the price calculation differently
+        
+        // Find the nearest candle data point for this time
+        const candleData = getCandleDataForTime(section, time);
+        console.log('Found candle data:', candleData);
+        
+        if (!candleData) {
+            console.log('No candle data found for time:', time);
+            return;
+        }
+        
+        if (!measurementTool[section].startPoint) {
+            // First click - set start point
+            measurementTool[section].startPoint = {
+                time: time,
+                price: candleData.close,
+                x: clickX,
+                y: clickY
+            };
+            console.log('Measurement start point set:', measurementTool[section].startPoint);
+            
+            // Show visual feedback for first click
+            showMeasurementFeedback(section, 'Click second point to complete measurement');
+        } else {
+            // Second click - set end point and calculate
+            console.log('Second click detected, setting end point');
+            measurementTool[section].endPoint = {
+                time: time,
+                price: candleData.close,
+                x: clickX,
+                y: clickY
+            };
+            console.log('Measurement end point set:', measurementTool[section].endPoint);
+            
+            console.log('Drawing measurement line...');
+            drawMeasurementLine(section);
+            
+            console.log('Calculating measurement...');
+            calculateMeasurement(section);
+        }
+    });
+    
+    console.log(`Measurement tool activated for ${section}`);
+}
+
+function getCandleDataForTime(section, time) {
+    console.log(`getCandleDataForTime: Checking data for section: ${section}`);
+    
+    // Get the candle data for this section
+    let candleData = null;
+    
+    if (section === 'simulator') {
+        candleData = chartDataSimulator;
+    } else if (section === 'gap') {
+        candleData = chartDataGap;
+    } else if (section === 'events') {
+        candleData = chartDataEvents;
+    } else if (section === 'earnings') {
+        candleData = chartDataEarnings;
+    }
+    
+    console.log('Raw candleData:', candleData);
+    
+    if (!candleData || !Array.isArray(candleData) || candleData.length === 0) {
+        console.log(`No valid candle data array available for section: ${section}`);
+        return null;
+    }
+    
+    // Find the candle with the closest timestamp
+    let closestCandle = null;
+    let minDiff = Infinity;
+    
+    for (let i = 0; i < candleData.length; i++) {
+        const candle = candleData[i];
+        const candleTime = candle.time;
+        const diff = Math.abs(candleTime - time);
+        
+        if (diff < minDiff) {
+            minDiff = diff;
+            closestCandle = {
+                timestamp: candleTime,
+                open: candle.open,
+                high: candle.high,
+                low: candle.low,
+                close: candle.close
+            };
+        }
+    }
+    
+    console.log('Closest candle found:', closestCandle);
+    if (!closestCandle) {
+        console.log(`No candle data found for time: ${time}`);
+    }
+    return closestCandle;
+}
+
+function deactivateMeasurementTool(section) {
+    measurementTool[section].isActive = false;
+    measurementTool[section].startPoint = null;
+    measurementTool[section].endPoint = null;
+    
+    // Reset cursor
+    const chartContainer = document.getElementById(`chart-${section}`);
+    if (chartContainer) {
+        chartContainer.style.cursor = 'default';
+    }
+    
+    // Remove measurement line and overlay
+    if (measurementTool[section].line && chartInstances[section] && chartInstances[section].chart) {
+        try {
+            chartInstances[section].chart.removeSeries(measurementTool[section].line);
+        } catch (error) {
+            console.log('Error removing measurement line:', error);
+        }
+        measurementTool[section].line = null;
+    }
+    if (measurementTool[section].overlay) {
+        measurementTool[section].overlay.remove();
+        measurementTool[section].overlay = null;
+    }
+    
+    // Remove any feedback
+    const feedback = document.querySelector(`#chart-${section} .measurement-feedback`);
+    if (feedback) {
+        feedback.remove();
+    }
+    
+    console.log(`Measurement tool deactivated for ${section}`);
+}
+
+function showMeasurementFeedback(section, message) {
+    const chartContainer = document.getElementById(`chart-${section}`);
+    if (!chartContainer) return;
+    
+    // Remove existing feedback
+    const existingFeedback = chartContainer.querySelector('.measurement-feedback');
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+    
+    // Create feedback element
+    const feedback = document.createElement('div');
+    feedback.className = 'measurement-feedback';
+    feedback.style.cssText = `
+        position: absolute;
+        top: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        z-index: 1000;
+        pointer-events: none;
+        white-space: nowrap;
+    `;
+    feedback.textContent = message;
+    
+    chartContainer.appendChild(feedback);
+    
+    // Remove feedback after 3 seconds
+    setTimeout(() => {
+        if (feedback.parentNode) {
+            feedback.parentNode.removeChild(feedback);
+        }
+    }, 3000);
+}
+
+function drawMeasurementLine(section) {
+    console.log('drawMeasurementLine called for section:', section);
+    console.log('startPoint:', measurementTool[section].startPoint);
+    console.log('endPoint:', measurementTool[section].endPoint);
+    
+    if (!measurementTool[section].startPoint || !measurementTool[section].endPoint) {
+        console.log('drawMeasurementLine: Missing start or end point, returning');
+        return;
+    }
+    
+    const chartContainer = document.getElementById(`chart-${section}`);
+    if (!chartContainer) {
+        console.log('Chart container not found:', `chart-${section}`);
+        return;
+    }
+    
+    // Remove existing line
+    if (measurementTool[section].line) {
+        console.log('Removing existing line');
+        measurementTool[section].line.remove();
+    }
+    
+    // Create a custom SVG line overlay
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1000;
+    `;
+    
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', measurementTool[section].startPoint.x);
+    line.setAttribute('y1', measurementTool[section].startPoint.y);
+    line.setAttribute('x2', measurementTool[section].endPoint.x);
+    line.setAttribute('y2', measurementTool[section].endPoint.y);
+    line.setAttribute('stroke', '#FF6B6B');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5,5');
+    
+    svg.appendChild(line);
+    chartContainer.appendChild(svg);
+    
+    measurementTool[section].line = svg;
+    console.log('Custom measurement line drawn successfully');
+}
+
+function calculateMeasurement(section) {
+    console.log('calculateMeasurement called for section:', section);
+    console.log('startPoint:', measurementTool[section].startPoint);
+    console.log('endPoint:', measurementTool[section].endPoint);
+    
+    if (!measurementTool[section].startPoint || !measurementTool[section].endPoint) {
+        console.log('calculateMeasurement: Missing start or end point, returning');
+        return;
+    }
+    
+    const startPrice = measurementTool[section].startPoint.price;
+    const endPrice = measurementTool[section].endPoint.price;
+    
+    if (startPrice === undefined || endPrice === undefined || startPrice === null || endPrice === null) {
+        console.log('calculateMeasurement: Invalid prices, returning');
+        return;
+    }
+    
+    const priceChange = endPrice - startPrice;
+    const priceChangePercent = (priceChange / startPrice) * 100;
+    
+    console.log('Price calculation:', {
+        startPrice,
+        endPrice,
+        priceChange,
+        priceChangePercent
+    });
+    
+    // Create measurement overlay
+    const overlayData = {
+        startPrice: startPrice.toFixed(2),
+        endPrice: endPrice.toFixed(2),
+        priceChange: priceChange.toFixed(2),
+        priceChangePercent: priceChangePercent.toFixed(2),
+        direction: priceChange >= 0 ? 'UP' : 'DOWN'
+    };
+    
+    console.log('Creating overlay with data:', overlayData);
+    createMeasurementOverlay(section, overlayData);
+    
+    console.log(`Measurement: ${startPrice} → ${endPrice} (${priceChangePercent.toFixed(2)}%)`);
+}
+
+function createMeasurementOverlay(section, data) {
+    console.log('createMeasurementOverlay called for section:', section, 'with data:', data);
+    
+    // Remove existing overlay
+    if (measurementTool[section].overlay) {
+        console.log('Removing existing overlay');
+        measurementTool[section].overlay.remove();
+    }
+    
+    const chartContainer = document.getElementById(`chart-${section}`);
+    if (!chartContainer) {
+        console.log('Chart container not found:', `chart-${section}`);
+        return;
+    }
+    
+    console.log('Chart container found:', chartContainer);
+    
+    // Create overlay element
+    const overlay = document.createElement('div');
+    overlay.className = 'measurement-overlay';
+    overlay.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        z-index: 1000;
+        min-width: 200px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    `;
+    
+    const directionColor = data.direction === 'UP' ? '#4CAF50' : '#F44336';
+    
+    overlay.innerHTML = `
+        <div style="margin-bottom: 10px; font-weight: bold; color: ${directionColor};">📏 MEASUREMENT TOOL</div>
+        <div style="margin-bottom: 5px;"><strong>Start:</strong> $${data.startPrice}</div>
+        <div style="margin-bottom: 5px;"><strong>End:</strong> $${data.endPrice}</div>
+        <div style="margin-bottom: 5px;"><strong>Change:</strong> <span style="color: ${directionColor};">$${data.priceChange} (${data.priceChangePercent}%)</span></div>
+        <div style="margin-bottom: 10px;"><strong>Direction:</strong> <span style="color: ${directionColor};">${data.direction}</span></div>
+        <button onclick="clearMeasurement('${section}')" style="background: #FF6B6B; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Clear</button>
+    `;
+    
+    chartContainer.appendChild(overlay);
+    measurementTool[section].overlay = overlay;
+    console.log('Overlay created and added to chart container');
+}
+
+function clearMeasurement(section) {
+    deactivateMeasurementTool(section);
+    activateMeasurementTool(section); // Reactivate for next measurement
+}
+
+function toggleMeasurementTool(section) {
+    const button = document.getElementById(`measure-tool-${section}`);
+    
+    if (measurementTool[section].isActive) {
+        // Deactivate
+        deactivateMeasurementTool(section);
+        button.classList.remove('active');
+        button.style.background = '';
+        console.log(`Measurement tool deactivated for ${section}`);
+    } else {
+        // Activate
+        activateMeasurementTool(section);
+        button.classList.add('active');
+        button.style.background = '#4CAF50';
+        button.style.color = 'white';
+        console.log(`Measurement tool activated for ${section}`);
+    }
 }
 
 function populateEarningsOutcomes() {
@@ -4591,4 +5026,290 @@ function openTab(tabName) {
         'event_category': 'Navigation',
         'event_label': tabName
     });
+}
+
+// News Event Insights Functions
+function toggleEventInsightsFilterSection() {
+    const eventOnlyFilter = document.getElementById('event-only-filter');
+    const eventBinFilter = document.getElementById('event-bin-filter');
+    
+    if (eventOnlyFilter && eventBinFilter) {
+        const selectedValue = document.querySelector('input[name="event-insights-filter-type"]:checked').value;
+        
+        if (selectedValue === 'event-only') {
+            eventOnlyFilter.classList.add('active');
+            eventBinFilter.classList.remove('active');
+        } else {
+            eventOnlyFilter.classList.remove('active');
+            eventBinFilter.classList.add('active');
+        }
+    }
+}
+
+function populateEventInsightsBinOptions() {
+    const eventTypeSelect = document.querySelector('input[name="event-insights-filter-type"]:checked').value === 'event-only' 
+        ? document.getElementById('event-insights-type-select') 
+        : document.getElementById('event-insights-type-bin-select');
+    const binSelect = document.getElementById('event-insights-bin-select');
+    
+    if (!eventTypeSelect || !binSelect) return;
+    
+    const eventType = eventTypeSelect.value;
+    
+    // Clear existing options
+    binSelect.innerHTML = '<option value="">Select range</option>';
+    
+    if (!eventType) return;
+    
+    // Define bin options for each event type
+    const binOptions = {
+        'NFP': ['<0K', '0-100K', '100-200K', '200-300K', '>300K'],
+        'CPI': ['<0%', '0-1%', '1-2%', '2-3%', '3-5%', '>5%'],
+        'PPI': ['<0%', '0-2%', '2-4%', '4-8%', '>8%']
+    };
+    
+    const options = binOptions[eventType] || [];
+    
+    options.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option;
+        optionElement.textContent = option;
+        binSelect.appendChild(optionElement);
+    });
+}
+
+async function loadNewsEventInsights(event) {
+    event.preventDefault();
+    
+    const filterType = document.querySelector('input[name="event-insights-filter-type"]:checked').value;
+    const eventType = filterType === 'event-only' 
+        ? document.getElementById('event-insights-type-select').value
+        : document.getElementById('event-insights-type-bin-select').value;
+    const binValue = filterType === 'event-bin' ? document.getElementById('event-insights-bin-select').value : null;
+    
+    const insightsContainer = document.getElementById('news-event-insights-results');
+    const form = document.getElementById('news-event-insights-form');
+    const button = form.querySelector('button[type="submit"]');
+    const selects = form.querySelectorAll('select');
+
+    if (!eventType) {
+        insightsContainer.innerHTML = '<p>Please select an event type.</p>';
+        return;
+    }
+    
+    if (filterType === 'event-bin' && !binValue) {
+        insightsContainer.innerHTML = '<p>Please select a data range.</p>';
+        return;
+    }
+    
+    console.log(`Fetching news event insights for event_type=${eventType}, bin=${binValue}`);
+    
+    // Add action parameters for rate limiting
+    const isInSampleMode = window.SAMPLE_MODE || window.location.pathname.includes('/sample');
+    let url = `/api/news_event_insights?event_type=${encodeURIComponent(eventType)}`;
+    if (binValue) {
+        url += `&bin=${encodeURIComponent(binValue)}`;
+    }
+    if (!isInSampleMode) {
+        url += '&main_action=get_insights';
+    }
+    
+    console.log('Fetching URL:', url);
+    insightsContainer.innerHTML = '<p>Loading news event insights...</p>';
+    
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.status === 429) {
+            const data = await response.json();
+            console.error('Rate limit error:', data.error);
+            
+            insightsContainer.innerHTML = `
+                <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px; margin: 10px 0; text-align: center;">
+                    <h4 style="color: #721c24; margin: 0 0 10px 0;">📊 News Event Insights Limit Reached</h4>
+                    <p style="color: #721c24; margin: 0 0 15px 0; font-size: 16px;">You've used your 5 free News Event Insights requests. Please wait 12 hours or upgrade your plan.</p>
+                    <p style="color: #6c757d; margin: 0; font-size: 14px;">News Event Insights have a 5-request limit that resets in 12 hours</p>
+                </div>
+            `;
+            button.disabled = true;
+            button.textContent = 'Insights Limit Reached';
+            selects.forEach(select => select.disabled = true);
+            
+            // Set timeout for 12 hours reset
+            const resetTime = Date.now() + 12 * 60 * 60 * 1000;
+            localStorage.setItem('newsEventInsightsActionLimitReset', resetTime);
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = 'Get Event Insights';
+                selects.forEach(select => select.disabled = false);
+                localStorage.removeItem('newsEventInsightsActionLimitReset');
+                insightsContainer.innerHTML = '<p>Select an event type and optionally a data range to view news event insights.</p>';
+            }, 12 * 60 * 60 * 1000);
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('News event insights API response:', JSON.stringify(data, null, 2));
+        
+        if (data.error) {
+            console.error('Error from news event insights API:', data.error);
+            insightsContainer.innerHTML = `<p>${data.error}</p>`;
+            return;
+        }
+        
+        if (!data.insights || Object.keys(data.insights).length === 0) {
+            console.log('No news event insights found:', data.message || 'No insights returned');
+            insightsContainer.innerHTML = `<p>${data.message || 'No news event insights found for the selected criteria'}</p>`;
+            return;
+        }
+        
+        console.log('Rendering news event insights:', data.insights);
+        
+        const insights = data.insights;
+        const container = document.createElement('div');
+        container.className = 'insights-container';
+        
+        const filterText = binValue ? `${eventType} - ${binValue}` : eventType;
+        container.innerHTML = `<h3>News Event Insights for ${filterText}</h3>`;
+
+        // First row: 4 metrics
+        const row1 = document.createElement('div');
+        row1.className = 'insights-row four-metrics';
+        
+        const firstRowMetrics = ['premarket_reaction', 'extreme_moves_930_1000', 'regular_moves_930_1030'];
+        firstRowMetrics.forEach(key => {
+            if (insights[key]) {
+                const metric = document.createElement('div');
+                metric.className = 'insight-metric';
+                
+                let valueDisplay = '';
+                if (key === 'premarket_level_touch') {
+                    // Special handling for premarket level touch - show which level gets hit first with nested cards
+                    valueDisplay = `
+                        <div class="metric-median">${insights[key].touch_bias}</div>
+                        <div class="metric-average">High: ${insights[key].high_percentage}%</div>
+                        <div class="metric-direction-bias">Low: ${insights[key].low_percentage}%</div>
+                        
+                        <div class="nested-metric-card">
+                            <div class="nested-metric-title">Same Direction Move After First Pre-Market Low/High Touch</div>
+                            <div class="nested-metric-median">${insights[key].same_direction_median}%</div>
+                            <div class="nested-metric-average">Avg: ${insights[key].same_direction_average}%</div>
+                        </div>
+                        
+                        <div class="nested-metric-card">
+                            <div class="nested-metric-title">Reversal Move After First Pre-Market Low/High Touch</div>
+                            <div class="nested-metric-median">${insights[key].opposite_direction_median}%</div>
+                            <div class="nested-metric-average">Avg: ${insights[key].opposite_direction_average}%</div>
+                        </div>
+                    `;
+                } else {
+                    valueDisplay = `
+                        <div class="metric-median">${insights[key].median}%</div>
+                        <div class="metric-average">Avg: ${insights[key].average}%</div>
+                        <div class="metric-direction-bias">Bias: ${insights[key].direction_bias}</div>
+                    `;
+                }
+                
+                // Custom metric names
+                let metricName = '';
+                if (key === 'premarket_reaction') {
+                    metricName = 'Pre-Market Reaction First 1min';
+                } else if (key === 'extreme_moves_930_1000') {
+                    metricName = 'Extreme Move From Open First 30Min';
+                    // Add hover tooltip
+                    metric.title = 'The move from open to the most extreme high or low in first 30min';
+                } else if (key === 'regular_moves_930_1030') {
+                    metricName = 'First 1hour Move from open';
+                } else {
+                    metricName = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                }
+                
+                metric.innerHTML = `
+                    <div class="metric-name">${metricName}</div>
+                    ${valueDisplay}
+                    <div class="metric-description">${insights[key].description}</div>
+                    <div class="metric-counts">${insights[key].up_count || 0} Up, ${insights[key].down_count || 0} Down (${insights[key].total_count || 0} total)</div>
+                `;
+                row1.appendChild(metric);
+            }
+        });
+        container.appendChild(row1);
+
+        // Second row: 2 metrics (premarket level touch and return to opposite level)
+        const row2 = document.createElement('div');
+        row2.className = 'insights-row two-metrics';
+        
+        // Add premarket level touch metric
+        if (insights['premarket_level_touch']) {
+            const metric = document.createElement('div');
+            metric.className = 'insight-metric';
+            
+            const valueDisplay = `
+                <div class="metric-median">${insights['premarket_level_touch'].touch_bias}</div>
+                <div class="metric-average">High: ${insights['premarket_level_touch'].high_percentage}%</div>
+                <div class="metric-direction-bias">Low: ${insights['premarket_level_touch'].low_percentage}%</div>
+                
+                                        <div class="nested-metric-card">
+                            <div class="nested-metric-title">Same Direction Move After First Pre-Market Low/High Touch</div>
+                            <div class="nested-metric-median">${insights['premarket_level_touch'].same_direction_median}%</div>
+                            <div class="nested-metric-average">Avg: ${insights['premarket_level_touch'].same_direction_average}%</div>
+                        </div>
+                        
+                        <div class="nested-metric-card">
+                            <div class="nested-metric-title">Reversal Move After First Pre-Market Low/High Touch</div>
+                            <div class="nested-metric-median">${insights['premarket_level_touch'].opposite_direction_median}%</div>
+                            <div class="nested-metric-average">Avg: ${insights['premarket_level_touch'].opposite_direction_average}%</div>
+                        </div>
+            `;
+            
+            metric.innerHTML = `
+                <div class="metric-name">First Pre-Market High/Low Touch After Market Opens</div>
+                ${valueDisplay}
+                <div class="metric-description">${insights['premarket_level_touch'].description}</div>
+                <div class="metric-counts">${insights['premarket_level_touch'].high_count || 0} High, ${insights['premarket_level_touch'].low_count || 0} Low (${insights['premarket_level_touch'].total_count || 0} total)</div>
+            `;
+            row2.appendChild(metric);
+        }
+        
+        // Add return to opposite level metric
+        if (insights['return_to_opposite_level']) {
+            const metric = document.createElement('div');
+            metric.className = 'insight-metric';
+            metric.innerHTML = `
+                <div class="metric-name">Reversal Rate after hitting Pre-Market Low/High</div>
+                <div class="metric-average">${insights['return_to_opposite_level'].average}%</div>
+                <div class="metric-description">${insights['return_to_opposite_level'].description}</div>
+                <div class="metric-counts">${insights['return_to_opposite_level'].return_count} Returned, ${insights['return_to_opposite_level'].no_return_count} Not Returned (${insights['return_to_opposite_level'].total_count} total)</div>
+            `;
+            row2.appendChild(metric);
+        }
+        container.appendChild(row2);
+
+        insightsContainer.innerHTML = '';
+        insightsContainer.appendChild(container);
+        console.log('News event insights rendered successfully');
+
+        gtag('event', 'news_event_insights_load', {
+            'event_category': 'News Event Insights',
+            'event_label': `${eventType}_${binValue || 'all'}`
+        });
+        
+    } catch (error) {
+        console.error('Error loading news event insights:', error.message);
+        insightsContainer.innerHTML = '<p>Failed to load news event insights: ' + error.message + '. Please try again later.</p>';
+        alert('Failed to load news event insights: ' + error.message);
+    }
 }
