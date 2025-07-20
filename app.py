@@ -1569,18 +1569,17 @@ def should_refresh_qqq_data():
     return False
 
 def scrape_qqq_data():
-    """Scrape QQQ data from CNBC"""
+    """Scrape QQQ data from CNBC website with market-aware caching"""
+    global qqq_data_cache
+    
+    # Check if we need to refresh based on market conditions
+    if not should_refresh_qqq_data():
+        logging.info("Returning cached QQQ data (market-aware cache)")
+        return qqq_data_cache['data']
+    
     try:
-        # Check if we should refresh the data
-        if not should_refresh_qqq_data():
-            logging.info("Using cached QQQ data")
-            return qqq_data_cache['data']
-        
-        logging.info("Scraping fresh QQQ data from CNBC")
-        
-        # CNBC QQQ page URL
+        logging.info("Performing single QQQ data scrape from CNBC")
         url = "https://www.cnbc.com/quotes/QQQ"
-        
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
@@ -1590,93 +1589,59 @@ def scrape_qqq_data():
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Extract price data
+        # Find the Summary section with Key Stats
+        summary_section = soup.find('div', class_='Summary-subsection')
+        if not summary_section:
+            return None
+        
+        # Look for the Key Stats title
+        key_stats_title = summary_section.find('h3', class_='Summary-title', string=lambda text: text and 'KEY STATS' in text.upper())
+        if not key_stats_title:
+            return None
+        
+        # Find the stats list
+        stats_list = summary_section.find('ul', class_='Summary-data')
+        if not stats_list:
+            return None
+        
+        # Extract the data
         data = {}
+        stats_items = stats_list.find_all('li', class_='Summary-stat')
         
-        # Look for price elements (CNBC structure may vary)
-        price_selectors = [
-            '.QuoteStrip-lastPrice',
-            '.QuoteStrip-price',
-            '[data-testid="quote-price"]',
-            '.price',
-            '.last-price'
-        ]
+        for item in stats_items:
+            label_elem = item.find('span', class_='Summary-label')
+            value_elem = item.find('span', class_='Summary-value')
+            
+            if label_elem and value_elem:
+                label = label_elem.get_text(strip=True)
+                value = value_elem.get_text(strip=True)
+                
+                if label in ['Open', 'Prev Close']:
+                    data[label] = value
         
-        current_price = None
-        for selector in price_selectors:
-            price_elem = soup.select_one(selector)
-            if price_elem:
-                try:
-                    current_price = float(price_elem.get_text().replace('$', '').replace(',', ''))
-                    break
-                except (ValueError, AttributeError):
-                    continue
+        # Calculate gap percentage if we have both Open and Prev Close
+        if 'Open' in data and 'Prev Close' in data:
+            try:
+                open_price = float(data['Open'])
+                prev_close = float(data['Prev Close'])
+                gap_percentage = ((open_price - prev_close) / prev_close) * 100
+                data['Gap %'] = f"{gap_percentage:.2f}%"
+                data['Gap Value'] = gap_percentage  # Store numeric value for calculations
+            except (ValueError, ZeroDivisionError):
+                data['Gap %'] = "N/A"
+                data['Gap Value'] = None
         
-        # Look for previous close
-        prev_close_selectors = [
-            '.QuoteStrip-previousClose',
-            '.prev-close',
-            '[data-testid="previous-close"]'
-        ]
-        
-        prev_close = None
-        for selector in prev_close_selectors:
-            prev_elem = soup.select_one(selector)
-            if prev_elem:
-                try:
-                    prev_close = float(prev_elem.get_text().replace('$', '').replace(',', ''))
-                    break
-                except (ValueError, AttributeError):
-                    continue
-        
-        # Look for open price
-        open_selectors = [
-            '.QuoteStrip-open',
-            '.open-price',
-            '[data-testid="open-price"]'
-        ]
-        
-        open_price = None
-        for selector in open_selectors:
-            open_elem = soup.select_one(selector)
-            if open_elem:
-                try:
-                    open_price = float(open_elem.get_text().replace('$', '').replace(',', ''))
-                    break
-                except (ValueError, AttributeError):
-                    continue
-        
-        # If we couldn't get the open price, use current price as fallback
-        if not open_price and current_price:
-            open_price = current_price
-        
-        # Calculate gap value if we have both open and previous close
-        gap_value = None
-        if open_price and prev_close:
-            gap_value = ((open_price - prev_close) / prev_close) * 100
-        
-        # Build the data dictionary
-        data = {
-            'Open': open_price,
-            'Prev Close': prev_close,
-            'Current Price': current_price,
-            'Gap Value': gap_value
-        }
-        
-        # Cache the data
+        # Cache the data with market date
         qqq_data_cache['data'] = data
-        qqq_data_cache['timestamp'] = datetime.now()
+        qqq_data_cache['timestamp'] = time.time()
         qqq_data_cache['market_date'] = get_market_date()
         
-        logging.info(f"Successfully scraped QQQ data: {data}")
+        logging.info(f"QQQ data scraped and cached successfully for market date: {qqq_data_cache['market_date']}")
         return data
         
-    except requests.RequestException as e:
-        logging.error(f"Network error scraping QQQ data: {e}")
-        return qqq_data_cache.get('data')  # Return cached data if available
     except Exception as e:
-        logging.error(f"Error scraping QQQ data: {e}")
-        return qqq_data_cache.get('data')  # Return cached data if available
+        logging.error(f"Error scraping QQQ data: {str(e)}")
+        return None
 
 @app.route('/api/qqq_data', methods=['GET'])
 @limiter.limit("10 per hour")
