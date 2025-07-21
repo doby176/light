@@ -1420,7 +1420,7 @@ def get_news_event_insights():
             insights['extreme_moves_930_1000'] = {
                 'median': round(calculate_median(extreme_moves), 2),
                 'average': round(calculate_mean(extreme_moves), 2),
-                'description': 'Move between 9:30 - 10:00 to highest high or lowest low (moves > 0.1%)',
+                'description': 'Move between 9:30 - 10:00 to highest high or lowest low',
                 'direction_bias': 'Up' if extreme_directions.count('Up') > extreme_directions.count('Down') else 'Down',
                 'up_count': extreme_directions.count('Up'),
                 'down_count': extreme_directions.count('Down'),
@@ -1437,7 +1437,7 @@ def get_news_event_insights():
             insights['regular_moves_930_1030'] = {
                 'median': round(calculate_median(regular_moves), 2),
                 'average': round(calculate_mean(regular_moves), 2),
-                'description': 'Move between 9:30 - 10:30 close, no extreme moves (moves > 0.1%)',
+                'description': 'Move between 9:30 - 10:30 close, no extreme moves',
                 'direction_bias': 'Up' if regular_directions.count('Up') > regular_directions.count('Down') else 'Down',
                 'up_count': regular_directions.count('Up'),
                 'down_count': regular_directions.count('Down'),
@@ -1483,10 +1483,10 @@ def get_news_event_insights():
                 insights['moves_after_touch_60min'] = {
                     'trend_median': round(calculate_median(same_direction_60min), 2) if same_direction_60min else None,
                     'trend_average': round(calculate_mean(same_direction_60min), 2) if same_direction_60min else None,
-                    'trend_description': '60-minute move in same direction as gap (trend continuation) (moves > 0.1%)',
+                    'trend_description': '60-minute move in same direction as gap (trend continuation)',
                     'reversal_median': round(calculate_median(opposite_direction_60min), 2) if opposite_direction_60min else None,
                     'reversal_average': round(calculate_mean(opposite_direction_60min), 2) if opposite_direction_60min else None,
-                    'reversal_description': '60-minute move opposite to gap direction (reversal) (moves > 0.1%)',
+                    'reversal_description': '60-minute move opposite to gap direction (reversal)',
                     'trend_count': len(same_direction_60min),
                     'reversal_count': len(opposite_direction_60min)
                 }
