@@ -915,6 +915,14 @@ function renderChart(section, candles, currentCandleIndex = -1, minuteIndex = nu
                 setupDrawingClickHandler(section, pendingTool);
                 console.log(`Set up pending drawing tool: ${pendingTool} for ${section}`);
             }
+            
+            // Activate measurement tool by default for new charts
+            setTimeout(() => {
+                if (!measurementTool[section].isActive) {
+                    activateMeasurementTool(section);
+                    console.log(`Measurement tool activated by default for ${section}`);
+                }
+            }, 100); // Small delay to ensure chart is fully initialized
         }
     }
 
@@ -2054,6 +2062,7 @@ function activateMeasurementTool(section) {
                                 x: param.point.x,
                                 y: param.point.y
                             };
+                            console.log(`First click - start point set at $${clickPrice.toFixed(2)} for ${section}`);
                             showMeasurementFeedback(section, `Start point set at $${clickPrice.toFixed(2)}`);
                         } else {
                             // Second click - set end point and draw measurement
@@ -2063,15 +2072,25 @@ function activateMeasurementTool(section) {
                                 x: param.point.x,
                                 y: param.point.y
                             };
-                            drawMeasurementLine(section);
-                            calculateMeasurement(section);
+                            console.log(`Second click - end point set at $${clickPrice.toFixed(2)} for ${section}`);
+                            
+                            // Only draw measurement if start and end points are different
+                            if (measurementTool[section].startPoint.time !== measurementTool[section].endPoint.time ||
+                                measurementTool[section].startPoint.price !== measurementTool[section].endPoint.price) {
+                                drawMeasurementLine(section);
+                                calculateMeasurement(section);
+                                console.log(`Measurement complete for ${section}, points reset for next measurement`);
+                                showMeasurementFeedback(section, 'Measurement complete! Click to measure again.');
+                            } else {
+                                console.log('Same point clicked twice, ignoring second click');
+                                showMeasurementFeedback(section, 'Please click a different point for measurement');
+                                // Don't reset points, let user try again
+                                return;
+                            }
                             
                             // Reset for next measurement - clear both points
                             measurementTool[section].startPoint = null;
                             measurementTool[section].endPoint = null;
-                            
-                            // Show feedback that measurement is complete and ready for next
-                            showMeasurementFeedback(section, 'Measurement complete! Click to measure again.');
                         }
                     } else {
                         console.log('Invalid click price detected, ignoring click');
@@ -2133,9 +2152,9 @@ function deactivateMeasurementTool(section) {
     }
     
     // Remove measurement line and overlay
-    if (measurementTool[section].line && chartInstances[section] && chartInstances[section].chart) {
+    if (measurementTool[section].line) {
         try {
-            chartInstances[section].chart.removeSeries(measurementTool[section].line);
+            measurementTool[section].line.remove();
         } catch (error) {
             console.log('Error removing measurement line:', error);
         }
@@ -2196,71 +2215,61 @@ function drawMeasurementLine(section) {
     console.log('startPoint:', measurementTool[section].startPoint);
     console.log('endPoint:', measurementTool[section].endPoint);
     
-    const chart = chartInstances[section].chart;
-    if (!chart) {
-        console.log('No chart instance found, cannot draw measurement line');
-        return;
-    }
-    
     // Remove existing line if any
     if (measurementTool[section].line) {
         console.log('Removing existing line');
-        try {
-            chart.removeSeries(measurementTool[section].line);
-        } catch (error) {
-            console.log('Error removing existing line:', error);
-        }
+        measurementTool[section].line.remove();
         measurementTool[section].line = null;
     }
     
+    const chartContainer = document.getElementById(`chart-${section}`);
+    if (!chartContainer) {
+        console.log('Chart container not found, cannot draw measurement line');
+        return;
+    }
+    
     try {
-        // Create line series for measurement
-        const lineSeries = chart.addLineSeries({
-            color: '#FF6B6B',
-            lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.Solid,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false
-        });
+        // Get the coordinates from the measurement points
+        const startX = measurementTool[section].startPoint.x;
+        const startY = measurementTool[section].startPoint.y;
+        const endX = measurementTool[section].endPoint.x;
+        const endY = measurementTool[section].endPoint.y;
         
-        // Validate data before setting
-        const startTime = measurementTool[section].startPoint.time;
-        const endTime = measurementTool[section].endPoint.time;
-        const startPrice = measurementTool[section].startPoint.price;
-        const endPrice = measurementTool[section].endPoint.price;
+        // Calculate line properties
+        const length = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+        const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
         
-        if (!startTime || !endTime || startPrice === null || endPrice === null || 
-            isNaN(startPrice) || isNaN(endPrice)) {
-            console.error('Invalid measurement data:', { startTime, endTime, startPrice, endPrice });
-            return;
-        }
+        // Create SVG line element
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        `;
         
-        // Add line points
-        lineSeries.setData([
-            { time: startTime, value: startPrice },
-            { time: endTime, value: endPrice }
-        ]);
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', startX);
+        line.setAttribute('y1', startY);
+        line.setAttribute('x2', endX);
+        line.setAttribute('y2', endY);
+        line.setAttribute('stroke', '#FF6B6B');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-linecap', 'round');
         
-        measurementTool[section].line = lineSeries;
-        console.log('Custom measurement line drawn successfully');
+        svg.appendChild(line);
+        chartContainer.appendChild(svg);
+        
+        measurementTool[section].line = svg;
+        console.log('Custom measurement line drawn successfully using SVG');
         
     } catch (error) {
         console.error('Error drawing measurement line:', error);
-        // Auto-recovery: refresh chart data if candles disappeared
-        console.log('Attempting auto-recovery by refreshing chart data...');
-        try {
-            const config = getReplayConfig(section);
-            if (config && config.aggregatedCandles) {
-                const candles = config.aggregatedCandles();
-                if (candles && candles.length > 0) {
-                    renderChart(section, candles);
-                    console.log('Chart data refreshed successfully');
-                }
-            }
-        } catch (recoveryError) {
-            console.error('Auto-recovery failed:', recoveryError);
-        }
+        console.log('Measurement line drawing failed, but chart should remain functional');
+        measurementTool[section].line = null;
     }
 }
 
@@ -2334,8 +2343,8 @@ function createMeasurementOverlay(section, data) {
     
     overlay.innerHTML = `
         <div style="margin-bottom: 8px; font-weight: bold; color: #cccccc;">Measurement Tool</div>
-        <div style="margin-bottom: 4px;">Start: $${data.startPrice}</div>
-        <div style="margin-bottom: 4px;">End: $${data.endPrice}</div>
+        <div class="start-end-info" style="margin-bottom: 4px;">Start: $${data.startPrice}</div>
+        <div class="start-end-info" style="margin-bottom: 4px;">End: $${data.endPrice}</div>
         <div style="margin-bottom: 4px; color: ${color}; font-weight: bold;">
             Change: ${data.priceChange >= 0 ? '+' : ''}$${data.priceChange} (${data.priceChangePercent >= 0 ? '+' : ''}${data.priceChangePercent}%)
         </div>
@@ -2356,8 +2365,33 @@ function createMeasurementOverlay(section, data) {
 }
 
 function clearMeasurement(section) {
-    deactivateMeasurementTool(section);
-    activateMeasurementTool(section);
+    console.log(`Clearing measurement for ${section}`);
+    
+    // Clear the measurement overlay and line, but keep the tool active
+    if (measurementTool[section].line) {
+        try {
+            measurementTool[section].line.remove();
+            console.log('Measurement line removed successfully');
+        } catch (error) {
+            console.log('Error removing measurement line:', error);
+        }
+        measurementTool[section].line = null;
+    }
+    
+    if (measurementTool[section].overlay) {
+        measurementTool[section].overlay.remove();
+        measurementTool[section].overlay = null;
+        console.log('Measurement overlay removed');
+    }
+    
+    // Reset points but keep tool active
+    measurementTool[section].startPoint = null;
+    measurementTool[section].endPoint = null;
+    
+    // Show feedback that tool is ready for next measurement
+    showMeasurementFeedback(section, 'Click to start new measurement');
+    
+    console.log(`Measurement cleared for ${section}, tool remains active`);
 }
 
 function toggleMeasurementTool(section) {

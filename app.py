@@ -1410,9 +1410,11 @@ def get_news_event_insights():
                 'total_count': len(pm_directions)
             }
         
-        # 2. Move between 9:30 - 10:00 to highest high or lowest low
-        extreme_moves = [safe_float(row['percent_move_930_959_extreme']) for row in filtered_data if safe_float(row['percent_move_930_959_extreme']) is not None]
-        extreme_directions = [row['direction_930_959_extreme'] for row in filtered_data if row['direction_930_959_extreme']]
+        # 2. Move between 9:30 - 10:00 to highest high or lowest low (only moves above 0.1%)
+        extreme_moves = [safe_float(row['percent_move_930_959_extreme']) for row in filtered_data 
+                        if safe_float(row['percent_move_930_959_extreme']) is not None and abs(safe_float(row['percent_move_930_959_extreme'])) > 0.1]
+        extreme_directions = [row['direction_930_959_extreme'] for row in filtered_data 
+                             if safe_float(row['percent_move_930_959_extreme']) is not None and abs(safe_float(row['percent_move_930_959_extreme'])) > 0.1]
         
         if extreme_moves:
             insights['extreme_moves_930_1000'] = {
@@ -1425,9 +1427,11 @@ def get_news_event_insights():
                 'total_count': len(extreme_directions)
             }
         
-        # 3. Move between 9:30 - 10:30 close, no extreme moves
-        regular_moves = [safe_float(row['percent_move_930_1030_x']) for row in filtered_data if safe_float(row['percent_move_930_1030_x']) is not None]
-        regular_directions = [row['direction_930_1030_x'] for row in filtered_data if row['direction_930_1030_x']]
+        # 3. Move between 9:30 - 10:30 close, no extreme moves (only moves above 0.1%)
+        regular_moves = [safe_float(row['percent_move_930_1030_x']) for row in filtered_data 
+                        if safe_float(row['percent_move_930_1030_x']) is not None and abs(safe_float(row['percent_move_930_1030_x'])) > 0.1]
+        regular_directions = [row['direction_930_1030_x'] for row in filtered_data 
+                             if safe_float(row['percent_move_930_1030_x']) is not None and abs(safe_float(row['percent_move_930_1030_x'])) > 0.1]
         
         if regular_moves:
             insights['regular_moves_930_1030'] = {
@@ -1468,10 +1472,12 @@ def get_news_event_insights():
                 'opposite_direction_description': 'Move opposite to gap direction after touching level (reversal)'
             }
         
-        # 4b. 60-minute moves after touching pre-market level (if columns exist)
+        # 4b. 60-minute moves after touching pre-market level (only moves above 0.1%)
         if 'percent_move_same_direction_60min' in data[0] and 'percent_move_opposite_direction_60min' in data[0]:
-            same_direction_60min = [safe_float(row['percent_move_same_direction_60min']) for row in filtered_data if safe_float(row['percent_move_same_direction_60min']) is not None]
-            opposite_direction_60min = [safe_float(row['percent_move_opposite_direction_60min']) for row in filtered_data if safe_float(row['percent_move_opposite_direction_60min']) is not None]
+            same_direction_60min = [safe_float(row['percent_move_same_direction_60min']) for row in filtered_data 
+                                   if safe_float(row['percent_move_same_direction_60min']) is not None and abs(safe_float(row['percent_move_same_direction_60min'])) > 0.1]
+            opposite_direction_60min = [safe_float(row['percent_move_opposite_direction_60min']) for row in filtered_data 
+                                       if safe_float(row['percent_move_opposite_direction_60min']) is not None and abs(safe_float(row['percent_move_opposite_direction_60min'])) > 0.1]
             
             if same_direction_60min or opposite_direction_60min:
                 insights['moves_after_touch_60min'] = {
@@ -1569,10 +1575,79 @@ def should_refresh_qqq_data():
     return False
 
 def scrape_qqq_data():
-    """Scrape QQQ data from CNBC - TEMPORARILY SUSPENDED FOR FEATURE DEVELOPMENT"""
-    # TEMPORARILY SUSPENDED FOR FEATURE DEVELOPMENT
-    logging.info("QQQ data scraping temporarily suspended for feature development")
-    return None
+    """Scrape QQQ data from CNBC website with market-aware caching"""
+    global qqq_data_cache
+    
+    # Check if we need to refresh based on market conditions
+    if not should_refresh_qqq_data():
+        logging.info("Returning cached QQQ data (market-aware cache)")
+        return qqq_data_cache['data']
+    
+    try:
+        logging.info("Performing single QQQ data scrape from CNBC")
+        url = "https://www.cnbc.com/quotes/QQQ"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Find the Summary section with Key Stats
+        summary_section = soup.find('div', class_='Summary-subsection')
+        if not summary_section:
+            return None
+        
+        # Look for the Key Stats title
+        key_stats_title = summary_section.find('h3', class_='Summary-title', string=lambda text: text and 'KEY STATS' in text.upper())
+        if not key_stats_title:
+            return None
+        
+        # Find the stats list
+        stats_list = summary_section.find('ul', class_='Summary-data')
+        if not stats_list:
+            return None
+        
+        # Extract the data
+        data = {}
+        stats_items = stats_list.find_all('li', class_='Summary-stat')
+        
+        for item in stats_items:
+            label_elem = item.find('span', class_='Summary-label')
+            value_elem = item.find('span', class_='Summary-value')
+            
+            if label_elem and value_elem:
+                label = label_elem.get_text(strip=True)
+                value = value_elem.get_text(strip=True)
+                
+                if label in ['Open', 'Prev Close']:
+                        data[label] = value
+        
+        # Calculate gap percentage if we have both Open and Prev Close
+        if 'Open' in data and 'Prev Close' in data:
+            try:
+                open_price = float(data['Open'])
+                prev_close = float(data['Prev Close'])
+                gap_percentage = ((open_price - prev_close) / prev_close) * 100
+                data['Gap %'] = f"{gap_percentage:.2f}%"
+                data['Gap Value'] = gap_percentage  # Store numeric value for calculations
+            except (ValueError, ZeroDivisionError):
+                data['Gap %'] = "N/A"
+                data['Gap Value'] = None
+        
+        # Cache the data with market date
+        qqq_data_cache['data'] = data
+        qqq_data_cache['timestamp'] = time.time()
+        qqq_data_cache['market_date'] = get_market_date()
+        
+        logging.info(f"QQQ data scraped and cached successfully for market date: {qqq_data_cache['market_date']}")
+        return data
+        
+    except Exception as e:
+        logging.error(f"Error scraping QQQ data: {str(e)}")
+        return None
 
 @app.route('/api/qqq_data', methods=['GET'])
 @limiter.limit("10 per hour")
