@@ -1499,6 +1499,7 @@ footer p {
     z-index: 1;
     margin: 0;
     padding: 0;
+    max-height: 60%;
 }
 
 .footer .buttom2-image {
@@ -1509,6 +1510,7 @@ footer p {
     z-index: 1;
     margin: 0;
     padding: 0;
+    max-height: 60%;
 }
 
 .footer .footer-content {
