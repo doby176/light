@@ -1064,6 +1064,120 @@ def get_gap_insights():
         logging.error(f"Error processing gap insights: {str(e)}")
         return jsonify({'error': 'Server error'}), 500
 
+@app.route('/api/previous_high_low_insights', methods=['GET'])
+@limiter.limit("3 per 12 hours")
+def get_previous_high_low_insights():
+    # Check gap insights action limit (separate 2-click limit)
+    if not is_sample_mode():
+        # Main site - check gap insights limit
+        main_action = request.args.get('main_action')
+        if main_action == 'get_insights':
+            if not check_gap_insights_limit():
+                logging.info(f"Previous high/low insights limit exceeded for user: {session.get('user_id')}")
+                return jsonify({
+                    'error': 'Previous High/Low Insights limit reached: You\'ve used your 2 free Previous High/Low Insights. Please wait 12 hours or upgrade your plan.',
+                    'limit_reached': True
+                }), 429
+    
+    try:
+        open_position = request.args.get('open_position')
+        day_of_week = request.args.get('day_of_week')
+        logging.debug(f"Fetching previous high/low insights for open_position={open_position}, day_of_week={day_of_week}")
+        
+        # Path to the previous high/low data CSV file
+        previous_high_low_path = os.path.join(DATA_DIR, "previuos_high_low.csv")
+        
+        if not os.path.exists(previous_high_low_path):
+            logging.error(f"Previous high/low data file not found: {previous_high_low_path}")
+            return jsonify({'error': 'Previous high/low data file not found. Please contact support.'}), 404
+        
+        try:
+            df = pd.read_csv(previous_high_low_path)
+            logging.debug(f"Loaded previous high/low data with shape: {df.shape}")
+        except Exception as e:
+            logging.error(f"Error reading previous high/low data file {previous_high_low_path}: {str(e)}")
+            return jsonify({'error': f'Failed to load previous high/low data: {str(e)}'}), 500
+        
+        required_columns = [
+            'open_position', 'day_of_week', 'continuation_move_pct', 'reversal_move_pct',
+            'continuation_move_pct_60min', 'reversal_move_pct_60min'
+        ]
+        
+        if not all(col in df.columns for col in required_columns):
+            logging.error("Invalid previous high/low data format: missing required columns")
+            return jsonify({'error': 'Invalid previous high/low data format'}), 400
+        
+        # Filter data based on parameters
+        filtered_df = df.copy()
+        
+        if open_position:
+            filtered_df = filtered_df[filtered_df['open_position'] == open_position]
+        
+        if day_of_week:
+            filtered_df = filtered_df[filtered_df['day_of_week'] == day_of_week]
+        
+        logging.debug(f"Filtered DataFrame shape: {filtered_df.shape}")
+        
+        if filtered_df.empty:
+            logging.debug(f"No data found for open_position={open_position}, day_of_week={day_of_week}")
+            return jsonify({'insights': {}, 'message': 'No data found for the selected criteria'})
+        
+        # Calculate insights for each metric
+        insights = {}
+        
+        # 1. Continuation move in first 10min
+        continuation_10min = filtered_df['continuation_move_pct'].dropna()
+        reversal_10min = filtered_df['reversal_move_pct'].dropna()
+        
+        if not continuation_10min.empty:
+            insights['continuation_move_10min'] = {
+                'median': round(continuation_10min.median(), 2),
+                'average': round(continuation_10min.mean(), 2),
+                'description': 'Continuation move in first 10 minutes (%)',
+                'count': len(continuation_10min)
+            }
+        
+        if not reversal_10min.empty:
+            insights['reversal_move_10min'] = {
+                'median': round(reversal_10min.median(), 2),
+                'average': round(reversal_10min.mean(), 2),
+                'description': 'Reversal move in first 10 minutes (%)',
+                'count': len(reversal_10min)
+            }
+        
+        # 2. Continuation move in first 60min
+        continuation_60min = filtered_df['continuation_move_pct_60min'].dropna()
+        reversal_60min = filtered_df['reversal_move_pct_60min'].dropna()
+        
+        if not continuation_60min.empty:
+            insights['continuation_move_60min'] = {
+                'median': round(continuation_60min.median(), 2),
+                'average': round(continuation_60min.mean(), 2),
+                'description': 'Continuation move in first 60 minutes (%)',
+                'count': len(continuation_60min)
+            }
+        
+        if not reversal_60min.empty:
+            insights['reversal_move_60min'] = {
+                'median': round(reversal_60min.median(), 2),
+                'average': round(reversal_60min.mean(), 2),
+                'description': 'Reversal move in first 60 minutes (%)',
+                'count': len(reversal_60min)
+            }
+        
+        logging.debug(f"Calculated insights: {list(insights.keys())}")
+        
+        return jsonify({
+            'insights': insights,
+            'open_position': open_position,
+            'day_of_week': day_of_week,
+            'data_points': len(filtered_df)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error processing previous high/low insights: {str(e)}")
+        return jsonify({'error': 'Server error'}), 500
+
 @app.route('/api/years', methods=['GET'])
 @limiter.limit("10 per 12 hours")
 def get_years():
