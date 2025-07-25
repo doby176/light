@@ -4075,6 +4075,7 @@ async function loadGapDates(event) {
         console.log(`Rendering ${data.dates.length} gap dates:`, data.dates);
         const ul = document.createElement('ul');
         ul.id = 'gap-dates-list';
+        ul.className = 'date-list';
         data.dates.forEach(date => {
             const li = document.createElement('li');
             const link = document.createElement('a');
@@ -4083,7 +4084,7 @@ async function loadGapDates(event) {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 console.log(`Clicked gap date: ${date}`);
-                openTab('gap-analysis');
+                openSubTab('gap-analysis');
                 document.getElementById('ticker-select-gap').value = 'QQQ';
                 document.getElementById('date-gap').value = date;
                 loadChart(new Event('submit'), 'gap-analysis');
@@ -4290,6 +4291,7 @@ async function loadEventDates(event) {
         console.log(`Rendering ${data.dates.length} event dates:`, data.dates);
         const ul = document.createElement('ul');
         ul.id = 'event-dates-list';
+        ul.className = 'date-list';
         data.dates.forEach(date => {
             const li = document.createElement('li');
             const link = document.createElement('a');
@@ -4298,7 +4300,7 @@ async function loadEventDates(event) {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 console.log(`Clicked event date: ${date}`);
-                openTab('events-analysis');
+                openSubTab('events-analysis');
                 document.getElementById('ticker-select-events').value = 'QQQ';
                 document.getElementById('date-events').value = date;
                 loadChart(new Event('submit'), 'events-analysis');
@@ -4442,6 +4444,7 @@ async function loadEarningsDates(event) {
         console.log(`Rendering ${data.dates.length} earnings dates:`, data.dates);
         const ul = document.createElement('ul');
         ul.id = 'earnings-dates-list';
+        ul.className = 'date-list';
         data.dates.forEach(date => {
             const li = document.createElement('li');
             const link = document.createElement('a');
@@ -4450,7 +4453,7 @@ async function loadEarningsDates(event) {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 console.log(`Clicked earnings date: ${date}`);
-                openTab('earnings-analysis');
+                openSubTab('earnings-analysis');
                 document.getElementById('earnings-ticker-select').value = ticker;
                 document.getElementById('date-gap').value = date;
                 loadChart(new Event('submit'), 'earnings-analysis');
@@ -5019,6 +5022,63 @@ function initializeQQQData() {
     }
 }
 
+// New function to open main tabs
+function openMainTab(mainTabId) {
+    console.log(`Opening main tab: ${mainTabId}`);
+    
+    // Update main tab buttons
+    document.querySelectorAll('.main-tab-button').forEach(button => {
+        button.classList.remove('active');
+    });
+    document.querySelector(`.main-tab-button[onclick="openMainTab('${mainTabId}')"]`).classList.add('active');
+
+    // Update sub-tabs visibility
+    document.querySelectorAll('.sub-tabs').forEach(subTabs => {
+        subTabs.classList.remove('active');
+    });
+    document.getElementById(`${mainTabId}-subtabs`).classList.add('active');
+
+    // Close all tab contents
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Open the first sub-tab of the selected main tab
+    const firstSubTab = document.querySelector(`#${mainTabId}-subtabs .sub-tab-button`);
+    if (firstSubTab) {
+        const subTabId = firstSubTab.getAttribute('onclick').match(/openSubTab\('([^']+)'\)/)[1];
+        openSubTab(subTabId);
+    }
+    
+    gtag('event', 'main_tab_open', {
+        'event_category': 'Navigation',
+        'event_label': mainTabId
+    });
+}
+
+// New function to open sub-tabs
+function openSubTab(subTabId) {
+    console.log(`Opening sub tab: ${subTabId}`);
+    
+    // Update sub-tab buttons
+    document.querySelectorAll('.sub-tab-button').forEach(button => {
+        button.classList.remove('active');
+    });
+    document.querySelector(`.sub-tab-button[onclick="openSubTab('${subTabId}')"]`).classList.add('active');
+
+    // Update tab contents
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.getElementById(subTabId).classList.add('active');
+    
+    gtag('event', 'sub_tab_open', {
+        'event_category': 'Navigation',
+        'event_label': subTabId
+    });
+}
+
+// Legacy function for backward compatibility
 function openTab(tabName) {
     console.log(`Opening tab: ${tabName}`);
     const tabs = document.getElementsByClassName('tab-content');
