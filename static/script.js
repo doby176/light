@@ -1844,7 +1844,7 @@ function setupIndicatorListeners(section) {
     });
 }
 
-// Drawing Tools Functions (Enhanced)
+// Drawing Toools Functions (Enhanced)
 function activateDrawingTool(section, tool) {
     const buttons = document.querySelectorAll(`#chart-indicators-${section} .drawing-tool-btn`);
     buttons.forEach(btn => btn.classList.remove('active'));
