@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formEarningsForm = document.getElementById('earnings-form');
         const formGapInsights = document.getElementById('gap-insights-form');
         const formNewsEventInsights = document.getElementById('news-event-insights-form');
+        const formPreviousHighLowInsights = document.getElementById('previous-high-low-insights-form');
         
         if (formSimulator) formSimulator.addEventListener('submit', (e) => loadChart(e, 'market-simulator'));
         if (formGap) formGap.addEventListener('submit', (e) => loadChart(e, 'gap-analysis'));
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formEarningsForm) formEarningsForm.addEventListener('submit', loadEarningsDates);
         if (formGapInsights) formGapInsights.addEventListener('submit', loadGapInsights);
         if (formNewsEventInsights) formNewsEventInsights.addEventListener('submit', loadNewsEventInsights);
+        if (formPreviousHighLowInsights) formPreviousHighLowInsights.addEventListener('submit', loadPreviousHighLowInsights);
         
         // Replay control listeners (Market Simulator)
         const playSimulator = document.getElementById('play-replay-simulator');
@@ -148,6 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventInsightsFilterRadios = document.querySelectorAll('input[name="event-insights-filter-type"]');
         eventInsightsFilterRadios.forEach(radio => {
             radio.addEventListener('change', toggleEventInsightsFilterSection);
+        });
+
+        // Handle filter type toggle for previous high/low insights
+        const previousHighLowFilterRadios = document.querySelectorAll('input[name="previous-high-low-filter-type"]');
+        previousHighLowFilterRadios.forEach(radio => {
+            radio.addEventListener('change', togglePreviousHighLowFilterSection);
         });
 
         // Initialize ticker selects for all tabs
@@ -4627,6 +4635,23 @@ function toggleEventInsightsFilterSection() {
     }
 }
 
+function togglePreviousHighLowFilterSection() {
+    const bothFiltersSection = document.getElementById('both-filters-section');
+    const positionOnlySection = document.getElementById('position-only-section');
+    
+    if (bothFiltersSection && positionOnlySection) {
+        const selectedValue = document.querySelector('input[name="previous-high-low-filter-type"]:checked').value;
+        
+        if (selectedValue === 'both-filters') {
+            bothFiltersSection.classList.add('active');
+            positionOnlySection.classList.remove('active');
+        } else {
+            bothFiltersSection.classList.remove('active');
+            positionOnlySection.classList.add('active');
+        }
+    }
+}
+
 function populateEventInsightsBinOptions() {
     const eventTypeSelect = document.querySelector('input[name="event-insights-filter-type"]:checked').value === 'event-only' 
         ? document.getElementById('event-insights-type-select') 
@@ -4892,5 +4917,188 @@ async function loadNewsEventInsights(event) {
         console.error('Error loading news event insights:', error.message);
         insightsContainer.innerHTML = '<p>Failed to load news event insights: ' + error.message + '. Please try again later.</p>';
         alert('Failed to load news event insights: ' + error.message);
+    }
+}
+
+async function loadPreviousHighLowInsights(event) {
+    event.preventDefault();
+    
+    const filterType = document.querySelector('input[name="previous-high-low-filter-type"]:checked').value;
+    const openPosition = filterType === 'both-filters' 
+        ? document.getElementById('previous-high-low-position-select').value
+        : document.getElementById('previous-high-low-position-only-select').value;
+    const dayOfWeek = filterType === 'both-filters' ? document.getElementById('previous-high-low-day-select').value : null;
+    
+    const insightsContainer = document.getElementById('previous-high-low-insights-results');
+    const form = document.getElementById('previous-high-low-insights-form');
+    const button = form.querySelector('button[type="submit"]');
+    const selects = form.querySelectorAll('select');
+
+    if (!openPosition) {
+        insightsContainer.innerHTML = '<p>Please select an open position relative to previous high/low.</p>';
+        return;
+    }
+    
+    if (filterType === 'both-filters' && !dayOfWeek) {
+        insightsContainer.innerHTML = '<p>Please select a day of the week.</p>';
+        return;
+    }
+    
+    console.log(`Fetching previous high/low insights for open_position=${openPosition}, day_of_week=${dayOfWeek}`);
+    
+    // Add action parameters for rate limiting
+    const isInSampleMode = window.SAMPLE_MODE || window.location.pathname.includes('/sample');
+    let url = `/api/previous_high_low_insights?open_position=${encodeURIComponent(openPosition)}`;
+    if (dayOfWeek) {
+        url += `&day_of_week=${encodeURIComponent(dayOfWeek)}`;
+    }
+    if (!isInSampleMode) {
+        url += '&main_action=get_insights';
+    }
+    
+    console.log('Fetching URL:', url);
+    insightsContainer.innerHTML = '<p>Loading previous high/low insights...</p>';
+    
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.status === 429) {
+            const data = await response.json();
+            console.error('Rate limit error:', data.error);
+            
+            // Handle previous high/low insights action limit (separate 2-click limit)
+            if (data.limit_reached && !isInSampleMode) {
+                // Previous high/low insights limit reached - show special message for 2-click limit
+                insightsContainer.innerHTML = `
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px; margin: 10px 0; text-align: center;">
+                        <h4 style="color: #721c24; margin: 0 0 10px 0;">📊 Previous High/Low Insights Limit Reached</h4>
+                        <p style="color: #721c24; margin: 0 0 15px 0; font-size: 16px;">You've used your 2 free Previous High/Low Insights requests. Please wait 12 hours or upgrade your plan.</p>
+                        <p style="color: #6c757d; margin: 0; font-size: 14px;">Previous High/Low Insights have a separate 2-request limit that resets in 12 hours</p>
+                    </div>
+                `;
+                button.disabled = true;
+                button.textContent = 'Insights Limit Reached';
+                selects.forEach(select => select.disabled = true);
+                // Set timeout for 12 hours reset
+                const resetTime = Date.now() + 12 * 60 * 60 * 1000;
+                localStorage.setItem('previousHighLowInsightsActionLimitReset', resetTime);
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = 'Get Previous High/Low Insights';
+                    selects.forEach(select => select.disabled = false);
+                    localStorage.removeItem('previousHighLowInsightsActionLimitReset');
+                    insightsContainer.innerHTML = '<p>Select filters to view NASDAQ previous high/low insights and statistics.</p>';
+                }, 12 * 60 * 60 * 1000);
+            } else {
+                // Regular rate limit exceeded
+                insightsContainer.innerHTML = `<p style="color: red; font-weight: bold;">${data.error}</p>`;
+                button.disabled = true;
+                button.textContent = 'Rate Limit Exceeded';
+                selects.forEach(select => select.disabled = true);
+                const resetTime = Date.now() + 12 * 60 * 60 * 1000;
+                localStorage.setItem('previousHighLowInsightsRateLimitReset', resetTime);
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = 'Get Previous High/Low Insights';
+                    selects.forEach(select => select.disabled = false);
+                    localStorage.removeItem('previousHighLowInsightsRateLimitReset');
+                    insightsContainer.innerHTML = '<p>Select filters to view NASDAQ previous high/low insights and statistics.</p>';
+                }, 1000);
+            }
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Previous high/low insights API response:', JSON.stringify(data, null, 2));
+        
+        if (data.error) {
+            console.error('Error from previous high/low insights API:', data.error);
+            insightsContainer.innerHTML = `<p>${data.error}</p>`;
+            return;
+        }
+        
+        if (!data.insights || Object.keys(data.insights).length === 0) {
+            console.log('No previous high/low insights found:', data.message || 'No insights returned');
+            insightsContainer.innerHTML = `<p>${data.message || 'No previous high/low insights found for the selected criteria'}</p>`;
+            return;
+        }
+        
+        console.log('Rendering previous high/low insights:', data.insights);
+
+        const insights = data.insights;
+        const container = document.createElement('div');
+        container.className = 'insights-container';
+        
+        const filterDescription = dayOfWeek 
+            ? `${openPosition} on ${dayOfWeek}`
+            : openPosition;
+        
+        container.innerHTML = `
+            <h3>NASDAQ Previous High/Low Insights for ${filterDescription}</h3>
+        `;
+
+        // First row: 2 metrics for 10-minute moves
+        const row1 = document.createElement('div');
+        row1.className = 'insights-row two-metrics';
+        ['continuation_move_10min', 'reversal_move_10min'].forEach(key => {
+            if (insights[key]) {
+                const metric = document.createElement('div');
+                metric.className = 'insight-metric';
+                metric.innerHTML = `
+                    <div class="metric-name tooltip" title="${insights[key].description}">${key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</div>
+                    <div class="metric-median tooltip" title="The median is often preferred over the average (mean) when dealing with data that contains outliers or is skewed because it provides a more accurate representation of the central tendency in such cases.">${insights[key].median}%</div>
+                    <div class="metric-average">Avg: ${insights[key].average}%</div>
+                    <div class="metric-description">${insights[key].description}</div>
+                    <div class="metric-counts">Data points: ${insights[key].count}</div>
+                `;
+                row1.appendChild(metric);
+            }
+        });
+        container.appendChild(row1);
+
+        // Second row: 2 metrics for 60-minute moves
+        const row2 = document.createElement('div');
+        row2.className = 'insights-row two-metrics';
+        ['continuation_move_60min', 'reversal_move_60min'].forEach(key => {
+            if (insights[key]) {
+                const metric = document.createElement('div');
+                metric.className = 'insight-metric';
+                metric.innerHTML = `
+                    <div class="metric-name tooltip" title="${insights[key].description}">${key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</div>
+                    <div class="metric-median tooltip" title="The median is often preferred over the average (mean) when dealing with data that contains outliers or is skewed because it provides a more accurate representation of the central tendency in such cases.">${insights[key].median}%</div>
+                    <div class="metric-average">Avg: ${insights[key].average}%</div>
+                    <div class="metric-description">${insights[key].description}</div>
+                    <div class="metric-counts">Data points: ${insights[key].count}</div>
+                `;
+                row2.appendChild(metric);
+            }
+        });
+        container.appendChild(row2);
+
+        insightsContainer.innerHTML = '';
+        insightsContainer.appendChild(container);
+        console.log('Previous high/low insights rendered successfully');
+
+        gtag('event', 'previous_high_low_insights_load', {
+            'event_category': 'Previous High/Low Insights',
+            'event_label': `${openPosition}_${dayOfWeek || 'no_day'}`
+        });
+    } catch (error) {
+        console.error('Error loading previous high/low insights:', error.message);
+        insightsContainer.innerHTML = '<p>Failed to load previous high/low insights: ' + error.message + '. Please try again later.</p>';
+        alert('Failed to load previous high/low insights: ' + error.message);
     }
 }
