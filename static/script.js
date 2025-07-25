@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formEarningsForm = document.getElementById('earnings-form');
         const formGapInsights = document.getElementById('gap-insights-form');
         const formNewsEventInsights = document.getElementById('news-event-insights-form');
+        const formPreviousHighLowInsights = document.getElementById('previous-high-low-insights-form');
         
         if (formSimulator) formSimulator.addEventListener('submit', (e) => loadChart(e, 'market-simulator'));
         if (formGap) formGap.addEventListener('submit', (e) => loadChart(e, 'gap-analysis'));
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formEarningsForm) formEarningsForm.addEventListener('submit', loadEarningsDates);
         if (formGapInsights) formGapInsights.addEventListener('submit', loadGapInsights);
         if (formNewsEventInsights) formNewsEventInsights.addEventListener('submit', loadNewsEventInsights);
+        if (formPreviousHighLowInsights) formPreviousHighLowInsights.addEventListener('submit', loadPreviousHighLowInsights);
         
         // Replay control listeners (Market Simulator)
         const playSimulator = document.getElementById('play-replay-simulator');
@@ -148,6 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventInsightsFilterRadios = document.querySelectorAll('input[name="event-insights-filter-type"]');
         eventInsightsFilterRadios.forEach(radio => {
             radio.addEventListener('change', toggleEventInsightsFilterSection);
+        });
+
+        // Handle filter type toggle for previous high/low insights
+        const previousHighLowFilterRadios = document.querySelectorAll('input[name="previous-high-low-filter-type"]');
+        previousHighLowFilterRadios.forEach(radio => {
+            radio.addEventListener('change', togglePreviousHighLowFilterSection);
         });
 
         // Initialize ticker selects for all tabs
@@ -5314,4 +5322,170 @@ async function loadNewsEventInsights(event) {
         insightsContainer.innerHTML = '<p>Failed to load news event insights: ' + error.message + '. Please try again later.</p>';
         alert('Failed to load news event insights: ' + error.message);
     }
+}
+
+// Previous High/Low Insights Functions
+function togglePreviousHighLowFilterSection() {
+    const bothFiltersSection = document.getElementById('both-filters-section');
+    const positionOnlySection = document.getElementById('position-only-section');
+    const filterType = document.querySelector('input[name="previous-high-low-filter-type"]:checked').value;
+
+    bothFiltersSection.classList.remove('active');
+    positionOnlySection.classList.remove('active');
+
+    if (filterType === 'both-filters') {
+        bothFiltersSection.classList.add('active');
+        document.getElementById('previous-high-low-position-only-select').value = '';
+    } else {
+        positionOnlySection.classList.add('active');
+        document.getElementById('previous-high-low-position-select').value = '';
+        document.getElementById('previous-high-low-day-select').value = '';
+    }
+}
+
+async function loadPreviousHighLowInsights(event) {
+    event.preventDefault();
+    
+    const resultsContainer = document.getElementById('previous-high-low-insights-results');
+    resultsContainer.innerHTML = '<p>Loading insights...</p>';
+    
+    try {
+        const formData = new FormData(event.target);
+        const openPosition = formData.get('open_position');
+        const dayOfWeek = formData.get('day_of_week');
+        
+        if (!openPosition) {
+            resultsContainer.innerHTML = '<p style="color: red;">Please select an open position.</p>';
+            return;
+        }
+        
+        const params = new URLSearchParams({
+            open_position: openPosition
+        });
+        
+        if (dayOfWeek) {
+            params.append('day_of_week', dayOfWeek);
+        }
+        
+        const response = await fetch(`/api/previous_high_low_insights?${params}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.status === 429) {
+            const data = await response.json();
+            resultsContainer.innerHTML = `<p style="color: red;">${data.error}</p>`;
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            resultsContainer.innerHTML = `<p style="color: red;">Error: ${errorData.error || 'Failed to load insights'}</p>`;
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.message) {
+            resultsContainer.innerHTML = `<p>${data.message}</p>`;
+            return;
+        }
+        
+        displayPreviousHighLowInsights(data.insights, resultsContainer);
+        
+    } catch (error) {
+        console.error('Error loading previous high/low insights:', error);
+        resultsContainer.innerHTML = '<p style="color: red;">Error loading insights. Please try again.</p>';
+    }
+}
+
+function displayPreviousHighLowInsights(insights, container) {
+    const dataSummary = insights.data_summary;
+    
+    let html = `
+        <div class="insights-container">
+            <h3>NASDAQ Previous High/Low of Day Insights</h3>
+            <div class="market-data-summary">
+                <h4>Filter Summary</h4>
+                <div class="market-data-grid">
+                    <div class="market-data-item">
+                        <span class="market-data-label">Open Position:</span>
+                        <span class="market-data-value">${dataSummary.open_position || 'All'}</span>
+                    </div>
+                    <div class="market-data-item">
+                        <span class="market-data-label">Day of Week:</span>
+                        <span class="market-data-value">${dataSummary.day_of_week || 'All'}</span>
+                    </div>
+                    <div class="market-data-item">
+                        <span class="market-data-label">Data Points:</span>
+                        <span class="market-data-value">${dataSummary.total_data_points}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="insights-row two-metrics">
+    `;
+    
+    // Add continuation move 10min
+    const continuation10min = insights.continuation_move_10min;
+    html += `
+        <div class="insight-metric">
+            <div class="metric-name">${continuation10min.description}</div>
+            <div class="metric-median">${continuation10min.median}%</div>
+            <div class="metric-average">Avg: ${continuation10min.average}%</div>
+            <div class="metric-direction-bias">Bias: ${continuation10min.direction_bias}</div>
+            <div class="metric-counts">${continuation10min.positive_count}/${continuation10min.total_count} positive moves</div>
+            <div class="metric-description">Median continuation move in first 10 minutes</div>
+        </div>
+    `;
+    
+    // Add reversal move 10min
+    const reversal10min = insights.reversal_move_10min;
+    html += `
+        <div class="insight-metric">
+            <div class="metric-name">${reversal10min.description}</div>
+            <div class="metric-median">${reversal10min.median}%</div>
+            <div class="metric-average">Avg: ${reversal10min.average}%</div>
+            <div class="metric-direction-bias">Bias: ${reversal10min.direction_bias}</div>
+            <div class="metric-counts">${reversal10min.positive_count}/${reversal10min.total_count} positive moves</div>
+            <div class="metric-description">Median reversal move in first 10 minutes</div>
+        </div>
+    `;
+    
+    html += `</div><div class="insights-row two-metrics">`;
+    
+    // Add continuation move 60min
+    const continuation60min = insights.continuation_move_60min;
+    html += `
+        <div class="insight-metric">
+            <div class="metric-name">${continuation60min.description}</div>
+            <div class="metric-median">${continuation60min.median}%</div>
+            <div class="metric-average">Avg: ${continuation60min.average}%</div>
+            <div class="metric-direction-bias">Bias: ${continuation60min.direction_bias}</div>
+            <div class="metric-counts">${continuation60min.positive_count}/${continuation60min.total_count} positive moves</div>
+            <div class="metric-description">Median continuation move in first 60 minutes</div>
+        </div>
+    `;
+    
+    // Add reversal move 60min
+    const reversal60min = insights.reversal_move_60min;
+    html += `
+        <div class="insight-metric">
+            <div class="metric-name">${reversal60min.description}</div>
+            <div class="metric-median">${reversal60min.median}%</div>
+            <div class="metric-average">Avg: ${reversal60min.average}%</div>
+            <div class="metric-direction-bias">Bias: ${reversal60min.direction_bias}</div>
+            <div class="metric-counts">${reversal60min.positive_count}/${reversal60min.total_count} positive moves</div>
+            <div class="metric-description">Median reversal move in first 60 minutes</div>
+        </div>
+    `;
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
 }

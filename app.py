@@ -1064,6 +1064,123 @@ def get_gap_insights():
         logging.error(f"Error processing gap insights: {str(e)}")
         return jsonify({'error': 'Server error'}), 500
 
+@app.route('/api/previous_high_low_insights', methods=['GET'])
+@limiter.limit("3 per 12 hours")
+def get_previous_high_low_insights():
+    """API endpoint for NASDAQ Previous High/Low of Day insights"""
+    try:
+        open_position = request.args.get('open_position')
+        day_of_week = request.args.get('day_of_week')
+        logging.debug(f"Fetching previous high/low insights for open_position={open_position}, day_of_week={day_of_week}")
+        
+        # Path to the previous high/low data file
+        previous_high_low_path = os.path.join(DATA_DIR, "previuos_high_low.csv")
+        
+        if not os.path.exists(previous_high_low_path):
+            logging.error(f"Previous high/low data file not found: {previous_high_low_path}")
+            return jsonify({'error': 'Previous high/low data file not found. Please contact support.'}), 404
+        
+        try:
+            df = pd.read_csv(previous_high_low_path)
+            logging.debug(f"Loaded previous high/low data with shape: {df.shape}")
+        except Exception as e:
+            logging.error(f"Error reading previous high/low data file {previous_high_low_path}: {str(e)}")
+            return jsonify({'error': f'Failed to load previous high/low data: {str(e)}'}), 500
+        
+        # Validate required columns
+        required_columns = [
+            'open_position', 'day_of_week', 'continuation_move_pct', 'reversal_move_pct',
+            'continuation_move_pct_60min', 'reversal_move_pct_60min'
+        ]
+        
+        if not all(col in df.columns for col in required_columns):
+            logging.error("Invalid previous high/low data format: missing required columns")
+            return jsonify({'error': 'Invalid previous high/low data format'}), 400
+        
+        # Filter data based on parameters
+        filtered_df = df.copy()
+        
+        if open_position:
+            filtered_df = filtered_df[filtered_df['open_position'] == open_position]
+        
+        if day_of_week:
+            filtered_df = filtered_df[filtered_df['day_of_week'] == day_of_week]
+        
+        logging.debug(f"Filtered DataFrame shape: {filtered_df.shape}")
+        
+        if filtered_df.empty:
+            logging.debug(f"No data found for open_position={open_position}, day_of_week={day_of_week}")
+            return jsonify({'insights': {}, 'message': 'No data found for the selected criteria'})
+        
+        # Calculate insights for 10-minute moves
+        continuation_10min_median = filtered_df['continuation_move_pct'].median()
+        continuation_10min_average = filtered_df['continuation_move_pct'].mean()
+        reversal_10min_median = filtered_df['reversal_move_pct'].median()
+        reversal_10min_average = filtered_df['reversal_move_pct'].mean()
+        
+        # Calculate insights for 60-minute moves
+        continuation_60min_median = filtered_df['continuation_move_pct_60min'].median()
+        continuation_60min_average = filtered_df['continuation_move_pct_60min'].mean()
+        reversal_60min_median = filtered_df['reversal_move_pct_60min'].median()
+        reversal_60min_average = filtered_df['reversal_move_pct_60min'].mean()
+        
+        # Calculate direction bias for 10-minute moves
+        continuation_10min_count = len(filtered_df[filtered_df['continuation_move_pct'] > 0])
+        reversal_10min_count = len(filtered_df[filtered_df['reversal_move_pct'] > 0])
+        total_10min_count = len(filtered_df)
+        
+        # Calculate direction bias for 60-minute moves
+        continuation_60min_count = len(filtered_df[filtered_df['continuation_move_pct_60min'] > 0])
+        reversal_60min_count = len(filtered_df[filtered_df['reversal_move_pct_60min'] > 0])
+        total_60min_count = len(filtered_df)
+        
+        insights = {
+            'continuation_move_10min': {
+                'median': round(continuation_10min_median, 2) if not pd.isna(continuation_10min_median) else 0,
+                'average': round(continuation_10min_average, 2) if not pd.isna(continuation_10min_average) else 0,
+                'description': 'Continuation move in first 10 minutes',
+                'direction_bias': 'Positive' if continuation_10min_median > 0 else 'Negative',
+                'positive_count': continuation_10min_count,
+                'total_count': total_10min_count
+            },
+            'reversal_move_10min': {
+                'median': round(reversal_10min_median, 2) if not pd.isna(reversal_10min_median) else 0,
+                'average': round(reversal_10min_average, 2) if not pd.isna(reversal_10min_average) else 0,
+                'description': 'Reversal move in first 10 minutes',
+                'direction_bias': 'Positive' if reversal_10min_median > 0 else 'Negative',
+                'positive_count': reversal_10min_count,
+                'total_count': total_10min_count
+            },
+            'continuation_move_60min': {
+                'median': round(continuation_60min_median, 2) if not pd.isna(continuation_60min_median) else 0,
+                'average': round(continuation_60min_average, 2) if not pd.isna(continuation_60min_average) else 0,
+                'description': 'Continuation move in first 60 minutes',
+                'direction_bias': 'Positive' if continuation_60min_median > 0 else 'Negative',
+                'positive_count': continuation_60min_count,
+                'total_count': total_60min_count
+            },
+            'reversal_move_60min': {
+                'median': round(reversal_60min_median, 2) if not pd.isna(reversal_60min_median) else 0,
+                'average': round(reversal_60min_average, 2) if not pd.isna(reversal_60min_average) else 0,
+                'description': 'Reversal move in first 60 minutes',
+                'direction_bias': 'Positive' if reversal_60min_median > 0 else 'Negative',
+                'positive_count': reversal_60min_count,
+                'total_count': total_60min_count
+            },
+            'data_summary': {
+                'open_position': open_position,
+                'day_of_week': day_of_week,
+                'total_data_points': len(filtered_df)
+            }
+        }
+        
+        logging.debug(f"Computed previous high/low insights: {insights}")
+        return jsonify({'insights': insights})
+        
+    except Exception as e:
+        logging.error(f"Error processing previous high/low insights: {str(e)}")
+        return jsonify({'error': 'Server error'}), 500
+
 @app.route('/api/years', methods=['GET'])
 @limiter.limit("10 per 12 hours")
 def get_years():
