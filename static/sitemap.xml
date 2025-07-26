@@ -84,4 +84,16 @@
         <changefreq>monthly</changefreq>
         <lastmod>2024-07-26</lastmod>
     </url>
+    <url>
+        <loc>https://onemchart.onrender.com/news-event-keylevels</loc>
+        <priority>0.8</priority>
+        <changefreq>monthly</changefreq>
+        <lastmod>2024-07-26</lastmod>
+    </url>
+    <url>
+        <loc>https://onemchart.onrender.com/news-event</loc>
+        <priority>0.8</priority>
+        <changefreq>monthly</changefreq>
+        <lastmod>2024-07-26</lastmod>
+    </url>
 </urlset>

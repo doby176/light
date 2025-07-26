@@ -580,6 +580,16 @@ def gap_trading_mastery():
     """Educational article about Gap Trading Mastery"""
     return render_template('gap-trading-mastery.html')
 
+@app.route('/news-event-keylevels')
+def news_event_keylevels():
+    """Educational article about Premarket Level Trading and Support/Resistance Analysis"""
+    return render_template('news_event_keylevels.html')
+
+@app.route('/news-event')
+def news_event():
+    """Educational article about Key News Events Trading"""
+    return render_template('news_event.html')
+
 @app.route('/sitemap.xml')
 def sitemap():
     """Serve static XML sitemap for SEO"""
