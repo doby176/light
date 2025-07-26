@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Analysis: First Hour Movements After Economic Events</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: -20px -20px 40px -20px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .executive-summary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+        }
+
+        .executive-summary h2 {
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .key-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .section {
+            margin: 40px 0;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .section h3 {
+            color: #555;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .comparison-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .comparison-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .comparison-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .comparison-table tr:hover {
+            background-color: #e3f2fd;
+        }
+
+        .insight-box {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 5px solid #667eea;
+        }
+
+        .insight-box h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .performance-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-top: 4px solid #667eea;
+        }
+
+        .performance-card h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .metric-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .positive {
+            color: #28a745;
+        }
+
+        .negative {
+            color: #dc3545;
+        }
+
+        .highlight {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 5px solid #ff6b6b;
+        }
+
+        .strategy-section {
+            background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%);
+            padding: 30px;
+            border-radius: 10px;
+            margin: 30px 0;
+        }
+
+        .strategy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .strategy-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .strategy-card h4 {
+            color: #d299c2;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px 0;
+            background: #333;
+            color: white;
+            margin: 40px -20px -20px -20px;
+        }
+
+        .footer p {
+            margin: 10px 0;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 20px 0;
+                margin: -10px -10px 20px -10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .key-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .performance-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .strategy-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Market Analysis: First Hour Movements After Economic Events</h1>
+            <p>A Comprehensive Study of 367 Economic Events (2015-2025)</p>
+        </div>
+
+        <div class="executive-summary">
+            <h2>Executive Summary</h2>
+            <p>This comprehensive analysis examines market behavior during the critical first hour following major economic announcements. Based on 367 events spanning over a decade, we reveal sophisticated patterns in how markets react to NFP, CPI, and PPI data across 15 distinct market condition categories.</p>
+        </div>
+
+        <div class="key-stats">
+            <div class="stat-card">
+                <div class="stat-number">367</div>
+                <div class="stat-label">Total Events Analyzed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">55.9%</div>
+                <div class="stat-label">Overall Upward Bias (First Hour)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">51.2%</div>
+                <div class="stat-label">Upward Bias (First 29 Minutes)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">15</div>
+                <div class="stat-label">Market Condition Categories</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">8.4%</div>
+                <div class="stat-label">Extreme Events (>1%)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0.3%</div>
+                <div class="stat-label">Super Extreme Events (>2%)</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Key Findings</h2>
+            
+            <div class="insight-box">
+                <h4>Market Direction Patterns</h4>
+                <p><strong>First Hour (9:30-10:30 AM):</strong> Markets show a 55.9% upward bias, suggesting overall optimism in immediate reactions to economic news.</p>
+                <p><strong>First 29 Minutes (9:30-9:59 AM):</strong> More balanced at 51.2% upward, indicating higher volatility and emotional trading in opening minutes.</p>
+            </div>
+
+            <div class="insight-box">
+                <h4>Volatility Insights</h4>
+                <p><strong>First Hour Volatility:</strong> 0.605% standard deviation with movements ranging from -2.946% to +2.730%</p>
+                <p><strong>First 29 Minutes Volatility:</strong> 0.628% standard deviation with movements ranging from -1.880% to +2.741%</p>
+            </div>
+
+            <div class="insight-box">
+                <h4>Event Type Performance</h4>
+                <p><strong>NFP Events:</strong> Highest volatility, 59.5% up rate in first hour, perfect 100% up rate for job loss events</p>
+                <p><strong>CPI Events:</strong> Largest average movements, 56.6% up rate, strongest performance in 3-5% inflation range</p>
+                <p><strong>PPI Events:</strong> Most balanced distribution, 51.6% up rate, predictable in low inflation periods</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Event Type Performance Analysis</h2>
+            
+            <div class="performance-grid">
+                <div class="performance-card">
+                    <h4>Non-Farm Payrolls (NFP)</h4>
+                    <div class="metric">
+                        <span class="metric-label">First Hour Up Rate:</span>
+                        <span class="metric-value positive">59.5%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">First 29 Min Up Rate:</span>
+                        <span class="metric-value positive">52.9%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Average Movement:</span>
+                        <span class="metric-value positive">+0.033%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Volatility:</span>
+                        <span class="metric-value">Highest</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Best Category:</span>
+                        <span class="metric-value">Job Losses (100% up)</span>
+                    </div>
+                </div>
+
+                <div class="performance-card">
+                    <h4>Consumer Price Index (CPI)</h4>
+                    <div class="metric">
+                        <span class="metric-label">First Hour Up Rate:</span>
+                        <span class="metric-value positive">56.6%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">First 29 Min Up Rate:</span>
+                        <span class="metric-value positive">52.5%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Average Movement:</span>
+                        <span class="metric-value positive">+0.083%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Volatility:</span>
+                        <span class="metric-value">High</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Best Category:</span>
+                        <span class="metric-value">3-5% Inflation (76.5% up)</span>
+                    </div>
+                </div>
+
+                <div class="performance-card">
+                    <h4>Producer Price Index (PPI)</h4>
+                    <div class="metric">
+                        <span class="metric-label">First Hour Up Rate:</span>
+                        <span class="metric-value positive">51.6%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">First 29 Min Up Rate:</span>
+                        <span class="metric-value negative">48.4%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Average Movement:</span>
+                        <span class="metric-value positive">+0.043%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Volatility:</span>
+                        <span class="metric-value">Moderate</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Best Category:</span>
+                        <span class="metric-value">0-2% PPI (64.3% up)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Market Condition Categories Performance</h2>
+            
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Events</th>
+                        <th>First Hour Up Rate</th>
+                        <th>First 29 Min Up Rate</th>
+                        <th>Avg Movement</th>
+                        <th>Volatility</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>NFP - Job Losses (<0K)</strong></td>
+                        <td>3</td>
+                        <td class="positive">66.7%</td>
+                        <td class="positive">100.0%</td>
+                        <td class="positive">+0.469%</td>
+                        <td>High</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CPI - High Inflation (3-5%)</strong></td>
+                        <td>17</td>
+                        <td class="positive">76.5%</td>
+                        <td class="positive">64.7%</td>
+                        <td class="positive">+0.201%</td>
+                        <td>Moderate</td>
+                    </tr>
+                    <tr>
+                        <td><strong>NFP - Strong Growth (>300K)</strong></td>
+                        <td>32</td>
+                        <td class="positive">65.6%</td>
+                        <td class="negative">46.9%</td>
+                        <td class="negative">-0.002%</td>
+                        <td>Highest</td>
+                    </tr>
+                    <tr>
+                        <td><strong>PPI - Low (0-2%)</strong></td>
+                        <td>14</td>
+                        <td class="positive">64.3%</td>
+                        <td class="positive">57.1%</td>
+                        <td class="positive">+0.164%</td>
+                        <td>Low</td>
+                    </tr>
+                    <tr>
+                        <td><strong>NFP - Weak Growth (100-200K)</strong></td>
+                        <td>31</td>
+                        <td class="positive">61.3%</td>
+                        <td class="positive">64.5%</td>
+                        <td class="negative">-0.013%</td>
+                        <td>Moderate</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Notable Extreme Events</h2>
+            
+            <div class="highlight">
+                <h4>Largest Movements in First Hour</h4>
+                <p><strong>Largest Upward:</strong> CPI on August 13, 2019 (+2.730%) - Inflation shock driving aggressive buying</p>
+                <p><strong>Largest Downward:</strong> NFP on September 4, 2020 (-2.946%) - Pandemic employment crisis</p>
+            </div>
+
+            <div class="highlight">
+                <h4>Largest Movements in First 29 Minutes</h4>
+                <p><strong>Largest Upward:</strong> CPI on August 13, 2019 (+2.741%) - Same event, even more extreme in opening minutes</p>
+                <p><strong>Largest Downward:</strong> NFP on May 6, 2022 (-1.880%) - Employment disappointment</p>
+            </div>
+
+            <div class="insight-box">
+                <h4>Super Extreme Events Analysis</h4>
+                <p><strong>First Hour:</strong> 31 extreme events (>1% or <-1%) representing 8.4% of all events</p>
+                <p><strong>First 29 Minutes:</strong> Only 1 super extreme event (>2% or <-2%) representing 0.3% of all events</p>
+                <p><strong>Risk Management:</strong> Super extreme events are extremely rare but can be devastating to unprepared portfolios</p>
+            </div>
+        </div>
+
+        <div class="strategy-section">
+            <h2>Trading Strategy Implications</h2>
+            
+            <div class="strategy-grid">
+                <div class="strategy-card">
+                    <h4>High-Probability Setups</h4>
+                    <ul>
+                        <li><strong>NFP Job Losses:</strong> 100% up rate (3 events)</li>
+                        <li><strong>CPI 3-5%:</strong> 76.5% up rate (17 events)</li>
+                        <li><strong>NFP >300K:</strong> 65.6% up rate (32 events)</li>
+                        <li><strong>PPI 0-2%:</strong> 64.3% up rate (14 events)</li>
+                    </ul>
+                </div>
+
+                <div class="strategy-card">
+                    <h4>Risk Management Guidelines</h4>
+                    <ul>
+                        <li><strong>Position Sizing:</strong> 0.5-2% of portfolio per event</li>
+                        <li><strong>Stop Losses:</strong> 0.5-2% based on volatility</li>
+                        <li><strong>Entry Timing:</strong> First 5-10 minutes for maximum impact</li>
+                        <li><strong>Exit Strategy:</strong> Partial profits at 0.5-1% gains</li>
+                    </ul>
+                </div>
+
+                <div class="strategy-card">
+                    <h4>Market Condition Adaptation</h4>
+                    <ul>
+                        <li><strong>Inflationary Periods:</strong> Favor CPI events</li>
+                        <li><strong>Employment Recovery:</strong> Focus on NFP >300K</li>
+                        <li><strong>Deflationary Periods:</strong> PPI <0% events</li>
+                        <li><strong>Economic Uncertainty:</strong> Reduce position sizes</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Behavioral Finance Insights</h2>
+            
+            <div class="insight-box">
+                <h4>Market Psychology Patterns</h4>
+                <p><strong>Optimism Bias:</strong> Overall 55.9% upward bias suggests markets tend to interpret news optimistically</p>
+                <p><strong>Contrarian Behavior:</strong> Job loss events show upward bias, suggesting markets interpret bad news as positive for monetary policy</p>
+                <p><strong>Fear Amplification:</strong> Downward movements, while less frequent, can be more severe</p>
+                <p><strong>Event Hierarchy:</strong> NFP events command the most attention and generate the most volatility</p>
+            </div>
+
+            <div class="insight-box">
+                <h4>Time-Based Patterns</h4>
+                <p><strong>Opening Frenzy:</strong> First 29 minutes show highest emotional trading and volatility</p>
+                <p><strong>Liquidity Issues:</strong> Thin markets in opening minutes can amplify movements</p>
+                <p><strong>Momentum Building:</strong> Initial direction often sets tone for entire session</p>
+                <p><strong>News Processing:</strong> Markets digest and react to economic data in real-time</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Conclusion</h2>
+            
+            <p>This comprehensive analysis reveals sophisticated patterns in market behavior during the critical first hour following major economic announcements. The data shows that:</p>
+            
+            <ul style="margin: 20px 0; padding-left: 20px;">
+                <li><strong>Category-Specific Strategies:</strong> Different market condition categories require different approaches</li>
+                <li><strong>Risk-Reward Optimization:</strong> High-probability setups exist but require careful risk management</li>
+                <li><strong>Market Adaptation:</strong> Successful trading requires adapting to changing economic conditions</li>
+                <li><strong>Behavioral Patterns:</strong> Market psychology plays a crucial role in first-hour movements</li>
+                <li><strong>Time Sensitivity:</strong> First 29 minutes show highest volatility and emotional trading</li>
+            </ul>
+
+            <div class="highlight">
+                <h4>Key Strategic Takeaways</h4>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Focus on CPI 3-5% events for highest directional probability</li>
+                    <li>Exercise caution with NFP >300K events due to high volatility</li>
+                    <li>Use category-specific position sizing and risk management</li>
+                    <li>Monitor market conditions to adapt strategies accordingly</li>
+                    <li>Leverage the 55.9% overall upward bias while managing extreme event risk</li>
+                </ul>
+            </div>
+
+            <p>This analysis provides a foundation for developing systematic, data-driven approaches to trading economic events while maintaining appropriate risk management protocols.</p>
+        </div>
+
+        <div class="footer">
+            <p><strong>Data Source:</strong> Analysis of 367 economic events from 2015-2025 covering NFP, CPI, and PPI announcements</p>
+            <p><strong>Analysis Period:</strong> January 9, 2015 to April 16, 2025</p>
+            <p><strong>Methodology:</strong> First hour and first 29 minutes price movements following economic announcements</p>
+            <p><strong>Market Conditions:</strong> 15 distinct categories based on economic data ranges</p>
+            <p style="margin-top: 20px; opacity: 0.6;">© 2025 Market Analysis Report - All rights reserved</p>
+        </div>
+    </div>
+</body>
+</html>
