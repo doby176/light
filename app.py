@@ -587,7 +587,7 @@ def news_event_keylevels():
 
 @app.route('/news-event')
 def news_event():
-    """Educational article about Key News Events Trading"""
+    """Educational article about Key News Events Trading - Fixed"""
     return render_template('news_event.html')
 
 @app.route('/sitemap.xml')
