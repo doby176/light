@@ -3708,3 +3708,12 @@ footer p {
         font-size: 0.8rem;
     }
 }
+
+/* AdSense Units */
+.adsense-unit {
+    margin: var(--spacing-xl) 0;
+    text-align: center;
+    background: var(--light-grey);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+}

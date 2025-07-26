@@ -27,6 +27,11 @@
         gtag('config', 'G-BFDR405H06');
     </script>
     
+    <!-- AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9416785017460416" crossorigin="anonymous"></script>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    
     <!-- Schema Markup for Rich Results -->
     <script type="application/ld+json">
     {
@@ -58,204 +63,6 @@
         "wordCount": "2600"
     }
     </script>
-    
-    <link rel="icon" type="image/png" href="/static/favicon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css">
-    <style>
-        .article-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: var(--spacing-xl) var(--spacing-lg);
-        }
-        
-        .article-header {
-            text-align: center;
-            margin-bottom: var(--spacing-xxl);
-            background: var(--card-gradient);
-            padding: var(--spacing-xl);
-            border-radius: var(--border-radius-lg);
-            box-shadow: var(--shadow-light);
-        }
-        
-        .article-header h1 {
-            color: var(--primary-blue);
-            font-size: 2.8rem;
-            font-weight: var(--font-weight-bold);
-            margin-bottom: var(--spacing-md);
-            line-height: 1.2;
-        }
-        
-        .article-meta {
-            color: var(--dark-grey);
-            font-size: 1.1rem;
-            margin-bottom: var(--spacing-lg);
-        }
-        
-        .article-excerpt {
-            color: var(--charcoal);
-            font-size: 1.2rem;
-            line-height: 1.7;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        .article-content {
-            background: var(--white);
-            padding: var(--spacing-xxl);
-            border-radius: var(--border-radius-lg);
-            box-shadow: var(--shadow-light);
-            margin-bottom: var(--spacing-xxl);
-        }
-        
-        .article-section {
-            margin-bottom: var(--spacing-xxl);
-        }
-        
-        .article-section h2 {
-            color: var(--primary-blue);
-            font-size: 2rem;
-            font-weight: var(--font-weight-bold);
-            margin-bottom: var(--spacing-lg);
-            border-bottom: 3px solid var(--accent-green);
-            padding-bottom: var(--spacing-sm);
-        }
-        
-        .article-section h3 {
-            color: var(--primary-dark);
-            font-size: 1.5rem;
-            font-weight: var(--font-weight-semibold);
-            margin: var(--spacing-xl) 0 var(--spacing-md) 0;
-        }
-        
-        .article-section p {
-            color: var(--charcoal);
-            font-size: 1.1rem;
-            line-height: 1.7;
-            margin-bottom: var(--spacing-md);
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: var(--spacing-lg);
-            margin: var(--spacing-xl) 0;
-        }
-        
-        .stat-card {
-            background: var(--card-gradient);
-            padding: var(--spacing-lg);
-            border-radius: var(--border-radius-md);
-            box-shadow: var(--shadow-light);
-            border-left: 4px solid var(--primary-blue);
-            transition: var(--transition-medium);
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-medium);
-        }
-        
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: var(--font-weight-bold);
-            color: var(--primary-blue);
-            margin-bottom: var(--spacing-sm);
-        }
-        
-        .stat-label {
-            color: var(--dark-grey);
-            font-weight: var(--font-weight-medium);
-            font-size: 1rem;
-        }
-        
-        .performance-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: var(--spacing-xl) 0;
-            background: var(--white);
-            border-radius: var(--border-radius-md);
-            overflow: hidden;
-            box-shadow: var(--shadow-light);
-        }
-        
-        .performance-table th {
-            background: var(--primary-blue);
-            color: var(--white);
-            padding: var(--spacing-md);
-            text-align: left;
-            font-weight: var(--font-weight-semibold);
-        }
-        
-        .performance-table td {
-            padding: var(--spacing-md);
-            border-bottom: 1px solid var(--medium-grey);
-        }
-        
-        .performance-table tr:hover {
-            background: var(--light-grey);
-        }
-        
-        .highlight-box {
-            background: linear-gradient(135deg, var(--accent-green) 0%, #00d4aa 100%);
-            color: var(--white);
-            padding: var(--spacing-lg);
-            border-radius: var(--border-radius-md);
-            margin: var(--spacing-xl) 0;
-            box-shadow: var(--shadow-medium);
-        }
-        
-        .highlight-box h4 {
-            font-size: 1.3rem;
-            font-weight: var(--font-weight-bold);
-            margin-bottom: var(--spacing-sm);
-        }
-        
-        .strategy-card {
-            background: var(--card-gradient);
-            padding: var(--spacing-lg);
-            border-radius: var(--border-radius-md);
-            margin: var(--spacing-lg) 0;
-            border-left: 4px solid var(--warning-orange);
-            box-shadow: var(--shadow-light);
-        }
-        
-        .strategy-card h4 {
-            color: var(--primary-blue);
-            font-weight: var(--font-weight-bold);
-            margin-bottom: var(--spacing-sm);
-        }
-        
-        .back-link {
-            display: inline-block;
-            margin-bottom: var(--spacing-xl);
-            color: var(--primary-blue);
-            text-decoration: none;
-            font-weight: var(--font-weight-medium);
-            padding: var(--spacing-sm) var(--spacing-md);
-            border-radius: var(--border-radius-md);
-            transition: var(--transition-fast);
-        }
-        
-        .back-link:hover {
-            background: var(--light-grey);
-            text-decoration: none;
-        }
-        
-        @media (max-width: 768px) {
-            .article-header h1 {
-                font-size: 2rem;
-            }
-            
-            .article-content {
-                padding: var(--spacing-lg);
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Breadcrumb Navigation -->
@@ -281,79 +88,86 @@
     </header>
 
     <main class="article-main">
-        <div class="article-container">
-            <a href="/" class="back-link">← Back to Home</a>
-            
+        <article class="article-content">
+            <!-- Article Header -->
             <div class="article-header">
                 <h1>Key News Events Trading: CPI, PPI, NFP Market Analysis</h1>
                 <div class="article-meta">
-                    <strong>Data-Driven Analysis</strong> • 367 Economic Events (2015-2025) • Proven Trading Strategies
+                    <span>Data-Driven Analysis</span>
+                    <span>367 Economic Events (2015-2025)</span>
+                    <span>Proven Trading Strategies</span>
                 </div>
-                <p class="article-excerpt">
+            </div>
+
+            <!-- Article Intro -->
+            <div class="article-intro">
+                <p class="lead-paragraph">
                     Master trading strategies for the three most important economic news events: Consumer Price Index (CPI), 
                     Producer Price Index (PPI), and Non-Farm Payrolls (NFP). Our comprehensive analysis reveals the exact 
                     timing and magnitude of market movements after these critical economic releases.
                 </p>
             </div>
 
-            <div class="article-content">
-                <div class="article-section">
-                    <h2>Executive Summary: Key News Events Market Mastery</h2>
-                    <p>
-                        In the world of <strong>intraday trading</strong> and <strong>gap analysis</strong>, timing is everything. 
-                        Our analysis of 367 economic events reveals that the first hour of trading (9:30-10:30 AM) presents 
-                        the most predictable and profitable opportunities for <strong>Nasdaq traders</strong>.
-                    </p>
-                    
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number">367</div>
-                            <div class="stat-label">Economic Events Analyzed</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">0.47%</div>
-                            <div class="stat-label">Average First Hour Movement</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">58.3%</div>
-                            <div class="stat-label">Upward Movement Rate</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">1.2%</div>
-                            <div class="stat-label">Extreme Movement Threshold</div>
-                        </div>
-                    </div>
+            <!-- Key Stats Highlight -->
+            <div class="key-stats-highlight">
+                <div class="stat-item">
+                    <span class="stat-number">367</span>
+                    <span class="stat-label">Economic Events Analyzed</span>
                 </div>
-
-                <div class="article-section">
-                    <h2>Key Trading Insights: Market Psychology & Timing</h2>
-                    
-                    <h3>1. Market Direction Bias</h3>
-                    <p>
-                        The data reveals a clear <strong>bullish bias</strong> in the first hour after economic events, 
-                        with 58.3% of movements trending upward. This pattern suggests that market participants 
-                        often interpret economic data more optimistically in the initial trading session.
-                    </p>
-                    
-                    <h3>2. Volatility Patterns & Risk Management</h3>
-                    <p>
-                        <strong>Market volatility</strong> peaks during the first 29 minutes (9:30-9:59 AM), with movements 
-                        averaging 0.47% and extreme events reaching 1.2% or higher. This creates both opportunities 
-                        and risks for <strong>day traders</strong> and <strong>swing traders</strong>.
-                    </p>
-                    
-                    <div class="highlight-box">
-                        <h4>🎯 Critical Trading Window</h4>
-                        <p>The first 29 minutes of trading represent the highest probability window for capturing 
-                        significant market movements. Traders should focus their <strong>technical analysis</strong> 
-                        and <strong>risk management</strong> strategies during this period.</p>
-                    </div>
+                <div class="stat-item">
+                    <span class="stat-number">0.47%</span>
+                    <span class="stat-label">Average First Hour Movement</span>
                 </div>
+                <div class="stat-item">
+                    <span class="stat-number">58.3%</span>
+                    <span class="stat-label">Upward Movement Rate</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">1.2%</span>
+                    <span class="stat-label">Extreme Movement Threshold</span>
+                </div>
+            </div>
 
-                <div class="article-section">
-                    <h2>Event Type Performance Analysis</h2>
-                    
-                    <table class="performance-table">
+            <!-- Article Sections -->
+            <div class="article-section">
+                <h2>Executive Summary: Key News Events Market Mastery</h2>
+                <p>
+                    In the world of <strong>intraday trading</strong> and <strong>gap analysis</strong>, timing is everything. 
+                    Our analysis of 367 economic events reveals that the first hour of trading (9:30-10:30 AM) presents 
+                    the most predictable and profitable opportunities for <strong>Nasdaq traders</strong>.
+                </p>
+            </div>
+
+            <div class="article-section">
+                <h2>Key Trading Insights: Market Psychology & Timing</h2>
+                
+                <h3>1. Market Direction Bias</h3>
+                <p>
+                    The data reveals a clear <strong>bullish bias</strong> in the first hour after economic events, 
+                    with 58.3% of movements trending upward. This pattern suggests that market participants 
+                    often interpret economic data more optimistically in the initial trading session.
+                </p>
+                
+                <h3>2. Volatility Patterns & Risk Management</h3>
+                <p>
+                    <strong>Market volatility</strong> peaks during the first 29 minutes (9:30-9:59 AM), with movements 
+                    averaging 0.47% and extreme events reaching 1.2% or higher. This creates both opportunities 
+                    and risks for <strong>day traders</strong> and <strong>swing traders</strong>.
+                </p>
+                
+                <div class="strategy-box">
+                    <h3>🎯 Critical Trading Window</h3>
+                    <p>The first 29 minutes of trading represent the highest probability window for capturing 
+                    significant market movements. Traders should focus their <strong>technical analysis</strong> 
+                    and <strong>risk management</strong> strategies during this period.</p>
+                </div>
+            </div>
+
+            <div class="article-section">
+                <h2>Event Type Performance Analysis</h2>
+                
+                <div class="data-table">
+                    <table>
                         <thead>
                             <tr>
                                 <th>Economic Event</th>
@@ -388,119 +202,119 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
 
-                <div class="article-section">
-                    <h2>Market Condition Categories & Trading Psychology</h2>
-                    
-                    <p>
-                        Our analysis categorizes market conditions into distinct <strong>trading psychology</strong> 
-                        profiles, each requiring different <strong>technical analysis</strong> approaches:
-                    </p>
-                    
-                    <div class="strategy-card">
-                        <h4>📈 Bull Market Conditions</h4>
-                        <p>During bullish periods, economic events trigger stronger upward movements with higher 
-                        <strong>market volatility</strong>. Traders should focus on momentum strategies and 
-                        <strong>gap analysis</strong> for continuation patterns.</p>
-                    </div>
-                    
-                    <div class="strategy-card">
-                        <h4>📉 Bear Market Conditions</h4>
-                        <p>Bear market conditions show increased sensitivity to negative economic data, 
-                        creating opportunities for <strong>short selling</strong> strategies and 
-                        <strong>risk management</strong> through proper position sizing.</p>
-                    </div>
-                    
-                    <div class="strategy-card">
-                        <h4>🔄 Sideways Market Conditions</h4>
-                        <p>Range-bound markets require precise <strong>market timing</strong> and 
-                        <strong>technical analysis</strong> to identify breakout opportunities 
-                        from established support and resistance levels.</p>
-                    </div>
+            <div class="article-section">
+                <h2>Market Condition Categories & Trading Psychology</h2>
+                
+                <p>
+                    Our analysis categorizes market conditions into distinct <strong>trading psychology</strong> 
+                    profiles, each requiring different <strong>technical analysis</strong> approaches:
+                </p>
+                
+                <div class="strategy-box">
+                    <h3>📈 Bull Market Conditions</h3>
+                    <p>During bullish periods, economic events trigger stronger upward movements with higher 
+                    <strong>market volatility</strong>. Traders should focus on momentum strategies and 
+                    <strong>gap analysis</strong> for continuation patterns.</p>
                 </div>
-
-                <div class="article-section">
-                    <h2>Notable Extreme Events & Risk Management</h2>
-                    
-                    <p>
-                        Our analysis identified significant extreme movements that highlight the importance 
-                        of proper <strong>risk management</strong> in <strong>intraday trading</strong>:
-                    </p>
-                    
-                    <ul style="color: var(--charcoal); font-size: 1.1rem; line-height: 1.7; margin: var(--spacing-lg) 0;">
-                        <li><strong>Largest Upward Movement:</strong> 2.8% in 29 minutes (NFP event)</li>
-                        <li><strong>Largest Downward Movement:</strong> -2.1% in 29 minutes (CPI event)</li>
-                        <li><strong>Super Extreme Events:</strong> 8.7% of all events exceed 1.5% movement</li>
-                        <li><strong>Risk Management:</strong> Position sizing should account for 2-3% potential moves</li>
-                    </ul>
+                
+                <div class="strategy-box">
+                    <h3>📉 Bear Market Conditions</h3>
+                    <p>Bear market conditions show increased sensitivity to negative economic data, 
+                    creating opportunities for <strong>short selling</strong> strategies and 
+                    <strong>risk management</strong> through proper position sizing.</p>
                 </div>
-
-                <div class="article-section">
-                    <h2>Trading Strategy Implementation</h2>
-                    
-                    <h3>Pre-Market Preparation</h3>
-                    <p>
-                        Successful <strong>day trading</strong> requires thorough preparation. Analyze economic 
-                        event expectations, review <strong>technical analysis</strong> levels, and prepare 
-                        <strong>risk management</strong> strategies before market open.
-                    </p>
-                    
-                    <h3>First Hour Execution</h3>
-                    <p>
-                        Focus on the critical 9:30-10:30 AM window. Use <strong>gap analysis</strong> to 
-                        identify entry points, implement proper <strong>market timing</strong>, and maintain 
-                        strict <strong>risk management</strong> protocols.
-                    </p>
-                    
-                    <h3>Post-Event Analysis</h3>
-                    <p>
-                        Review trade performance, analyze <strong>trading psychology</strong> decisions, 
-                        and refine strategies based on market behavior patterns for future 
-                        <strong>intraday trading</strong> opportunities.
-                    </p>
-                </div>
-
-                <div class="article-section">
-                    <h2>Conclusion: Data-Driven Trading Excellence</h2>
-                    
-                    <p>
-                        The analysis of 367 economic events provides a solid foundation for 
-                        <strong>Nasdaq trading</strong> success. By understanding market timing, 
-                        implementing proper <strong>risk management</strong>, and applying 
-                        <strong>technical analysis</strong> principles, traders can capitalize on 
-                        predictable market movements after economic events.
-                    </p>
-                    
-                    <div class="highlight-box">
-                        <h4>🚀 Ready to Master Market Timing?</h4>
-                        <p>Join 1MChart to access our comprehensive <strong>gap analysis</strong> tools, 
-                        real-time <strong>technical analysis</strong> features, and advanced 
-                        <strong>risk management</strong> systems. Transform your trading with 
-                        data-driven insights and proven strategies.</p>
-                    </div>
+                
+                <div class="strategy-box">
+                    <h3>🔄 Sideways Market Conditions</h3>
+                    <p>Range-bound markets require precise <strong>market timing</strong> and 
+                    <strong>technical analysis</strong> to identify breakout opportunities 
+                    from established support and resistance levels.</p>
                 </div>
             </div>
 
-            <!-- AdSense Unit 1 -->
-            <div class="adsense-unit">
-                <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9416785017460416" data-ad-slot="5487535867" data-ad-format="auto" data-full-width-responsive="true"></ins>
-                <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+            <div class="article-section">
+                <h2>Notable Extreme Events & Risk Management</h2>
+                
+                <p>
+                    Our analysis identified significant extreme movements that highlight the importance 
+                    of proper <strong>risk management</strong> in <strong>intraday trading</strong>:
+                </p>
+                
+                <ul>
+                    <li><strong>Largest Upward Movement:</strong> 2.8% in 29 minutes (NFP event)</li>
+                    <li><strong>Largest Downward Movement:</strong> -2.1% in 29 minutes (CPI event)</li>
+                    <li><strong>Super Extreme Events:</strong> 8.7% of all events exceed 1.5% movement</li>
+                    <li><strong>Risk Management:</strong> Position sizing should account for 2-3% potential moves</li>
+                </ul>
             </div>
 
-            <div class="card">
-                <h2>Master Key News Events Trading with 1MChart</h2>
-                <p>Access our comprehensive gap analysis platform, real-time market data, and advanced trading tools. Join thousands of successful traders using data-driven strategies.</p>
-                <div class="cta-buttons">
-                    <a href="/register" class="signup-btn">📈 Start Free Trial</a>
-                    <a href="/sample" class="sample-btn">🚀 View Sample Analysis</a>
+            <div class="article-section">
+                <h2>Trading Strategy Implementation</h2>
+                
+                <h3>Pre-Market Preparation</h3>
+                <p>
+                    Successful <strong>day trading</strong> requires thorough preparation. Analyze economic 
+                    event expectations, review <strong>technical analysis</strong> levels, and prepare 
+                    <strong>risk management</strong> strategies before market open.
+                </p>
+                
+                <h3>First Hour Execution</h3>
+                <p>
+                    Focus on the critical 9:30-10:30 AM window. Use <strong>gap analysis</strong> to 
+                    identify entry points, implement proper <strong>market timing</strong>, and maintain 
+                    strict <strong>risk management</strong> protocols.
+                </p>
+                
+                <h3>Post-Event Analysis</h3>
+                <p>
+                    Review trade performance, analyze <strong>trading psychology</strong> decisions, 
+                    and refine strategies based on market behavior patterns for future 
+                    <strong>intraday trading</strong> opportunities.
+                </p>
+            </div>
+
+            <div class="article-section">
+                <h2>Conclusion: Data-Driven Trading Excellence</h2>
+                
+                <p>
+                    The analysis of 367 economic events provides a solid foundation for 
+                    <strong>Nasdaq trading</strong> success. By understanding market timing, 
+                    implementing proper <strong>risk management</strong>, and applying 
+                    <strong>technical analysis</strong> principles, traders can capitalize on 
+                    predictable market movements after economic events.
+                </p>
+                
+                <div class="strategy-box">
+                    <h3>🚀 Ready to Master Market Timing?</h3>
+                    <p>Join 1MChart to access our comprehensive <strong>gap analysis</strong> tools, 
+                    real-time <strong>technical analysis</strong> features, and advanced 
+                    <strong>risk management</strong> systems. Transform your trading with 
+                    data-driven insights and proven strategies.</p>
                 </div>
             </div>
+        </article>
 
-            <!-- AdSense Unit 2 -->
-            <div class="adsense-unit">
-                <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9416785017460416" data-ad-slot="5487535867" data-ad-format="auto" data-full-width-responsive="true"></ins>
-                <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+        <!-- AdSense Unit 1 -->
+        <div class="adsense-unit">
+            <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9416785017460416" data-ad-slot="5487535867" data-ad-format="auto" data-full-width-responsive="true"></ins>
+            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+        </div>
+
+        <div class="card">
+            <h2>Master Key News Events Trading with 1MChart</h2>
+            <p>Access our comprehensive gap analysis platform, real-time market data, and advanced trading tools. Join thousands of successful traders using data-driven strategies.</p>
+            <div class="cta-buttons">
+                <a href="/register" class="signup-btn">📈 Start Free Trial</a>
+                <a href="/sample" class="sample-btn">🚀 View Sample Analysis</a>
             </div>
+        </div>
+
+        <!-- AdSense Unit 2 -->
+        <div class="adsense-unit">
+            <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9416785017460416" data-ad-slot="5487535867" data-ad-format="auto" data-full-width-responsive="true"></ins>
+            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
         </div>
     </main>
 

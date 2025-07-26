@@ -59,9 +59,10 @@
     }
     </script>
     
-    <link rel="icon" type="image/png" href="/static/favicon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css">
+    <!-- AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9416785017460416" crossorigin="anonymous"></script>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <!-- Breadcrumb Navigation -->
@@ -87,15 +88,20 @@
     </header>
 
     <main class="article-main">
-        <div class="article-container">
-            <a href="/" class="back-link">← Back to Home</a>
-            
+        <article class="article-content">
+            <!-- Article Header -->
             <div class="article-header">
                 <h1>Key News Events: CPI, PPI, NFP - Premarket Level Trading & Support/Resistance Analysis</h1>
                 <div class="article-meta">
-                    <strong>Data-Driven Analysis</strong> • 367 Economic Events (2015-2025) • Support/Resistance Mastery
+                    <span>Data-Driven Analysis</span>
+                    <span>367 Economic Events (2015-2025)</span>
+                    <span>Support/Resistance Mastery</span>
                 </div>
-                <p class="article-excerpt">
+            </div>
+
+            <!-- Article Intro -->
+            <div class="article-intro">
+                <p class="lead-paragraph">
                     Master premarket level trading and support/resistance strategies for the three most important economic news events: Consumer Price Index (CPI), Producer Price Index (PPI), and Non-Farm Payrolls (NFP). Our comprehensive analysis reveals how to trade Nasdaq around critical levels after these events.
                 </p>
             </div>
@@ -278,22 +284,22 @@
                         and <strong>trading psychology</strong>.
                     </p>
                     
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number">95.9%</div>
-                            <div class="stat-label">Touch Rate</div>
+                    <div class="key-stats-highlight">
+                        <div class="stat-item">
+                            <span class="stat-number">95.9%</span>
+                            <span class="stat-label">Touch Rate</span>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-number">49.7%</div>
-                            <div class="stat-label">Same Direction Success</div>
+                        <div class="stat-item">
+                            <span class="stat-number">49.7%</span>
+                            <span class="stat-label">Same Direction Success</span>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-number">48.6%</div>
-                            <div class="stat-label">Opposite Direction Success</div>
+                        <div class="stat-item">
+                            <span class="stat-number">48.6%</span>
+                            <span class="stat-label">Opposite Direction Success</span>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-number">177</div>
-                            <div class="stat-label">Extreme Moves (>1%)</div>
+                        <div class="stat-item">
+                            <span class="stat-number">177</span>
+                            <span class="stat-label">Extreme Moves (>1%)</span>
                         </div>
                     </div>
                     
@@ -319,8 +325,8 @@
                         <li><strong>Event Performance:</strong> PPI (56.2%), NFP (45.2%), CPI (44.0%)</li>
                     </ul>
                     
-                    <div class="highlight-box">
-                        <h4>🎯 Critical Trading Insight</h4>
+                    <div class="strategy-box">
+                        <h3>🎯 Critical Trading Insight</h3>
                         <p>Both continuation and reversal strategies show nearly identical success rates (49.7% vs 48.6%), 
                         but opposite direction moves have a slight positive bias (+0.0206% vs -0.0376%). This suggests 
                         that <strong>market psychology</strong> slightly favors reversal trades after touching premarket levels.</p>
@@ -331,22 +337,22 @@
                         Different economic events show distinct movement characteristics when touching premarket levels:
                     </p>
                     
-                    <div class="strategy-card">
-                        <h4>📊 Non-Farm Payrolls (NFP)</h4>
+                    <div class="strategy-box">
+                        <h3>📊 Non-Farm Payrolls (NFP)</h3>
                         <p><strong>Same Direction:</strong> 53.9% success rate, -0.0140% average move<br>
                         <strong>Opposite Direction:</strong> 45.2% success rate, -0.1336% average move<br>
                         <strong>Strategy:</strong> NFP favors continuation trades with better success rates</p>
                     </div>
                     
-                    <div class="strategy-card">
-                        <h4>📈 Consumer Price Index (CPI)</h4>
+                    <div class="strategy-box">
+                        <h3>📈 Consumer Price Index (CPI)</h3>
                         <p><strong>Same Direction:</strong> 52.6% success rate, +0.0441% average move<br>
                         <strong>Opposite Direction:</strong> 44.0% success rate, +0.0523% average move<br>
                         <strong>Strategy:</strong> CPI shows positive bias in both directions</p>
                     </div>
                     
-                    <div class="strategy-card">
-                        <h4>📉 Producer Price Index (PPI)</h4>
+                    <div class="strategy-box">
+                        <h3>📉 Producer Price Index (PPI)</h3>
                         <p><strong>Same Direction:</strong> 43.0% success rate, -0.1384% average move<br>
                         <strong>Opposite Direction:</strong> 56.2% success rate, +0.1368% average move<br>
                         <strong>Strategy:</strong> PPI strongly favors reversal trades</p>
@@ -415,8 +421,8 @@
                         principles, traders can consistently profit from these predictable patterns.
                     </p>
                     
-                    <div class="highlight-box">
-                        <h4>🚀 Ready to Master Premarket Level Trading?</h4>
+                    <div class="strategy-box">
+                        <h3>🚀 Ready to Master Premarket Level Trading?</h3>
                         <p>Join 1MChart to access our advanced <strong>gap analysis</strong> tools, 
                         real-time <strong>technical analysis</strong> features, and comprehensive 
                         <strong>support and resistance</strong> analysis. Transform your trading with 
@@ -424,8 +430,9 @@
                     </div>
                 </div>
             </div>
+        </article>
 
-            <!-- AdSense Unit 1 -->
+        <!-- AdSense Unit 1 -->
             <div class="adsense-unit">
                 <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9416785017460416" data-ad-slot="5487535867" data-ad-format="auto" data-full-width-responsive="true"></ins>
                 <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
@@ -445,7 +452,6 @@
                 <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-9416785017460416" data-ad-slot="5487535867" data-ad-format="auto" data-full-width-responsive="true"></ins>
                 <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
             </div>
-        </div>
     </main>
 
     <footer class="footer">
