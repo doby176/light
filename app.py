@@ -550,6 +550,72 @@ def education_gap_fundamentals():
     """Educational course on gap analysis fundamentals"""
     return render_template('education-gap-fundamentals.html')
 
+@app.route('/previous-low-reversal-trading')
+def previous_low_reversal_trading():
+    """Educational article about Previous Low Reversal Trading strategy"""
+    return render_template('previous-low-reversal-trading.html')
+
+@app.route('/day-trading-time-analysis')
+def day_trading_time_analysis():
+    """Educational article about Day Trading Time Analysis"""
+    return render_template('day-trading-time-analysis.html')
+
+@app.route('/advanced-position-analysis')
+def advanced_position_analysis():
+    """Educational article about Advanced Position Analysis"""
+    return render_template('advanced-position-analysis.html')
+
+@app.route('/gap-trading-fundamentals')
+def gap_trading_fundamentals():
+    """Educational article about Gap Trading Fundamentals"""
+    return render_template('gap-trading-fundamentals.html')
+
+@app.route('/advanced-gap-timing')
+def advanced_gap_timing():
+    """Educational article about Advanced Gap Timing"""
+    return render_template('advanced-gap-timing.html')
+
+@app.route('/gap-trading-mastery')
+def gap_trading_mastery():
+    """Educational article about Gap Trading Mastery"""
+    return render_template('gap-trading-mastery.html')
+
+@app.route('/news-event-keylevels')
+def news_event_keylevels():
+    """Educational article about Premarket Level Trading and Support/Resistance Analysis"""
+    return render_template('news_event_keylevels.html')
+
+@app.route('/premarket-newsevent')
+def premarket_newsevent():
+    """Educational article about Key News Events Trading - Fixed"""
+    return render_template('premarket_newsevent.html')
+
+@app.route('/sitemap.xml')
+def sitemap():
+    """Serve static XML sitemap for SEO"""
+    from flask import send_from_directory
+    
+    return send_from_directory('static', 'sitemap.xml', mimetype='application/xml; charset=utf-8')
+
+@app.route('/robots.txt')
+def robots_txt():
+    """Generate robots.txt for SEO"""
+    from flask import make_response
+    
+    robots_content = """User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://onemchart.onrender.com/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+"""
+    
+    response = make_response(robots_content)
+    response.headers['Content-Type'] = 'text/plain'
+    return response
+
 @app.route('/api/sample/gap_bins', methods=['GET'])
 def get_sample_gap_bins_api():
     """Return limited gap bins for sample mode"""
