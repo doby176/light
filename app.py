@@ -595,7 +595,7 @@ def sitemap():
     """Serve static XML sitemap for SEO"""
     from flask import send_from_directory
     
-    return send_from_directory('static', 'sitemap.xml', mimetype='application/xml; charset=utf-8')
+    return send_from_directory('.', 'sitemap.xml', mimetype='application/xml; charset=utf-8')
 
 @app.route('/robots.txt')
 def robots_txt():
