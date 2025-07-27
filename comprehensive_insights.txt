@@ -1,0 +1,34 @@
+COMPREHENSIVE FIRST HOUR MOVEMENT INSIGHTS
+============================================================
+
+Total events analyzed: 367
+Date range: 2015-01-09 to 2025-04-16
+
+KEY FINDINGS:
+1. Average first hour movement: 0.0530%
+2. Up movements: 205 (55.9%)
+3. Down movements: 162 (44.1%)
+4. Number of bin categories: 15
+5. Overall volatility: 0.6051%
+
+BIN CATEGORIES:
+  <0%: 61 events
+  200-300K: 39 events
+  2-3%: 35 events
+  >300K: 32 events
+  100-200K: 31 events
+  1-2%: 31 events
+  >8%: 21 events
+  >5%: 21 events
+  4-8%: 20 events
+  3-5%: 17 events
+  0-100K: 16 events
+  0-2%: 14 events
+  0-1%: 14 events
+  2-4%: 12 events
+  <0K: 3 events
+
+EVENT TYPE PERFORMANCE:
+  CPI: 122 events, avg: +0.0829%, up rate: 56.6%
+  NFP: 121 events, avg: +0.0332%, up rate: 59.5%
+  PPI: 124 events, avg: +0.0428%, up rate: 51.6%

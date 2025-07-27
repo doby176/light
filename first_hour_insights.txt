@@ -1,0 +1,16 @@
+FIRST HOUR MOVEMENT INSIGHTS
+==================================================
+
+Total events analyzed: 367
+Date range: 2015-01-09 to 2025-04-16
+
+KEY FINDINGS:
+1. Average first hour movement: 0.0530%
+2. Up movements: 205 (55.9%)
+3. Down movements: 162 (44.1%)
+4. Extreme movements (>1% or <-1%): 31 events
+5. Overall volatility: 0.6051%
+
+TOP MOVEMENTS:
+Largest up: 2019-08-13 | CPI | 2.7297%
+Largest down: 2020-09-04 | NFP | -2.9462%
