@@ -36,9 +36,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool justEntered = false; // Flag to prevent immediate exit
         private bool entryProcessed = false; // Flag to prevent multiple entries
         private double entryPrice = 0;
-        private double trailingStopLevel = 0;
-        private bool trailingStopSet = false;
-        private bool trailingStopActive = false;
         private int remainingContracts = 0;
 
         [Range(1, int.MaxValue), NinjaScriptProperty]
@@ -165,43 +162,19 @@ namespace NinjaTrader.NinjaScript.Strategies
                     justEntered = true; // Set flag to prevent immediate exit
                     entryProcessed = true; // Prevent multiple entries
                     entryPrice = Close[0];
-                    trailingStopSet = false;
-                    trailingStopActive = false;
                     remainingContracts = NumberOfContracts;
                     Print("SHORT ENTRY: " + NumberOfContracts + " contracts at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Trailing Stop Logic: Only if we have contracts to trail and remaining contracts
+                // Simple Trailing Stop Logic: Exit when candle makes higher high than previous candle
                 if (shortPositionOpen && !justEntered && ContractsToTrail > 0 && remainingContracts > ContractsToTrail)
                 {
-                    // Check if current candle is red (close < open)
-                    if (Close[0] < Open[0])
-                    {
-                        // Update trailing stop level ONLY if this red candle makes a NEW higher high
-                        if (!trailingStopSet)
-                        {
-                            // First red candle after entry - set initial level but don't activate yet
-                            trailingStopLevel = High[0];
-                            trailingStopSet = true;
-                            Print("TRAILING STOP WAITING: First red candle at " + trailingStopLevel + " - waiting for higher high");
-                        }
-                        else if (High[0] > trailingStopLevel)
-                        {
-                            // Only update if this red candle makes a NEW higher high
-                            trailingStopLevel = High[0];
-                            trailingStopActive = true; // Now the trailing stop is active
-                            Print("TRAILING STOP ACTIVATED: New higher high at " + trailingStopLevel);
-                        }
-                    }
-                    
-                    // Check if trailing stop is hit (only if trailing stop is active)
-                    if (trailingStopActive && High[0] >= trailingStopLevel)
+                    // Check if current candle makes higher high than previous candle
+                    if (CurrentBar > 0 && High[0] > High[1])
                     {
                         ExitShort(ContractsToTrail, "Trailing Stop", "Short on Red Dot");
                         remainingContracts -= ContractsToTrail;
-                        Print("TRAILING STOP HIT: " + ContractsToTrail + " contracts at " + Time[0] + " Level: " + trailingStopLevel + " Remaining: " + remainingContracts);
-                        trailingStopSet = false;
-                        trailingStopActive = false;
+                        Print("TRAILING STOP HIT: " + ContractsToTrail + " contracts at " + Time[0] + " - Higher high detected: " + High[0] + " > " + High[1]);
                     }
                 }
 
@@ -218,8 +191,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                     
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
-                    trailingStopSet = false;
-                    trailingStopActive = false;
                     remainingContracts = 0;
                 }
 
