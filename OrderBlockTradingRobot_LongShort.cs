@@ -97,7 +97,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             // Check if price closed below the active order block (for short entry)
             bool closedBelowOrderBlock = false;
-            if (CurrentBar > 0 && activeOrderBlockLevel[1] != double.NaN && Close[0] < activeOrderBlockLevel[1])
+            if (CurrentBar > 0 && activeOrderBlockLevel[1] != double.NaN && Close[0] < activeOrderBlockLevel[1] && !longPositionOpen)
             {
                 closedBelowOrderBlock = true;
                 waitingForNextGreen[0] = true;
