@@ -23,19 +23,20 @@ using NinjaTrader.NinjaScript.DrawingTools;
 
 namespace NinjaTrader.NinjaScript.Indicators
 {
-    public class SimpleOrderBlock : Indicator
+    public class OrderBlockOnChart : Indicator
     {
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
-                Description = "Simple Order Block Detector";
-                Name = "Simple Order Block";
+                Description = "Order Block Detector - Plots on Price Chart";
+                Name = "Order Block On Chart";
                 Calculate = Calculate.OnBarClose;
             }
             else if (State == State.Configure)
             {
-                AddPlot(new Stroke(Brushes.LightGreen, 3), PlotStyle.Dot, "OrderBlock");
+                // This will plot on the price chart
+                AddPlot(new Stroke(Brushes.LightGreen, 4), PlotStyle.Dot, "OrderBlock");
             }
         }
 
@@ -59,7 +60,11 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             if (isOrderBlock)
             {
+                // Plot the order block level at the previous candle's open price
                 Values[0][0] = prevOpen;
+                
+                // Also draw a horizontal line at the order block level
+                Draw.Line(this, "OBLine" + CurrentBar, false, 3, prevOpen, CurrentBar, prevOpen, Brushes.LightGreen, DashStyleHelper.Solid, 2);
             }
             else
             {

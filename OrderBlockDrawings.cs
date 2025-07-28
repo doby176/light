@@ -23,19 +23,15 @@ using NinjaTrader.NinjaScript.DrawingTools;
 
 namespace NinjaTrader.NinjaScript.Indicators
 {
-    public class SimpleOrderBlock : Indicator
+    public class OrderBlockDrawings : Indicator
     {
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
-                Description = "Simple Order Block Detector";
-                Name = "Simple Order Block";
+                Description = "Order Block Detector with Drawing Objects";
+                Name = "Order Block Drawings";
                 Calculate = Calculate.OnBarClose;
-            }
-            else if (State == State.Configure)
-            {
-                AddPlot(new Stroke(Brushes.LightGreen, 3), PlotStyle.Dot, "OrderBlock");
             }
         }
 
@@ -59,11 +55,14 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             if (isOrderBlock)
             {
-                Values[0][0] = prevOpen;
-            }
-            else
-            {
-                Values[0][0] = double.NaN;
+                // Draw a circle at the order block level
+                Draw.Circle(this, "OBCircle" + CurrentBar, false, 3, prevOpen, Brushes.LightGreen, Brushes.LightGreen, 5);
+                
+                // Draw a horizontal line extending from the order block
+                Draw.Line(this, "OBLine" + CurrentBar, false, 3, prevOpen, CurrentBar + 10, prevOpen, Brushes.LightGreen, DashStyleHelper.Solid, 2);
+                
+                // Add text label
+                Draw.Text(this, "OBText" + CurrentBar, false, "OB", 3, prevOpen + (High[0] - Low[0]) * 0.1, Brushes.LightGreen);
             }
         }
     }
