@@ -37,8 +37,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool entryProcessed = false; // Flag to prevent multiple entries
         private bool justExited = false; // Flag to prevent re-entry after exit
         private int lastExitBar = -1; // Track which bar we last exited on
-        private bool waitingForFreshOrderBlock = false; // Flag to wait for fresh order block
-        private bool isFirstTickOfBar = true; // Flag to track first tick of new bar
+        private bool blockEntriesAfterExit = false; // Flag to block entries after exit
 
         protected override void OnStateChange()
         {
@@ -104,32 +103,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             // Order block detection
             bool isOrderBlock = inefficiency && bosUp;
 
-            // If we're waiting for fresh order block, only process new order blocks
-            if (waitingForFreshOrderBlock)
-            {
-                if (isOrderBlock)
-                {
-                    // New order block formed, reset everything and start fresh
-                    activeOrderBlockLevel[0] = prevOpen;
-                    waitingForNextGreen[0] = false;
-                    showGreenDot[0] = false;
-                    redDotSignal[0] = false;
-                    greenDotSignal[0] = false;
-                    waitingForFreshOrderBlock = false;
-                    Print("FRESH ORDER BLOCK: New order block formed, ready for trading");
-                }
-                else
-                {
-                    // Still waiting, don't process anything
-                    activeOrderBlockLevel[0] = activeOrderBlockLevel[1];
-                    waitingForNextGreen[0] = false;
-                    showGreenDot[0] = false;
-                    redDotSignal[0] = false;
-                    greenDotSignal[0] = false;
-                }
-                return; // Skip trading logic until fresh order block
-            }
-
             // Check if price closed below the active order block (for entry - only on bar close)
             bool closedBelowOrderBlock = false;
             if (CurrentBar > 0 && activeOrderBlockLevel[1] != double.NaN && Close[0] < activeOrderBlockLevel[1])
@@ -172,11 +145,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 greenDotSignal[0] = false;
             }
 
-            // Trading Logic - Entry only on bar close, exit on real-time
+            // Trading Logic
             if (State == State.Realtime || State == State.Historical)
             {
-                // Entry Logic: Go short on red dot signal (ONLY on bar close)
-                if (redDotSignal[0] && !shortPositionOpen && !entryProcessed && !justExited && isFirstTickOfBar)
+                // Entry Logic: Go short on red dot signal (only if we haven't just exited and entries are not blocked)
+                if (redDotSignal[0] && !shortPositionOpen && !entryProcessed && !justExited && !blockEntriesAfterExit)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -195,9 +168,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = false;
                     justExited = true; // Set flag to prevent re-entry
                     lastExitBar = CurrentBar; // Track which bar we exited on
-                    waitingForFreshOrderBlock = true; // Wait for fresh order block
+                    blockEntriesAfterExit = true; // Block entries after exit
                     Print("STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
-                    Print("WAITING: For fresh order block formation");
                 }
 
                 // Reset the justEntered flag after the first bar
@@ -208,14 +180,12 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-        protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
-        {
-            // Track first tick of new bar
-            if (marketDataUpdate.MarketDataType == MarketDataType.Last)
+            // If we blocked entries after exit and a new order block forms, unblock entries
+            if (blockEntriesAfterExit && isOrderBlock)
             {
-                isFirstTickOfBar = (Time[0] != Time[1]);
+                blockEntriesAfterExit = false;
+                Print("NEW ORDER BLOCK: Entries unblocked, ready for trading");
             }
-        }
 
         protected override void OnExecutionUpdate(Execution execution, string executionId, double price, int quantity, MarketPosition marketPosition, string orderId, DateTime time)
         {
