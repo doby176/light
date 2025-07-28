@@ -168,17 +168,17 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("LONG ENTRY: Entering long after short exit at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Exit long and enter short when price closes below green dot
-                if (longPositionOpen && CurrentBar > 0 && activeOrderBlockLevel[1] != double.NaN && Close[0] < activeOrderBlockLevel[1])
+                // Exit long and enter short when green dot signal appears (same as short exit)
+                if (greenDotSignal[0] && longPositionOpen && !justEntered)
                 {
-                    ExitLong(DefaultQuantity, "Exit Long Below Green Dot", "Long on Green Dot");
+                    ExitLong(DefaultQuantity, "Exit Long on Green Dot", "Long on Green Dot");
                     longPositionOpen = false;
                     justEntered = true; // Set flag to prevent immediate exit
                     entryProcessed = true; // Prevent multiple entries
-                    Print("LONG EXIT: Price closed below green dot at " + Time[0] + " Price: " + Close[0]);
+                    Print("LONG EXIT: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                     
                     // Enter short immediately after long exit
-                    EnterShort(DefaultQuantity, "Short Below Green Dot");
+                    EnterShort(DefaultQuantity, "Short on Green Dot");
                     shortPositionOpen = true;
                     waitingForGreenDotExit = true;
                     Print("SHORT ENTRY: Entering short after long exit at " + Time[0] + " Price: " + Close[0]);
