@@ -37,7 +37,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool entryProcessed = false; // Flag to prevent multiple entries
         private bool justExited = false; // Flag to prevent re-entry after exit
         private int lastExitBar = -1; // Track which bar we last exited on
-        private bool resetOrderBlockAfterExit = false; // Flag to reset order block tracking
+        private bool orderBlockReset = false; // Flag to reset order block tracking
 
         protected override void OnStateChange()
         {
@@ -90,14 +90,14 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
             // Reset order block tracking after exit
-            if (resetOrderBlockAfterExit)
+            if (orderBlockReset)
             {
                 activeOrderBlockLevel[0] = double.NaN;
                 waitingForNextGreen[0] = false;
                 showGreenDot[0] = false;
                 redDotSignal[0] = false;
                 greenDotSignal[0] = false;
-                resetOrderBlockAfterExit = false;
+                orderBlockReset = false;
                 Print("ORDER BLOCK RESET: Waiting for fresh order block formation");
                 return; // Skip processing until next bar
             }
@@ -181,7 +181,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = false;
                     justExited = true; // Set flag to prevent re-entry
                     lastExitBar = CurrentBar; // Track which bar we exited on
-                    resetOrderBlockAfterExit = true; // Flag to reset order block tracking
+                    orderBlockReset = true; // Flag to reset order block tracking
                     Print("STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                 }
 
