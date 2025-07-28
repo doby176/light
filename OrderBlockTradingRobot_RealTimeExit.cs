@@ -38,6 +38,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool justExited = false; // Flag to prevent re-entry after exit
         private int lastExitBar = -1; // Track which bar we last exited on
         private bool waitingForFreshOrderBlock = false; // Flag to wait for fresh order block
+        private bool isFirstTickOfBar = true; // Flag to track first tick of new bar
 
         protected override void OnStateChange()
         {
@@ -171,11 +172,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 greenDotSignal[0] = false;
             }
 
-            // Trading Logic
+            // Trading Logic - Entry only on bar close, exit on real-time
             if (State == State.Realtime || State == State.Historical)
             {
-                // Entry Logic: Go short on red dot signal (only if we haven't just exited)
-                if (redDotSignal[0] && !shortPositionOpen && !entryProcessed && !justExited)
+                // Entry Logic: Go short on red dot signal (ONLY on bar close)
+                if (redDotSignal[0] && !shortPositionOpen && !entryProcessed && !justExited && isFirstTickOfBar)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -204,6 +205,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     justEntered = false;
                 }
+            }
+        }
+
+        protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
+        {
+            // Track first tick of new bar
+            if (marketDataUpdate.MarketDataType == MarketDataType.Last)
+            {
+                isFirstTickOfBar = (Time[0] != Time[1]);
             }
         }
 
