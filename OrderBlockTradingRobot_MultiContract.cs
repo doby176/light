@@ -52,7 +52,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 Description = "Order Block Trading Robot - Multi Contract Short Only";
                 Name = "Order Block Trading Robot";
-                Calculate = Calculate.OnBarClose; // Candle close calculation
+                Calculate = Calculate.OnEachTick; // Real-time calculation for trailing stop
                 EntriesPerDirection = 1;
                 EntryHandling = EntryHandling.AllEntries;
                 IsExitOnSessionCloseStrategy = true;
@@ -166,17 +166,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("SHORT ENTRY: " + NumberOfContracts + " contracts at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Simple Trailing Stop Logic: Exit when candle makes higher high than previous candle
-                if (shortPositionOpen && !justEntered && ContractsToTrail > 0 && remainingContracts > ContractsToTrail)
-                {
-                    // Check if current candle makes higher high than previous candle
-                    if (CurrentBar > 0 && High[0] > High[1])
-                    {
-                        ExitShort(ContractsToTrail, "Trailing Stop", "Short on Red Dot");
-                        remainingContracts -= ContractsToTrail;
-                        Print("TRAILING STOP HIT: " + ContractsToTrail + " contracts at " + Time[0] + " - Higher high detected: " + High[0] + " > " + High[1]);
-                    }
-                }
+
 
                 // Stop Loss Logic: Exit remaining contracts when green dot signal appears
                 if (greenDotSignal[0] && shortPositionOpen && waitingForGreenDotExit && !justEntered)
@@ -198,6 +188,21 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (justEntered)
                 {
                     justEntered = false;
+                }
+            }
+        }
+
+        protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
+        {
+            // Real-time trailing stop check
+            if (shortPositionOpen && !justEntered && ContractsToTrail > 0 && remainingContracts > ContractsToTrail)
+            {
+                // Check if current tick makes higher high than previous bar's high
+                if (CurrentBar > 0 && marketDataUpdate.Price > High[1])
+                {
+                    ExitShort(ContractsToTrail, "Trailing Stop", "Short on Red Dot");
+                    remainingContracts -= ContractsToTrail;
+                    Print("TRAILING STOP HIT (REAL-TIME): " + ContractsToTrail + " contracts at " + Time[0] + " - Higher high detected: " + marketDataUpdate.Price + " > " + High[1]);
                 }
             }
         }
