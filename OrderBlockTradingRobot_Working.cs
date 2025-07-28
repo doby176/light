@@ -173,12 +173,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     double prevClose = Close[1];
                     double prevOpen = Open[1];
                     
-                    // Real-time inefficiency check
-                    bool inefficiency = Math.Abs(prevHigh - marketDataUpdate.Low) > Math.Abs(prevClose - prevOpen) * 1.5;
+                    // Real-time inefficiency check using current bar's low
+                    bool inefficiency = Math.Abs(prevHigh - Low[0]) > Math.Abs(prevClose - prevOpen) * 1.5;
 
-                    // Real-time break of structure
+                    // Real-time break of structure using current bar's high
                     double highestHigh3 = Math.Max(Math.Max(High[1], High[2]), High[3]);
-                    bool bosUp = marketDataUpdate.High > highestHigh3;
+                    bool bosUp = High[0] > highestHigh3;
 
                     // Real-time order block detection
                     bool isOrderBlock = inefficiency && bosUp;
