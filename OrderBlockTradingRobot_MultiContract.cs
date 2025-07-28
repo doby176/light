@@ -35,10 +35,17 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool waitingForGreenDotExit = false;
         private bool justEntered = false; // Flag to prevent immediate exit
         private bool entryProcessed = false; // Flag to prevent multiple entries
+        private double entryPrice = 0;
+        private double trailingStopLevel = 0;
+        private bool trailingStopSet = false;
 
         [Range(1, int.MaxValue), NinjaScriptProperty]
         [Display(ResourceType = typeof(Custom.Resource), Name = "Number of Contracts", GroupName = "Parameters", Order = 0)]
         public int NumberOfContracts { get; set; }
+
+        [Range(0, int.MaxValue), NinjaScriptProperty]
+        [Display(ResourceType = typeof(Custom.Resource), Name = "Contracts to Trail", GroupName = "Parameters", Order = 1)]
+        public int ContractsToTrail { get; set; }
 
         protected override void OnStateChange()
         {
@@ -65,6 +72,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 
                 // Set default number of contracts
                 NumberOfContracts = 1;
+                ContractsToTrail = 0;
             }
             else if (State == State.Configure)
             {
@@ -154,17 +162,55 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = true;
                     justEntered = true; // Set flag to prevent immediate exit
                     entryProcessed = true; // Prevent multiple entries
+                    entryPrice = Close[0];
+                    trailingStopSet = false;
                     Print("SHORT ENTRY: " + NumberOfContracts + " contracts at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Stop Loss Logic: Exit short when green dot signal appears
+                // Trailing Stop Logic: Check for trailing stop on red candles
+                if (shortPositionOpen && !justEntered && ContractsToTrail > 0)
+                {
+                    // Check if current candle is red (close < open)
+                    if (Close[0] < Open[0])
+                    {
+                        // Update trailing stop level based on higher high
+                        if (!trailingStopSet || High[0] > trailingStopLevel)
+                        {
+                            trailingStopLevel = High[0];
+                            trailingStopSet = true;
+                            Print("TRAILING STOP UPDATED: New level at " + trailingStopLevel);
+                        }
+                    }
+                    
+                    // Check if trailing stop is hit
+                    if (trailingStopSet && High[0] >= trailingStopLevel)
+                    {
+                        ExitShort(ContractsToTrail, "Trailing Stop", "Short on Red Dot");
+                        Print("TRAILING STOP HIT: " + ContractsToTrail + " contracts at " + Time[0] + " Level: " + trailingStopLevel);
+                        
+                        // If all contracts were trailed, close position
+                        if (ContractsToTrail >= NumberOfContracts)
+                        {
+                            shortPositionOpen = false;
+                            waitingForGreenDotExit = false;
+                            trailingStopSet = false;
+                        }
+                    }
+                }
+
+                // Stop Loss Logic: Exit remaining contracts when green dot signal appears
                 if (greenDotSignal[0] && shortPositionOpen && waitingForGreenDotExit && !justEntered)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
-                    ExitShort(NumberOfContracts, "Stop on Green Dot", "Short on Red Dot");
+                    int remainingContracts = NumberOfContracts - ContractsToTrail;
+                    if (remainingContracts > 0)
+                    {
+                        ExitShort(remainingContracts, "Stop on Green Dot", "Short on Red Dot");
+                        Print("STOP LOSS: " + remainingContracts + " contracts at " + Time[0] + " Stop Level: " + stopLossLevel);
+                    }
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
-                    Print("STOP LOSS: " + NumberOfContracts + " contracts at " + Time[0] + " Stop Level: " + stopLossLevel);
+                    trailingStopSet = false;
                 }
 
                 // Reset the justEntered flag after the first bar
