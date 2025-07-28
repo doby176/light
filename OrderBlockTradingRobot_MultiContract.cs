@@ -175,12 +175,19 @@ namespace NinjaTrader.NinjaScript.Strategies
                     // Check if current candle is red (close < open)
                     if (Close[0] < Open[0])
                     {
-                        // Update trailing stop level based on higher high
-                        if (!trailingStopSet || High[0] > trailingStopLevel)
+                        // Update trailing stop level ONLY if this red candle makes a NEW higher high
+                        if (!trailingStopSet)
                         {
+                            // First red candle after entry - set initial trailing stop
                             trailingStopLevel = High[0];
                             trailingStopSet = true;
-                            Print("TRAILING STOP UPDATED: New level at " + trailingStopLevel);
+                            Print("TRAILING STOP INITIALIZED: First red candle at " + trailingStopLevel);
+                        }
+                        else if (High[0] > trailingStopLevel)
+                        {
+                            // Only update if this red candle makes a NEW higher high
+                            trailingStopLevel = High[0];
+                            Print("TRAILING STOP UPDATED: New higher high at " + trailingStopLevel);
                         }
                     }
                     
