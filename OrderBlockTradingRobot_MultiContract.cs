@@ -38,6 +38,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double entryPrice = 0;
         private double trailingStopLevel = 0;
         private bool trailingStopSet = false;
+        private int remainingContracts = 0;
 
         [Range(1, int.MaxValue), NinjaScriptProperty]
         [Display(ResourceType = typeof(Custom.Resource), Name = "Number of Contracts", GroupName = "Parameters", Order = 0)]
@@ -164,11 +165,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     entryProcessed = true; // Prevent multiple entries
                     entryPrice = Close[0];
                     trailingStopSet = false;
+                    remainingContracts = NumberOfContracts;
                     Print("SHORT ENTRY: " + NumberOfContracts + " contracts at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Trailing Stop Logic: Check for trailing stop on red candles
-                if (shortPositionOpen && !justEntered && ContractsToTrail > 0)
+                // Trailing Stop Logic: Only if we have contracts to trail and remaining contracts
+                if (shortPositionOpen && !justEntered && ContractsToTrail > 0 && remainingContracts > ContractsToTrail)
                 {
                     // Check if current candle is red (close < open)
                     if (Close[0] < Open[0])
@@ -186,15 +188,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (trailingStopSet && High[0] >= trailingStopLevel)
                     {
                         ExitShort(ContractsToTrail, "Trailing Stop", "Short on Red Dot");
-                        Print("TRAILING STOP HIT: " + ContractsToTrail + " contracts at " + Time[0] + " Level: " + trailingStopLevel);
-                        
-                        // If all contracts were trailed, close position
-                        if (ContractsToTrail >= NumberOfContracts)
-                        {
-                            shortPositionOpen = false;
-                            waitingForGreenDotExit = false;
-                            trailingStopSet = false;
-                        }
+                        remainingContracts -= ContractsToTrail;
+                        Print("TRAILING STOP HIT: " + ContractsToTrail + " contracts at " + Time[0] + " Level: " + trailingStopLevel + " Remaining: " + remainingContracts);
+                        trailingStopSet = false;
                     }
                 }
 
@@ -202,15 +198,17 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (greenDotSignal[0] && shortPositionOpen && waitingForGreenDotExit && !justEntered)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
-                    int remainingContracts = NumberOfContracts - ContractsToTrail;
+                    
                     if (remainingContracts > 0)
                     {
                         ExitShort(remainingContracts, "Stop on Green Dot", "Short on Red Dot");
                         Print("STOP LOSS: " + remainingContracts + " contracts at " + Time[0] + " Stop Level: " + stopLossLevel);
                     }
+                    
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
                     trailingStopSet = false;
+                    remainingContracts = 0;
                 }
 
                 // Reset the justEntered flag after the first bar
