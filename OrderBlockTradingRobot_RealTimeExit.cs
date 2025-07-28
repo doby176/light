@@ -35,6 +35,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool waitingForGreenDotExit = false;
         private bool justEntered = false; // Flag to prevent immediate exit
         private bool entryProcessed = false; // Flag to prevent multiple entries
+        private bool justExited = false; // Flag to prevent re-entry after exit
+        private int lastExitBar = -1; // Track which bar we last exited on
 
         protected override void OnStateChange()
         {
@@ -78,6 +80,12 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (CurrentBar > 0)
             {
                 entryProcessed = false; // Reset entry flag on new bar
+                
+                // Reset justExited flag if we're on a new bar after exit
+                if (justExited && CurrentBar > lastExitBar)
+                {
+                    justExited = false;
+                }
             }
 
             double prevHigh = High[1];
@@ -139,8 +147,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             // Trading Logic
             if (State == State.Realtime || State == State.Historical)
             {
-                // Entry Logic: Go short on red dot signal (only on bar close to prevent loops)
-                if (redDotSignal[0] && !shortPositionOpen && !entryProcessed)
+                // Entry Logic: Go short on red dot signal (only if we haven't just exited)
+                if (redDotSignal[0] && !shortPositionOpen && !entryProcessed && !justExited)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -157,6 +165,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ExitShort(DefaultQuantity, "Stop on Green Dot", "Short on Red Dot");
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
+                    justExited = true; // Set flag to prevent re-entry
+                    lastExitBar = CurrentBar; // Track which bar we exited on
                     Print("STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                 }
 
