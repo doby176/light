@@ -148,7 +148,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     
                     // NEW: Scenario 4: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
-                    else if (isFirstRun && profitTargetReached && dailyProfit == 0 && totalPL > 0)
+                    else if (isFirstRun && profitTargetReached && dailyProfit == 0 && totalPL > 0 && totalPL < ProfitTargetAmount)
                     {
                         isMidDayRestart = true;
                         Print("*** MID-DAY RESTART DETECTED (Scenario 4) ***: TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L)");
@@ -266,12 +266,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
                 
-                // NEW: Check if P&L has dropped below target (for potential re-enabling)
-                if (profitTargetReached && totalPL < ProfitTargetAmount * 0.8) // Re-enable at 80% of target
-                {
-                    profitTargetReached = false;
-                    Print("*** PROFIT TARGET RESET ***: P&L dropped to " + totalPL.ToString("F2") + " (below 80% of target " + ProfitTargetAmount + "), re-enabling trading at " + Time[0]);
-                }
+
             }
 
             // CRITICAL: If profit target reached AND enabled, EXIT IMMEDIATELY - NO MORE TRADING
