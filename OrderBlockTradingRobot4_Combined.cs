@@ -175,6 +175,20 @@ namespace NinjaTrader.NinjaScript.Strategies
                         Print("*** MID-DAY RESTART DETECTED (Scenario 3) ***: Profit targets reached but P&L is zero");
                     }
                     
+                    // NEW: Scenario 4: Inconsistent state where totalPL is non-zero but dailyProfit is zero
+                    else if (isFirstRun && dailyProfit == 0 && totalPL > 0 && totalPL < DailyTotalProfitTargetAmount)
+                    {
+                        isMidDayRestart = true;
+                        Print("*** MID-DAY RESTART DETECTED (Scenario 4) ***: Inconsistent state - TotalPL=" + totalPL + " but DailyProfit=0");
+                    }
+                    
+                    // NEW: Scenario 5: Daily profit target reached but we're flat and have zero P&L
+                    else if (isFirstRun && dailyProfitTargetReached && Position.MarketPosition == MarketPosition.Flat && dailyProfit == 0 && totalPL == 0)
+                    {
+                        isMidDayRestart = true;
+                        Print("*** MID-DAY RESTART DETECTED (Scenario 5) ***: Daily target reached but flat with zero P&L");
+                    }
+                    
                     if (isMidDayRestart)
                     {
                         // Reset profit targets for mid-day restart
@@ -239,20 +253,24 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
             // Calculate P&L for current position if any profit target is enabled
-            if ((EnablePerTradeProfitTarget || EnableDailyTotalProfitTarget) && Position.MarketPosition == MarketPosition.Short && lastEntryPrice > 0)
+            if ((EnablePerTradeProfitTarget || EnableDailyTotalProfitTarget) && lastEntryPrice > 0)
             {
-                // Calculate points difference and convert to dollars
-                double pointsDiff = lastEntryPrice - Close[0];
                 double unrealizedPL = 0;
                 
-                // Use proper dollar calculation based on instrument
-                if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                // Calculate unrealized P&L for current position
+                if (Position.MarketPosition == MarketPosition.Short && lastEntryPrice > 0)
                 {
-                    unrealizedPL = pointsDiff * Position.Quantity * Instrument.MasterInstrument.PointValue;
-                }
-                else
-                {
-                    unrealizedPL = pointsDiff * Position.Quantity * TickSize * 100; // Convert to dollars
+                    // Calculate points difference and convert to dollars
+                    double pointsDiff = lastEntryPrice - Close[0];
+                    // Use proper dollar calculation based on instrument
+                    if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                    {
+                        unrealizedPL = pointsDiff * Position.Quantity * Instrument.MasterInstrument.PointValue;
+                    }
+                    else
+                    {
+                        unrealizedPL = pointsDiff * Position.Quantity * TickSize * 100; // Convert to dollars
+                    }
                 }
 
                 // Update per-trade unrealized P&L
@@ -307,6 +325,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Reset per-trade tracking when flat
                 currentTradeUnrealizedPL = 0;
                 profitTargetReachedForCurrentTrade = false;
+                
+                // NEW: Safety check - if we're flat and daily profit is zero, reset totalPL to avoid inconsistencies
+                if (EnableDailyTotalProfitTarget && dailyProfit == 0)
+                {
+                    totalPL = 0;
+                }
             }
 
             // CRITICAL: If daily total profit target reached AND enabled, EXIT IMMEDIATELY - NO MORE TRADING
