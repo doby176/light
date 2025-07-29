@@ -48,6 +48,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool isFirstRun = true;
         private DateTime strategyStartTime = DateTime.MinValue;
         private bool hasProcessedFirstBar = false;
+        private bool profitTargetReachedThisSession = false; // Track if profit target was reached in current session
 
         // Profit Target Properties
         [NinjaScriptProperty]
@@ -112,6 +113,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 dailyProfit = 0;
                 totalPL = 0;
                 profitTargetReached = false;
+                profitTargetReachedThisSession = false; // Reset session tracking
                 lastTradeDate = DateTime.MinValue;
                 isFirstRun = true;
                 hasProcessedFirstBar = false;
@@ -141,14 +143,17 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     
                     // Scenario 3: Profit target reached but P&L is zero (inconsistent state)
-                    else if (profitTargetReached && dailyProfit == 0 && totalPL == 0)
+                    else if (profitTargetReached && dailyProfit == 0 && totalPL == 0 && !profitTargetReachedThisSession)
                     {
                         isMidDayRestart = true;
                         Print("*** MID-DAY RESTART DETECTED (Scenario 3) ***: Profit target reached but P&L is zero");
                     }
                     
                     // NEW: Scenario 4: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
-                    else if (isFirstRun && profitTargetReached && dailyProfit == 0 && totalPL > 0 && totalPL < ProfitTargetAmount)
+                    // Only trigger this if we're truly in a restart scenario, not after a legitimate profit target hit
+                    else if (isFirstRun && profitTargetReached && dailyProfit == 0 && totalPL > 0 && totalPL < ProfitTargetAmount && 
+                             !profitTargetReachedThisSession && // Don't reset if profit target was reached in this session
+                             (strategyStartTime.TimeOfDay > new TimeSpan(9, 30, 0) || Time[0].TimeOfDay > new TimeSpan(9, 30, 0)))
                     {
                         isMidDayRestart = true;
                         Print("*** MID-DAY RESTART DETECTED (Scenario 4) ***: TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L)");
@@ -186,6 +191,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 dailyProfit = 0;
                 totalPL = 0;
                 profitTargetReached = false;
+                profitTargetReachedThisSession = false; // Reset session tracking for new day
                 lastTradeDate = Time[0].Date;
                 Print("DATE CHANGE RESET: New trading day detected, resetting all profit tracking. Time: " + Time[0]);
             }
@@ -198,6 +204,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 dailyProfit = 0;
                 totalPL = 0;
                 profitTargetReached = false; // Ensure it's false for a new day
+                profitTargetReachedThisSession = false; // Reset session tracking for new day
                 lastTradeDate = Time[0].Date;
                 Print("DAILY RESET: Profit target reset for new trading day at " + Time[0] + " (Previous lastTradeDate: " + (lastTradeDate == DateTime.MinValue ? "MinValue" : lastTradeDate.ToString("yyyy-MM-dd")) + ")");
             }
@@ -250,6 +257,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (!profitTargetReached && totalPL >= ProfitTargetAmount)
                 {
                     profitTargetReached = true;
+                    profitTargetReachedThisSession = true; // Mark that profit target was reached in this session
                     Print("*** PROFIT TARGET REACHED ***: Total P&L " + totalPL.ToString("F2") + " (Realized: " + dailyProfit.ToString("F2") + " + Unrealized: " + unrealizedPL.ToString("F2") + ") reached target " + ProfitTargetAmount + " at " + Time[0]);
                     Print("*** TRADING DISABLED ***: Strategy will no longer enter new positions");
                     
@@ -518,6 +526,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (EnableProfitTarget && !profitTargetReached && totalPL >= ProfitTargetAmount)
                         {
                             profitTargetReached = true;
+                            profitTargetReachedThisSession = true; // Mark that profit target was reached in this session
                             Print("PROFIT TARGET REACHED: Total P&L " + totalPL.ToString("F2") + " reached target " + ProfitTargetAmount + " at " + time);
                             Print("TRADING DISABLED: Strategy will no longer enter new positions");
                         }
@@ -532,6 +541,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             dailyProfit = 0;
             totalPL = 0;
             profitTargetReached = false;
+            profitTargetReachedThisSession = false; // Reset session tracking
             lastTradeDate = Time[0].Date; // Set to current date
             Print("MANUAL RESET: Profit target has been reset. Daily profit: " + dailyProfit + " TotalPL: " + totalPL + " Date: " + Time[0].ToString("yyyy-MM-dd"));
         }
@@ -542,6 +552,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             dailyProfit = 0;
             totalPL = 0;
             profitTargetReached = false;
+            profitTargetReachedThisSession = false; // Reset session tracking
             lastTradeDate = Time[0].Date;
             Print("FORCE MID-DAY RESET: Profit target forcefully reset for mid-day restart. Time: " + Time[0]);
         }
