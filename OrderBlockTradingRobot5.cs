@@ -105,7 +105,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 totalPL = 0;
                 profitTargetReached = false;
                 lastTradeDate = DateTime.MinValue;
-                Print("*** STRATEGY INITIALIZED ***: Profit target reset. EnableProfitTarget=" + EnableProfitTarget + " ProfitTargetAmount=" + ProfitTargetAmount);
+                Print("*** STRATEGY INITIALIZED ***: Profit target reset. EnableProfitTarget=" + EnableProfitTarget + " ProfitTargetAmount=" + ProfitTargetAmount + " ResetProfitTargetDaily=" + ResetProfitTargetDaily);
             }
         }
 
@@ -116,22 +116,34 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             // This block ensures profit target state is correctly managed on strategy start/restart within the same day
             // It acts as a failsafe if State.DataLoaded might not fully reset 'profitTargetReached'
-            if (EnableProfitTarget && profitTargetReached && dailyProfit == 0 && totalPL == 0 && Time[0].Date == lastTradeDate.Date)
+            if (EnableProfitTarget && profitTargetReached && dailyProfit == 0 && totalPL == 0)
             {
+                // Reset profit target flag if we're starting fresh with zero P&L
+                // This handles both mid-day restarts and first-time starts
                 profitTargetReached = false;
-                Print("MID-DAY RE-ENABLE RESET: Profit target flag reset to FALSE. Time: " + Time[0]);
+                Print("MID-DAY RE-ENABLE RESET: Profit target flag reset to FALSE. Time: " + Time[0] + " LastTradeDate: " + lastTradeDate.ToString("yyyy-MM-dd"));
+            }
+
+            // Additional safety check: if we're on a different date than lastTradeDate, reset everything
+            if (lastTradeDate != DateTime.MinValue && Time[0].Date != lastTradeDate.Date)
+            {
+                dailyProfit = 0;
+                totalPL = 0;
+                profitTargetReached = false;
+                lastTradeDate = Time[0].Date;
+                Print("DATE CHANGE RESET: New trading day detected, resetting all profit tracking. Time: " + Time[0]);
             }
 
             if (CurrentBar < 3) return;
 
             // Check if we should reset profit target daily (for new days)
-            if (ResetProfitTargetDaily && IsFirstTickOfBar && Time[0].Date != lastTradeDate.Date)
+            if (ResetProfitTargetDaily && IsFirstTickOfBar && (lastTradeDate == DateTime.MinValue || Time[0].Date != lastTradeDate.Date))
             {
                 dailyProfit = 0;
                 totalPL = 0;
                 profitTargetReached = false; // Ensure it's false for a new day
                 lastTradeDate = Time[0].Date;
-                Print("DAILY RESET: Profit target reset for new trading day at " + Time[0]);
+                Print("DAILY RESET: Profit target reset for new trading day at " + Time[0] + " (Previous lastTradeDate: " + (lastTradeDate == DateTime.MinValue ? "MinValue" : lastTradeDate.ToString("yyyy-MM-dd")) + ")");
             }
 
             // Calculate total P&L (realized + unrealized) in real-time ONLY if profit target is enabled
@@ -460,8 +472,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         public void ResetProfitTarget()
         {
             dailyProfit = 0;
+            totalPL = 0;
             profitTargetReached = false;
-            Print("MANUAL RESET: Profit target has been reset. Daily profit: " + dailyProfit);
+            lastTradeDate = Time[0].Date; // Set to current date
+            Print("MANUAL RESET: Profit target has been reset. Daily profit: " + dailyProfit + " TotalPL: " + totalPL + " Date: " + Time[0].ToString("yyyy-MM-dd"));
         }
 
         // Method to get current profit status
