@@ -55,6 +55,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool maxProfitReached = false; // Flag to stop trading when max profit is reached
         private DateTime lastTradeDate = DateTime.MinValue; // Track the last trade date
 
+        // Trailing stop variables
+        private double trailingStopLevel = 0;
+        private bool trailingStopActive = false;
+        private double maxUnrealizedProfit = 0;
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -258,6 +263,49 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
             }
 
+            // Check trailing stop based on unrealized PnL
+            if (TrailingStopAmount > 0 && trailingStopActive && Position.MarketPosition != MarketPosition.Flat && !justEntered)
+            {
+                double currentUnrealizedPnL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
+                
+                // Update max unrealized profit if current is higher
+                if (currentUnrealizedPnL > maxUnrealizedProfit)
+                {
+                    maxUnrealizedProfit = currentUnrealizedPnL;
+                    Print("TRAILING STOP: New max unrealized PnL = " + maxUnrealizedProfit);
+                }
+                
+                // Check if we should trigger trailing stop
+                if (maxUnrealizedProfit >= TrailingStopAmount)
+                {
+                    double trailingStopTrigger = maxUnrealizedProfit - TrailingStopAmount;
+                    
+                    if (currentUnrealizedPnL <= trailingStopTrigger)
+                    {
+                        Print("TRAILING STOP TRIGGERED: Current PnL=" + currentUnrealizedPnL + ", Max PnL=" + maxUnrealizedProfit + ", Trigger Level=" + trailingStopTrigger);
+                        
+                        if (Position.MarketPosition == MarketPosition.Short)
+                        {
+                            ExitShort(DefaultQuantity, "Trailing Stop Exit", "Short on Red Dot");
+                            shortPositionOpen = false;
+                            waitingForGreenDotExit = false;
+                        }
+                        else if (Position.MarketPosition == MarketPosition.Long)
+                        {
+                            ExitLong(DefaultQuantity, "Trailing Stop Exit", "Long on Green Dot");
+                            longPositionOpen = false;
+                            waitingForRedDotExit = false;
+                        }
+                        
+                        // Reset trailing stop
+                        trailingStopActive = false;
+                        maxUnrealizedProfit = 0;
+                        trailingStopLevel = 0;
+                        return;
+                    }
+                }
+            }
+
             // Only check for real-time exits if we have a short position
             if (shortPositionOpen && waitingForGreenDotExit && !justEntered && CurrentBar >= 3)
             {
@@ -303,27 +351,36 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     Print("SHORT FILLED: " + quantity + " contracts at " + price + " at " + time);
                     
-                    // Set trailing stop for short position if enabled
+                    // Initialize trailing stop for short position if enabled
                     if (TrailingStopAmount > 0)
                     {
-                        SetTrailingStop(CalculationMode.Currency, TrailingStopAmount);
-                        Print("TRAILING STOP SET for SHORT position: " + TrailingStopAmount + " currency units");
+                        trailingStopActive = true;
+                        maxUnrealizedProfit = 0;
+                        trailingStopLevel = 0;
+                        Print("TRAILING STOP INITIALIZED for SHORT position: " + TrailingStopAmount + " currency units");
                     }
                 }
                 else if (marketPosition == MarketPosition.Long)
                 {
                     Print("LONG FILLED: " + quantity + " contracts at " + price + " at " + time);
                     
-                    // Set trailing stop for long position if enabled
+                    // Initialize trailing stop for long position if enabled
                     if (TrailingStopAmount > 0)
                     {
-                        SetTrailingStop(CalculationMode.Currency, TrailingStopAmount);
-                        Print("TRAILING STOP SET for LONG position: " + TrailingStopAmount + " currency units");
+                        trailingStopActive = true;
+                        maxUnrealizedProfit = 0;
+                        trailingStopLevel = 0;
+                        Print("TRAILING STOP INITIALIZED for LONG position: " + TrailingStopAmount + " currency units");
                     }
                 }
                 else if (marketPosition == MarketPosition.Flat)
                 {
                     Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time);
+                    
+                    // Reset trailing stop when position is closed
+                    trailingStopActive = false;
+                    maxUnrealizedProfit = 0;
+                    trailingStopLevel = 0;
                     
                     // Check if max profit has been reached after position close
                     if (EnableMaxProfit && !maxProfitReached)
