@@ -178,17 +178,38 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Exit Logic: Exit long when red dot signal appears (real-time)
-                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
+                // Exit Logic: Exit long when red dot forms in real-time
+                if (longPositionOpen && waitingForRedDotExit && !justEntered && CurrentBar >= 3)
                 {
-                    stopLossLevel = activeOrderBlockLevel[0];
-                    ExitLong(DefaultQuantity, "Real-time Stop on Red Dot", "Long on Green Dot");
-                    longPositionOpen = false;
-                    waitingForRedDotExit = false;
-                    Print("REAL-TIME STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
+                    double prevHigh = High[1];
+                    double prevClose = Close[1];
+                    double prevOpen = Open[1];
                     
-                    // Set flag to enter short on next bar close (not immediately)
-                    waitingForShortEntry = true;
+                    // Real-time inefficiency check using current bar's low
+                    bool inefficiency = Math.Abs(prevHigh - Low[0]) > Math.Abs(prevClose - prevOpen) * 1.5;
+
+                    // Real-time break of structure using current bar's high
+                    double highestHigh3 = Math.Max(Math.Max(High[1], High[2]), High[3]);
+                    bool bosUp = High[0] > highestHigh3;
+
+                    // Real-time order block detection
+                    bool isOrderBlock = inefficiency && bosUp;
+
+                    // Check if we were waiting for the next red dot (price closed above order block)
+                    bool wasWaitingForRed = CurrentBar > 0 && activeOrderBlockLevel[1] != double.NaN && Close[1] > activeOrderBlockLevel[1];
+
+                    // If red dot forms in real-time, exit immediately
+                    if (isOrderBlock && wasWaitingForRed)
+                    {
+                        stopLossLevel = prevOpen;
+                        ExitLong(DefaultQuantity, "Real-time Stop on Red Dot", "Long on Green Dot");
+                        longPositionOpen = false;
+                        waitingForRedDotExit = false;
+                        Print("REAL-TIME STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
+                        
+                        // Set flag to enter short on next bar close (not immediately)
+                        waitingForShortEntry = true;
+                    }
                 }
 
                 // Reset the justEntered flag after the first tick of the next bar
