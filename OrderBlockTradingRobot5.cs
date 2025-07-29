@@ -141,31 +141,38 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Total P&L = realized profit + unrealized profit
                 totalPL = dailyProfit + unrealizedPL;
                 
+                // DEBUG: Print P&L status every 10 bars
+                if (CurrentBar % 10 == 0)
+                {
+                    Print("DEBUG P&L: Realized=" + dailyProfit.ToString("F2") + " Unrealized=" + unrealizedPL.ToString("F2") + " Total=" + totalPL.ToString("F2") + " Target=" + ProfitTargetAmount + " Reached=" + profitTargetReached);
+                }
+                
                 // Check if profit target is reached
                 if (totalPL >= ProfitTargetAmount)
                 {
                     profitTargetReached = true;
-                    Print("PROFIT TARGET REACHED: Total P&L " + totalPL.ToString("F2") + " (Realized: " + dailyProfit.ToString("F2") + " + Unrealized: " + unrealizedPL.ToString("F2") + ") reached target " + ProfitTargetAmount + " at " + Time[0]);
-                    Print("TRADING DISABLED: Strategy will no longer enter new positions");
+                    Print("*** PROFIT TARGET REACHED ***: Total P&L " + totalPL.ToString("F2") + " (Realized: " + dailyProfit.ToString("F2") + " + Unrealized: " + unrealizedPL.ToString("F2") + ") reached target " + ProfitTargetAmount + " at " + Time[0]);
+                    Print("*** TRADING DISABLED ***: Strategy will no longer enter new positions");
                     
                     // Close current position if any
                     if (Position.MarketPosition == MarketPosition.Long)
                     {
                         ExitLong(DefaultQuantity, "Profit Target Exit", "Long on Green Dot");
-                        Print("PROFIT TARGET EXIT: Closing long position at " + Close[0]);
+                        Print("*** PROFIT TARGET EXIT ***: Closing long position at " + Close[0]);
                     }
                     else if (Position.MarketPosition == MarketPosition.Short)
                     {
                         ExitShort(DefaultQuantity, "Profit Target Exit", "Short on Red Dot");
-                        Print("PROFIT TARGET EXIT: Closing short position at " + Close[0]);
+                        Print("*** PROFIT TARGET EXIT ***: Closing short position at " + Close[0]);
                     }
                 }
             }
 
-            // If profit target reached, don't process any trading logic
+            // CRITICAL: If profit target reached, EXIT IMMEDIATELY - NO MORE TRADING
             if (profitTargetReached)
             {
-                return;
+                Print("*** PROFIT TARGET ACTIVE ***: Skipping all trading logic at " + Time[0]);
+                return; // EXIT - NO MORE TRADING
             }
 
             double prevHigh = High[1];
@@ -230,6 +237,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Entry Logic: Go short on red dot signal (only on bar close)
                 if (redDotSignal[0] && Position.MarketPosition == MarketPosition.Flat && IsFirstTickOfBar)
                 {
+                    // DOUBLE CHECK: Make sure profit target not reached
+                    if (profitTargetReached)
+                    {
+                        Print("*** BLOCKED SHORT ENTRY ***: Profit target reached at " + Time[0]);
+                        return;
+                    }
+                    
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
                     longPositionOpen = false;
@@ -244,6 +258,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Entry Logic: Go long when stopped out on green dot (real-time)
                 if (greenDotSignal[0] && Position.MarketPosition == MarketPosition.Short && waitingForGreenDotExit && !justEntered)
                 {
+                    // DOUBLE CHECK: Make sure profit target not reached
+                    if (profitTargetReached)
+                    {
+                        Print("*** BLOCKED LONG ENTRY ***: Profit target reached at " + Time[0]);
+                        return;
+                    }
+                    
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
                     shortPositionOpen = false;
@@ -265,6 +286,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Exit Logic: Exit long when red dot signal appears (only on candle close)
                 if (redDotSignal[0] && Position.MarketPosition == MarketPosition.Long && waitingForRedDotExit && !justEntered && IsFirstTickOfBar)
                 {
+                    // DOUBLE CHECK: Make sure profit target not reached
+                    if (profitTargetReached)
+                    {
+                        Print("*** BLOCKED SHORT ENTRY FROM LONG EXIT ***: Profit target reached at " + Time[0]);
+                        return;
+                    }
+                    
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
                     longPositionOpen = false;
@@ -336,6 +364,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                         justEntered = true; // Set flag to prevent immediate exit
                         Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                     }
+                    else
+                    {
+                        Print("*** BLOCKED REAL-TIME LONG ENTRY ***: Profit target reached at " + Time[0]);
+                    }
                 }
             }
         }
@@ -405,6 +437,32 @@ namespace NinjaTrader.NinjaScript.Strategies
         public bool IsProfitTargetReached()
         {
             return profitTargetReached;
+        }
+
+        // Method to get current total P&L
+        public double GetTotalPL()
+        {
+            return totalPL;
+        }
+
+        // Method to get current daily profit
+        public double GetDailyProfit()
+        {
+            return dailyProfit;
+        }
+
+        // Method to force enable profit target (for testing)
+        public void ForceEnableProfitTarget()
+        {
+            EnableProfitTarget = true;
+            Print("*** FORCE ENABLED PROFIT TARGET ***");
+        }
+
+        // Method to force set profit target amount (for testing)
+        public void ForceSetProfitTarget(double amount)
+        {
+            ProfitTargetAmount = amount;
+            Print("*** FORCE SET PROFIT TARGET TO: " + amount + " ***");
         }
     }
 }
