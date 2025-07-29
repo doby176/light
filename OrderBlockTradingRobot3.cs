@@ -45,7 +45,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 Description = "Order Block Trading Robot - Short on Red Dots, Long on Green Dots, Stop on Opposite Signals";
                 Name = "Order Block Trading FINAL";
-                Calculate = Calculate.OnBarClose; // Changed back to OnBarClose for proper candle close behavior
+                Calculate = Calculate.OnPriceChange; // Keep OnPriceChange for real-time short exit
                 EntriesPerDirection = 1;
                 EntryHandling = EntryHandling.AllEntries;
                 IsExitOnSessionCloseStrategy = true;
@@ -144,8 +144,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             // Trading Logic - Entry and Exit
             if (State == State.Realtime || State == State.Historical)
             {
-                // Entry Logic: Go short on red dot signal (on bar close)
-                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen)
+                // Entry Logic: Go short on red dot signal (only on bar close)
+                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen && IsFirstTickOfBar)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -174,8 +174,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Exit Logic: Exit long when red dot signal appears (on bar close)
-                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
+                // Exit Logic: Exit long when red dot signal appears (only on candle close)
+                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered && IsFirstTickOfBar)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
@@ -191,8 +191,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Reset the justEntered flag after the first bar
-                if (justEntered)
+                // Reset the justEntered flag after the first tick of the next bar
+                if (justEntered && IsFirstTickOfBar)
                 {
                     justEntered = false;
                 }
