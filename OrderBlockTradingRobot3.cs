@@ -41,7 +41,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 Description = "Order Block Trading Robot - Short on Red Dots, Stop ONLY on Green Dots";
                 Name = "Order Block Trading FINAL";
-                Calculate = Calculate.OnBarClose; // Keep entry logic on bar close
+                Calculate = Calculate.OnPriceChange; // Changed to OnPriceChange for real-time exit
                 EntriesPerDirection = 1;
                 EntryHandling = EntryHandling.AllEntries;
                 IsExitOnSessionCloseStrategy = true;
@@ -129,11 +129,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 greenDotSignal[0] = false;
             }
 
-            // Trading Logic - ONLY ENTRY (exit moved to OnMarketData)
+            // Trading Logic - Entry and Exit
             if (State == State.Realtime || State == State.Historical)
             {
-                // Entry Logic: Go short on red dot signal (on bar close)
-                if (redDotSignal[0] && !shortPositionOpen)
+                // Entry Logic: Go short on red dot signal (only on bar close)
+                if (redDotSignal[0] && !shortPositionOpen && IsFirstTickOfBar)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -142,47 +142,29 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Reset the justEntered flag after the first bar
-                if (justEntered)
+                // Exit Logic: Exit short when green dot signal appears (real-time)
+                if (greenDotSignal[0] && shortPositionOpen && waitingForGreenDotExit && !justEntered)
+                {
+                    stopLossLevel = activeOrderBlockLevel[0];
+                    ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
+                    shortPositionOpen = false;
+                    waitingForGreenDotExit = false;
+                    Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
+                }
+
+                // Reset the justEntered flag after the first tick of the next bar
+                if (justEntered && IsFirstTickOfBar)
                 {
                     justEntered = false;
                 }
             }
         }
 
-        // Enhanced real-time exit method
+        // OnMarketData method - kept for compatibility but exit logic moved to OnBarUpdate
         protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
         {
-            // Only check for real-time exits if we have a position
-            if (shortPositionOpen && waitingForGreenDotExit && !justEntered && CurrentBar >= 3)
-            {
-                double prevHigh = High[1];
-                double prevClose = Close[1];
-                double prevOpen = Open[1];
-                
-                // Real-time inefficiency check using current bar's low
-                bool inefficiency = Math.Abs(prevHigh - Low[0]) > Math.Abs(prevClose - prevOpen) * 1.5;
-
-                // Real-time break of structure using current bar's high
-                double highestHigh3 = Math.Max(Math.Max(High[1], High[2]), High[3]);
-                bool bosUp = High[0] > highestHigh3;
-
-                // Real-time order block detection
-                bool isOrderBlock = inefficiency && bosUp;
-
-                // Check if we were waiting for the next green dot
-                bool wasWaitingForGreen = CurrentBar > 0 ? waitingForNextGreen[1] : false;
-
-                // If green dot forms in real-time, exit immediately
-                if (isOrderBlock && wasWaitingForGreen)
-                {
-                    stopLossLevel = prevOpen;
-                    ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
-                    shortPositionOpen = false;
-                    waitingForGreenDotExit = false;
-                    Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
-                }
-            }
+            // Exit logic is now handled in OnBarUpdate with Calculate.OnPriceChange
+            // This method is kept for any future real-time enhancements
         }
 
         protected override void OnExecutionUpdate(Execution execution, string executionId, double price, int quantity, MarketPosition marketPosition, string orderId, DateTime time)
