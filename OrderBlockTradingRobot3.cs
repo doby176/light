@@ -30,6 +30,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private Series<bool> showGreenDot;
         private Series<bool> redDotSignal;
         private Series<bool> greenDotSignal;
+        private Series<bool> redDotExitSignal; // Separate signal for long position exit
         private bool shortPositionOpen = false;
         private bool longPositionOpen = false;
         private double stopLossLevel = 0;
@@ -69,6 +70,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 showGreenDot = new Series<bool>(this);
                 redDotSignal = new Series<bool>(this);
                 greenDotSignal = new Series<bool>(this);
+                redDotExitSignal = new Series<bool>(this);
             }
         }
 
@@ -105,6 +107,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     waitingForNextGreen[0] = waitingForNextGreen[1];
                 }
+            }
+
+            // Set red dot exit signal only on candle close (first tick of bar)
+            if (IsFirstTickOfBar && redDotSignal[0])
+            {
+                redDotExitSignal[0] = true;
+            }
+            else
+            {
+                redDotExitSignal[0] = false;
             }
 
 
@@ -171,7 +183,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
 
                 // Exit Logic: Exit long when red dot signal appears (only on candle close)
-                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered && IsFirstTickOfBar)
+                if (redDotExitSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
