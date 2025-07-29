@@ -106,6 +106,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 profitTargetReached = false;
                 lastTradeDate = DateTime.MinValue;
                 Print("*** STRATEGY INITIALIZED ***: Profit target reset. EnableProfitTarget=" + EnableProfitTarget + " ProfitTargetAmount=" + ProfitTargetAmount + " ResetProfitTargetDaily=" + ResetProfitTargetDaily);
+                
+                // Additional safety: if profit target is disabled, ensure the flag is false
+                if (!EnableProfitTarget)
+                {
+                    profitTargetReached = false;
+                    Print("*** PROFIT TARGET DISABLED ***: Ensuring profitTargetReached is FALSE");
+                }
             }
             else if (State == State.Realtime)
             {
@@ -149,6 +156,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     profitTargetReached = false;
                     Print("SMALL P&L RESET: Profit target flag reset to FALSE due to negligible P&L. Time: " + Time[0] + " DailyProfit: " + dailyProfit.ToString("F4") + " TotalPL: " + totalPL.ToString("F4"));
+                }
+                // Additional safety: if we have no current position and zero P&L, reset regardless of date
+                else if (Position.MarketPosition == MarketPosition.Flat && dailyProfit == 0 && totalPL == 0)
+                {
+                    profitTargetReached = false;
+                    Print("FLAT POSITION RESET: Profit target flag reset to FALSE due to flat position and zero P&L. Time: " + Time[0]);
                 }
             }
 
