@@ -35,7 +35,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double stopLossLevel = 0;
         private bool waitingForGreenDotExit = false;
         private bool waitingForRedDotExit = false;
-        private double waitingForRedDotLevel = 0; // Track the specific order block level we're waiting for
+
         private bool justEntered = false; // Flag to prevent immediate exit
 
         protected override void OnStateChange()
@@ -165,20 +165,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                     EnterLong(DefaultQuantity, "Long on Green Dot");
                     longPositionOpen = true;
                     waitingForRedDotExit = true;
-                    waitingForRedDotLevel = activeOrderBlockLevel[0]; // Store the specific level we're waiting for
+
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Exit Logic: Exit long when red dot signal appears (only on candle close and specific level)
-                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered && IsFirstTickOfBar && 
-                    Math.Abs(activeOrderBlockLevel[0] - waitingForRedDotLevel) < 0.0001) // Check if it's the same level
+                // Exit Logic: Exit long when red dot signal appears (only on candle close)
+                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered && IsFirstTickOfBar)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
                     longPositionOpen = false;
                     waitingForRedDotExit = false;
-                    waitingForRedDotLevel = 0; // Reset the level
                     Print("STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter short position
