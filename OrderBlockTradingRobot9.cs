@@ -148,7 +148,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     
                     // NEW: Scenario 4: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
-                    else if (profitTargetReached && dailyProfit == 0 && totalPL > 0)
+                    else if (isFirstRun && profitTargetReached && dailyProfit == 0 && totalPL > 0)
                     {
                         isMidDayRestart = true;
                         Print("*** MID-DAY RESTART DETECTED (Scenario 4) ***: TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L)");
@@ -173,63 +173,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             // Debug print at the very start
             Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + " ProfitTargetReached=" + profitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd"));
-
-            // ENHANCED MID-DAY RE-ENABLE RESET LOGIC - MORE AGGRESSIVE
-            if (EnableProfitTarget && AutoResetOnMidDayRestart && profitTargetReached)
-            {
-                // Multiple scenarios for mid-day restart detection
-                bool shouldReset = false;
-                
-                // Scenario 1: Same date as lastTradeDate but zero P&L
-                if (lastTradeDate != DateTime.MinValue && Time[0].Date == lastTradeDate.Date && dailyProfit == 0 && totalPL == 0)
-                {
-                    shouldReset = true;
-                    Print("MID-DAY RE-ENABLE RESET (Scenario 1): Same date, zero P&L at " + Time[0]);
-                }
-                
-                // Scenario 2: First run with zero P&L
-                else if (lastTradeDate == DateTime.MinValue && dailyProfit == 0 && totalPL == 0)
-                {
-                    shouldReset = true;
-                    Print("MID-DAY RE-ENABLE RESET (Scenario 2): First run, zero P&L at " + Time[0]);
-                }
-                
-                // Scenario 3: Very small P&L (likely rounding errors) on same day
-                else if (lastTradeDate != DateTime.MinValue && Time[0].Date == lastTradeDate.Date && Math.Abs(dailyProfit) < 0.01 && Math.Abs(totalPL) < 0.01)
-                {
-                    shouldReset = true;
-                    Print("MID-DAY RE-ENABLE RESET (Scenario 3): Negligible P&L at " + Time[0] + " DailyProfit: " + dailyProfit.ToString("F4") + " TotalPL: " + totalPL.ToString("F4"));
-                }
-                
-                // Scenario 4: Strategy restarted during trading hours
-                else if (Time[0].TimeOfDay > new TimeSpan(9, 30, 0) && dailyProfit == 0 && totalPL == 0)
-                {
-                    shouldReset = true;
-                    Print("MID-DAY RE-ENABLE RESET (Scenario 4): Trading hours restart at " + Time[0]);
-                }
-                
-                // NEW: Scenario 5: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
-                else if (dailyProfit == 0 && totalPL > 0)
-                {
-                    shouldReset = true;
-                    Print("MID-DAY RE-ENABLE RESET (Scenario 5): TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L) at " + Time[0]);
-                }
-                
-                // NEW: Scenario 6: First few bars after restart with profit target reached
-                else if (!hasProcessedFirstBar && profitTargetReached)
-                {
-                    shouldReset = true;
-                    Print("MID-DAY RE-ENABLE RESET (Scenario 6): First bar after restart with profit target reached at " + Time[0]);
-                }
-                
-                if (shouldReset)
-                {
-                    profitTargetReached = false;
-                    dailyProfit = 0;
-                    totalPL = 0;
-                    Print("*** MID-DAY RESTART RESET COMPLETED ***: Profit target flag reset to FALSE");
-                }
-            }
 
             // Mark that we've processed the first bar
             if (!hasProcessedFirstBar)
