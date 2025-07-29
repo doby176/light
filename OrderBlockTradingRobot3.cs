@@ -338,11 +338,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                     
-                    // Initialize trailing stop for long position
-                    if (EnableTrailingStop)
-                    {
-                        InitializeTrailingStop();
-                    }
+
                 }
             }
         }
