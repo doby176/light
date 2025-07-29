@@ -131,11 +131,31 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Calculate unrealized P&L for current position
                 if (Position.MarketPosition == MarketPosition.Long && lastEntryPrice > 0)
                 {
-                    unrealizedPL = (Close[0] - lastEntryPrice) * Position.Quantity;
+                    // Calculate points difference and convert to dollars
+                    double pointsDiff = Close[0] - lastEntryPrice;
+                    // Use proper dollar calculation based on instrument
+                    if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                    {
+                        unrealizedPL = pointsDiff * Position.Quantity * Instrument.MasterInstrument.PointValue;
+                    }
+                    else
+                    {
+                        unrealizedPL = pointsDiff * Position.Quantity * TickSize * 100; // Convert to dollars
+                    }
                 }
                 else if (Position.MarketPosition == MarketPosition.Short && lastEntryPrice > 0)
                 {
-                    unrealizedPL = (lastEntryPrice - Close[0]) * Position.Quantity;
+                    // Calculate points difference and convert to dollars
+                    double pointsDiff = lastEntryPrice - Close[0];
+                    // Use proper dollar calculation based on instrument
+                    if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                    {
+                        unrealizedPL = pointsDiff * Position.Quantity * Instrument.MasterInstrument.PointValue;
+                    }
+                    else
+                    {
+                        unrealizedPL = pointsDiff * Position.Quantity * TickSize * 100; // Convert to dollars
+                    }
                 }
 
                 // Total P&L = realized profit + unrealized profit
@@ -144,7 +164,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // DEBUG: Print P&L status every 10 bars
                 if (CurrentBar % 10 == 0)
                 {
-                    Print("DEBUG P&L: Realized=" + dailyProfit.ToString("F2") + " Unrealized=" + unrealizedPL.ToString("F2") + " Total=" + totalPL.ToString("F2") + " Target=" + ProfitTargetAmount + " Reached=" + profitTargetReached);
+                    Print("DEBUG P&L: Realized=" + dailyProfit.ToString("F2") + " Unrealized=" + unrealizedPL.ToString("F2") + " Total=" + totalPL.ToString("F2") + " Target=" + ProfitTargetAmount + " Reached=" + profitTargetReached + " TickSize=" + TickSize);
                 }
                 
                 // Check if profit target is reached
@@ -393,12 +413,30 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (execution.Order.OrderType == OrderType.Market && execution.Order.OrderAction == OrderAction.Sell)
                         {
                             // Long position closed
-                            profitLoss = (price - lastEntryPrice) * lastEntryQuantity;
+                            double pointsDiff = price - lastEntryPrice;
+                            // Use proper dollar calculation based on instrument
+                            if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                            {
+                                profitLoss = pointsDiff * lastEntryQuantity * Instrument.MasterInstrument.PointValue;
+                            }
+                            else
+                            {
+                                profitLoss = pointsDiff * lastEntryQuantity * TickSize * 100; // Convert to dollars
+                            }
                         }
                         else if (execution.Order.OrderType == OrderType.Market && execution.Order.OrderAction == OrderAction.Buy)
                         {
                             // Short position closed
-                            profitLoss = (lastEntryPrice - price) * lastEntryQuantity;
+                            double pointsDiff = lastEntryPrice - price;
+                            // Use proper dollar calculation based on instrument
+                            if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                            {
+                                profitLoss = pointsDiff * lastEntryQuantity * Instrument.MasterInstrument.PointValue;
+                            }
+                            else
+                            {
+                                profitLoss = pointsDiff * lastEntryQuantity * TickSize * 100; // Convert to dollars
+                            }
                         }
 
                         dailyProfit += profitLoss;
