@@ -34,6 +34,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(Name = "Enable Max Profit", Description = "Enable maximum daily profit feature", Order = 2, GroupName = "Max Profit")]
         public bool EnableMaxProfit { get; set; }
 
+        [NinjaScriptProperty]
+        [Range(0, double.MaxValue)]
+        [Display(Name = "Trailing Stop Amount", Description = "Trailing stop amount in currency (0 = disabled)", Order = 1, GroupName = "Trailing Stop")]
+        public double TrailingStopAmount { get; set; }
+
         private Series<double> activeOrderBlockLevel;
         private Series<bool> waitingForNextGreen;
         private Series<bool> showGreenDot;
@@ -76,6 +81,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Max Profit Parameters
                 MaxDailyProfit = 1000; // Maximum daily profit in currency units
                 EnableMaxProfit = true; // Enable/disable max profit feature
+                
+                // Trailing Stop Parameters
+                TrailingStopAmount = 0; // Trailing stop amount in currency (0 = disabled)
             }
             else if (State == State.Configure)
             {
@@ -294,10 +302,24 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (marketPosition == MarketPosition.Short)
                 {
                     Print("SHORT FILLED: " + quantity + " contracts at " + price + " at " + time);
+                    
+                    // Set trailing stop for short position if enabled
+                    if (TrailingStopAmount > 0)
+                    {
+                        SetTrailingStop(CalculationMode.Currency, TrailingStopAmount);
+                        Print("TRAILING STOP SET for SHORT position: " + TrailingStopAmount + " currency units");
+                    }
                 }
                 else if (marketPosition == MarketPosition.Long)
                 {
                     Print("LONG FILLED: " + quantity + " contracts at " + price + " at " + time);
+                    
+                    // Set trailing stop for long position if enabled
+                    if (TrailingStopAmount > 0)
+                    {
+                        SetTrailingStop(CalculationMode.Currency, TrailingStopAmount);
+                        Print("TRAILING STOP SET for LONG position: " + TrailingStopAmount + " currency units");
+                    }
                 }
                 else if (marketPosition == MarketPosition.Flat)
                 {
