@@ -27,16 +27,15 @@ namespace NinjaTrader.NinjaScript.Strategies
     {
         private Series<double> activeOrderBlockLevel;
         private Series<bool> waitingForNextGreen;
-        private Series<bool> waitingForNextRed;
         private Series<bool> showGreenDot;
         private Series<bool> redDotSignal;
         private Series<bool> greenDotSignal;
-        private Series<bool> redDotExitSignal;
         private bool shortPositionOpen = false;
         private bool longPositionOpen = false;
         private double stopLossLevel = 0;
         private bool waitingForGreenDotExit = false;
         private bool waitingForRedDotExit = false;
+        private bool waitingForShortEntry = false;
         private bool justEntered = false; // Flag to prevent immediate exit
 
         protected override void OnStateChange()
@@ -67,11 +66,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Initialize series
                 activeOrderBlockLevel = new Series<double>(this);
                 waitingForNextGreen = new Series<bool>(this);
-                waitingForNextRed = new Series<bool>(this);
                 showGreenDot = new Series<bool>(this);
                 redDotSignal = new Series<bool>(this);
                 greenDotSignal = new Series<bool>(this);
-                redDotExitSignal = new Series<bool>(this);
             }
         }
 
@@ -110,20 +107,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
             }
 
-            // Check if price closed above the active order block (for long position exit)
-            bool closedAboveOrderBlock = false;
-            if (CurrentBar > 0 && activeOrderBlockLevel[1] != double.NaN && Close[0] > activeOrderBlockLevel[1])
-            {
-                closedAboveOrderBlock = true;
-                waitingForNextRed[0] = true;
-            }
-            else
-            {
-                if (CurrentBar > 0)
-                {
-                    waitingForNextRed[0] = waitingForNextRed[1];
-                }
-            }
+
 
             // Handle order block level tracking
             if (isOrderBlock)
@@ -143,19 +127,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     greenDotSignal[0] = false;
                 }
 
-                // Show red dot only if we're waiting for the next one after a close above
-                if (waitingForNextRed[0])
-                {
-                    waitingForNextRed[0] = false; // Reset the waiting flag
-                    redDotExitSignal[0] = true; // Signal for long position stop loss
-                }
+
             }
             else
             {
                 activeOrderBlockLevel[0] = activeOrderBlockLevel[1];
                 showGreenDot[0] = false;
                 greenDotSignal[0] = false;
-                redDotExitSignal[0] = false;
+
             }
 
             // Trading Logic - Entry and Exit
@@ -169,6 +148,17 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = true;
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
+                }
+
+                // Delayed short entry after long position exit
+                if (waitingForShortEntry && IsFirstTickOfBar)
+                {
+                    EnterShort(DefaultQuantity, "Short on Red Dot (Delayed)");
+                    shortPositionOpen = true;
+                    waitingForGreenDotExit = true;
+                    waitingForShortEntry = false;
+                    justEntered = true; // Set flag to prevent immediate exit
+                    Print("SHORT ENTRY: Delayed entry after long exit at " + Time[0] + " Price: " + Close[0]);
                 }
 
                 // Entry Logic: Go long when stopped out on green dot (real-time)
@@ -189,7 +179,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
 
                 // Exit Logic: Exit long when red dot signal appears (real-time)
-                if (redDotExitSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
+                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Real-time Stop on Red Dot", "Long on Green Dot");
@@ -197,12 +187,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForRedDotExit = false;
                     Print("REAL-TIME STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
-                    // Immediately enter short position
-                    EnterShort(DefaultQuantity, "Short on Red Dot");
-                    shortPositionOpen = true;
-                    waitingForGreenDotExit = true;
-                    justEntered = true; // Set flag to prevent immediate exit
-                    Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
+                    // Set flag to enter short on next bar close (not immediately)
+                    waitingForShortEntry = true;
                 }
 
                 // Reset the justEntered flag after the first tick of the next bar
