@@ -34,11 +34,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(Name = "Enable Max Profit", Description = "Enable maximum daily profit feature", Order = 2, GroupName = "Max Profit")]
         public bool EnableMaxProfit { get; set; }
 
-        [NinjaScriptProperty]
-        [Range(0, double.MaxValue)]
-        [Display(Name = "Trailing Stop PnL", Description = "Trailing stop based on unrealized PnL in currency (0 = disabled)", Order = 1, GroupName = "Trailing Stop")]
-        public double TrailingStopPnL { get; set; }
-
         private Series<double> activeOrderBlockLevel;
         private Series<bool> waitingForNextGreen;
         private Series<bool> showGreenDot;
@@ -54,11 +49,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool justEntered = false; // Flag to prevent immediate exit
         private bool maxProfitReached = false; // Flag to stop trading when max profit is reached
         private DateTime lastTradeDate = DateTime.MinValue; // Track the last trade date
-
-        // Trailing stop variables
-        private double trailingStopLevel = 0;
-        private bool trailingStopActive = false;
-        private double maxUnrealizedProfit = 0;
 
         protected override void OnStateChange()
         {
@@ -86,9 +76,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Max Profit Parameters
                 MaxDailyProfit = 1000; // Maximum daily profit in currency units
                 EnableMaxProfit = true; // Enable/disable max profit feature
-                
-                // Trailing Stop Parameters
-                TrailingStopPnL = 0; // Trailing stop based on unrealized PnL in currency (0 = disabled)
             }
             else if (State == State.Configure)
             {
@@ -186,16 +173,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                     shortPositionOpen = true;
                     waitingForGreenDotExit = true;
                     justEntered = true; // Set flag to prevent immediate exit
-                    
-                    // Initialize trailing stop for short position
-                    if (TrailingStopPnL > 0)
-                    {
-                        trailingStopActive = true;
-                        maxUnrealizedProfit = 0;
-                        trailingStopLevel = 0;
-                        Print("TRAILING STOP INITIALIZED for SHORT position");
-                    }
-                    
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
@@ -206,27 +183,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
-                    
-                    // Reset trailing stop
-                    trailingStopActive = false;
-                    maxUnrealizedProfit = 0;
-                    trailingStopLevel = 0;
-                    
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter long position
                     EnterLong(DefaultQuantity, "Long on Green Dot");
                     longPositionOpen = true;
                     waitingForRedDotExit = true;
-
-                    // Initialize trailing stop for long position
-                    if (TrailingStopPnL > 0)
-                    {
-                        trailingStopActive = true;
-                        maxUnrealizedProfit = 0;
-                        trailingStopLevel = 0;
-                        Print("TRAILING STOP INITIALIZED for LONG position");
-                    }
 
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
@@ -239,28 +201,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
                     longPositionOpen = false;
                     waitingForRedDotExit = false;
-                    
-                    // Reset trailing stop
-                    trailingStopActive = false;
-                    maxUnrealizedProfit = 0;
-                    trailingStopLevel = 0;
-                    
                     Print("STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter short position
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
                     waitingForGreenDotExit = true;
-                    
-                    // Initialize trailing stop for short position
-                    if (TrailingStopPnL > 0)
-                    {
-                        trailingStopActive = true;
-                        maxUnrealizedProfit = 0;
-                        trailingStopLevel = 0;
-                        Print("TRAILING STOP INITIALIZED for SHORT position");
-                    }
-                    
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
@@ -304,49 +250,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
             }
 
-            // Check trailing stop based on unrealized PnL
-            if (TrailingStopPnL > 0 && trailingStopActive && Position.MarketPosition != MarketPosition.Flat && !justEntered)
-            {
-                double currentUnrealizedPnL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
-                
-                // Update max unrealized profit if current is higher
-                if (currentUnrealizedPnL > maxUnrealizedProfit)
-                {
-                    maxUnrealizedProfit = currentUnrealizedPnL;
-                    Print("TRAILING STOP: New max unrealized PnL = " + maxUnrealizedProfit);
-                }
-                
-                // Check if we should trigger trailing stop
-                if (maxUnrealizedProfit >= TrailingStopPnL)
-                {
-                    double trailingStopTrigger = maxUnrealizedProfit - TrailingStopPnL;
-                    
-                    if (currentUnrealizedPnL <= trailingStopTrigger)
-                    {
-                        Print("TRAILING STOP TRIGGERED: Current PnL=" + currentUnrealizedPnL + ", Max PnL=" + maxUnrealizedProfit + ", Trigger Level=" + trailingStopTrigger);
-                        
-                        if (Position.MarketPosition == MarketPosition.Short)
-                        {
-                            ExitShort(DefaultQuantity, "Trailing Stop Exit", "Short on Red Dot");
-                            shortPositionOpen = false;
-                            waitingForGreenDotExit = false;
-                        }
-                        else if (Position.MarketPosition == MarketPosition.Long)
-                        {
-                            ExitLong(DefaultQuantity, "Trailing Stop Exit", "Long on Green Dot");
-                            longPositionOpen = false;
-                            waitingForRedDotExit = false;
-                        }
-                        
-                        // Reset trailing stop
-                        trailingStopActive = false;
-                        maxUnrealizedProfit = 0;
-                        trailingStopLevel = 0;
-                        return;
-                    }
-                }
-            }
-
             // Only check for real-time exits if we have a short position
             if (shortPositionOpen && waitingForGreenDotExit && !justEntered && CurrentBar >= 3)
             {
@@ -372,28 +275,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
-                    
-                    // Reset trailing stop
-                    trailingStopActive = false;
-                    maxUnrealizedProfit = 0;
-                    trailingStopLevel = 0;
-                    
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter long position
                     EnterLong(DefaultQuantity, "Long on Green Dot");
                     longPositionOpen = true;
                     waitingForRedDotExit = true;
-                    
-                    // Initialize trailing stop for long position
-                    if (TrailingStopPnL > 0)
-                    {
-                        trailingStopActive = true;
-                        maxUnrealizedProfit = 0;
-                        trailingStopLevel = 0;
-                        Print("TRAILING STOP INITIALIZED for LONG position");
-                    }
-                    
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
@@ -415,11 +302,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 else if (marketPosition == MarketPosition.Flat)
                 {
                     Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time);
-                    
-                    // Reset trailing stop when position is closed
-                    trailingStopActive = false;
-                    maxUnrealizedProfit = 0;
-                    trailingStopLevel = 0;
                     
                     // Check if max profit has been reached after position close
                     if (EnableMaxProfit && !maxProfitReached)
