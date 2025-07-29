@@ -210,6 +210,15 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         protected override void OnBarUpdate()
         {
+            // CRITICAL SAFETY CHECK: Fix inconsistent state where dailyProfitTargetReached is true but P&L doesn't justify it
+            if (EnableDailyTotalProfitTarget && dailyProfitTargetReached && dailyProfit == 0 && totalPL < DailyTotalProfitTargetAmount)
+            {
+                Print("*** CRITICAL SAFETY CHECK ***: Resetting inconsistent dailyProfitTargetReached state. DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " Target=" + DailyTotalProfitTargetAmount);
+                dailyProfitTargetReached = false;
+                totalPL = 0;
+                Print("*** RESET COMPLETE ***: dailyProfitTargetReached set to false, totalPL reset to 0");
+            }
+
             // Debug print at the very start
             Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + 
                   " PerTradeReached=" + profitTargetReachedForCurrentTrade + " PerTradeUnrealized=" + currentTradeUnrealizedPL.ToString("F2") + 
