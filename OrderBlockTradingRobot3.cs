@@ -168,8 +168,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Exit Logic: Exit long when red dot signal appears (on candle close)
-                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
+                // Exit Logic: Exit long when red dot signal appears (only on candle close)
+                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered && IsFirstTickOfBar)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
