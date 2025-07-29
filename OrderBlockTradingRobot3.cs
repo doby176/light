@@ -56,6 +56,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool justEntered = false; // Flag to prevent immediate exit
         private bool maxProfitReached = false; // Flag to stop trading when max profit is reached
         private DateTime lastTradeDate = DateTime.MinValue; // Track the last trade date
+        private double trailStopLevel = 0; // Current trailing stop level
+        private bool trailStopActive = false; // Flag to track if trailing stop is active
 
 
         protected override void OnStateChange()
@@ -120,7 +122,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return; // Stop all trading logic
             }
 
-
+            // Trailing Stop Logic
+            if (TrailingStopPoints > 0 && trailStopActive)
+            {
+                UpdateTrailingStop();
+            }
 
             double prevHigh = High[1];
             double prevClose = Close[1];
@@ -196,6 +202,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = true;
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
+                    
+                    // Initialize trailing stop for short position
+                    if (TrailingStopPoints > 0)
+                    {
+                        trailStopLevel = Close[0] + (TrailingStopPoints * TickSize);
+                        trailStopActive = true;
+                        Print("TRAILING STOP INITIALIZED: Level = " + trailStopLevel + " at " + Time[0]);
+                    }
                 }
 
 
@@ -233,6 +247,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = true;
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
+                    
+                    // Initialize trailing stop for short position
+                    if (TrailingStopPoints > 0)
+                    {
+                        trailStopLevel = Close[0] + (TrailingStopPoints * TickSize);
+                        trailStopActive = true;
+                        Print("TRAILING STOP INITIALIZED: Level = " + trailStopLevel + " at " + Time[0]);
+                    }
                 }
 
                 // Reset the justEntered flag after the first tick of the next bar
