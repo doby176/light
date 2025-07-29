@@ -25,6 +25,15 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
     public class OrderBlockTradingRobot3 : Strategy
     {
+        [NinjaScriptProperty]
+        [Range(0, double.MaxValue)]
+        [Display(Name = "Max Daily Profit", Description = "Maximum daily profit before stopping trading", Order = 1, GroupName = "Max Profit")]
+        public double MaxDailyProfit { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Enable Max Profit", Description = "Enable maximum daily profit feature", Order = 2, GroupName = "Max Profit")]
+        public bool EnableMaxProfit { get; set; }
+
         private Series<double> activeOrderBlockLevel;
         private Series<bool> waitingForNextGreen;
         private Series<bool> showGreenDot;
@@ -38,6 +47,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool waitingForRedDotExit = false;
 
         private bool justEntered = false; // Flag to prevent immediate exit
+        private bool maxProfitReached = false; // Flag to stop trading when max profit is reached
+        private DateTime lastTradeDate = DateTime.MinValue; // Track the last trade date
 
         protected override void OnStateChange()
         {
@@ -61,6 +72,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                 StopTargetHandling = StopTargetHandling.PerEntryExecution;
                 BarsRequiredToTrade = 20;
                 IsInstantiatedOnEachOptimizationIteration = true;
+                
+                // Max Profit Parameters
+                MaxDailyProfit = 1000; // Maximum daily profit in currency units
+                EnableMaxProfit = true; // Enable/disable max profit feature
             }
             else if (State == State.Configure)
             {
@@ -77,6 +92,20 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected override void OnBarUpdate()
         {
             if (CurrentBar < 3) return;
+
+            // Check if it's a new trading day and reset max profit flag
+            if (lastTradeDate.Date != Time[0].Date)
+            {
+                maxProfitReached = false;
+                lastTradeDate = Time[0].Date;
+                Print("NEW TRADING DAY: Resetting max profit flag");
+            }
+
+            // Check if max profit has been reached and stop trading
+            if (EnableMaxProfit && maxProfitReached)
+            {
+                return; // Stop all trading logic
+            }
 
             double prevHigh = High[1];
             double prevClose = Close[1];
@@ -202,6 +231,34 @@ namespace NinjaTrader.NinjaScript.Strategies
         // Real-time exit method for short position
         protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
         {
+            // Check if max profit has been reached and stop trading
+            if (EnableMaxProfit && maxProfitReached)
+            {
+                return; // Stop all trading logic
+            }
+
+            // Check for max profit on unrealized gains
+            if (EnableMaxProfit && !maxProfitReached && Position.MarketPosition != MarketPosition.Flat)
+            {
+                double dailyProfit = GetDailyProfit();
+                if (dailyProfit >= MaxDailyProfit)
+                {
+                    maxProfitReached = true;
+                    Print("MAX DAILY PROFIT REACHED (UNREALIZED): " + dailyProfit + " >= " + MaxDailyProfit + " - STOPPING TRADING FOR THE DAY");
+                    
+                    // Close any open position
+                    if (Position.MarketPosition == MarketPosition.Short)
+                    {
+                        ExitShort(DefaultQuantity, "Max Profit Exit", "Short on Red Dot");
+                    }
+                    else if (Position.MarketPosition == MarketPosition.Long)
+                    {
+                        ExitLong(DefaultQuantity, "Max Profit Exit", "Long on Green Dot");
+                    }
+                    return;
+                }
+            }
+
             // Only check for real-time exits if we have a short position
             if (shortPositionOpen && waitingForGreenDotExit && !justEntered && CurrentBar >= 3)
             {
@@ -254,8 +311,46 @@ namespace NinjaTrader.NinjaScript.Strategies
                 else if (marketPosition == MarketPosition.Flat)
                 {
                     Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time);
+                    
+                    // Check if max profit has been reached after position close
+                    if (EnableMaxProfit && !maxProfitReached)
+                    {
+                        double dailyProfit = GetDailyProfit();
+                        if (dailyProfit >= MaxDailyProfit)
+                        {
+                            maxProfitReached = true;
+                            Print("MAX DAILY PROFIT REACHED: " + dailyProfit + " >= " + MaxDailyProfit + " - STOPPING TRADING FOR THE DAY");
+                        }
+                    }
                 }
             }
+        }
+
+        // Method to calculate daily profit (realized + unrealized)
+        private double GetDailyProfit()
+        {
+            double realizedProfit = 0;
+            double unrealizedProfit = 0;
+
+            // Get realized profit for today
+            foreach (Trade trade in SystemPerformance.AllTrades)
+            {
+                if (trade.Exit.Time.Date == Time[0].Date)
+                {
+                    realizedProfit += trade.ProfitCurrency;
+                }
+            }
+
+            // Get unrealized profit if we have an open position
+            if (Position.MarketPosition != MarketPosition.Flat)
+            {
+                unrealizedProfit = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
+            }
+
+            double totalDailyProfit = realizedProfit + unrealizedProfit;
+            Print("DAILY PROFIT CHECK: Realized=" + realizedProfit + ", Unrealized=" + unrealizedProfit + ", Total=" + totalDailyProfit);
+            
+            return totalDailyProfit;
         }
     }
 }
