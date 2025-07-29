@@ -141,6 +141,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                 isFirstRun = true;
                 hasProcessedFirstBar = false;
                 strategyStartTime = DateTime.Now;
+                
+                // FORCE RESET: Ensure all variables are properly reset to prevent persistence issues
+                if (EnableDailyTotalProfitTarget)
+                {
+                    dailyProfitTargetReached = false;
+                    totalPL = 0;
+                    Print("*** FORCE RESET ***: dailyProfitTargetReached and totalPL explicitly reset to prevent persistence issues");
+                }
+                
                 Print("*** STRATEGY INITIALIZED ***: Combined profit targets reset.");
                 Print("Per-Trade: Enable=" + EnablePerTradeProfitTarget + " Amount=" + PerTradeProfitTargetAmount);
                 Print("Daily Total: Enable=" + EnableDailyTotalProfitTarget + " Amount=" + DailyTotalProfitTargetAmount);
@@ -210,6 +219,18 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         protected override void OnBarUpdate()
         {
+            // ULTIMATE SAFETY CHECK: Force reset on first bar if we detect any persistence issues
+            if (CurrentBar == 0 && EnableDailyTotalProfitTarget)
+            {
+                if (dailyProfitTargetReached && dailyProfit == 0)
+                {
+                    Print("*** ULTIMATE SAFETY CHECK ***: First bar - Force resetting dailyProfitTargetReached. DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2"));
+                    dailyProfitTargetReached = false;
+                    totalPL = 0;
+                    Print("*** ULTIMATE RESET COMPLETE ***: First bar reset successful");
+                }
+            }
+            
             // CRITICAL SAFETY CHECK: Fix inconsistent state where dailyProfitTargetReached is true but P&L doesn't justify it
             if (EnableDailyTotalProfitTarget && dailyProfitTargetReached && dailyProfit == 0 && totalPL < DailyTotalProfitTargetAmount)
             {
