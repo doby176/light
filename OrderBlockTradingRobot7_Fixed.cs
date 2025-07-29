@@ -193,6 +193,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
                     trailingStopActive = false;
+                    ActivateCooldown(); // Activate cooldown after green dot exit
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter long position
@@ -214,6 +215,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     longPositionOpen = false;
                     waitingForRedDotExit = false;
                     trailingStopActive = false;
+                    ActivateCooldown(); // Activate cooldown after red dot exit
                     Print("STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter short position
@@ -376,6 +378,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
                     trailingStopActive = false;
+                    ActivateCooldown(); // Activate cooldown after real-time green dot exit
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter long position
