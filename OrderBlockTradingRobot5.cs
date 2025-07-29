@@ -119,12 +119,39 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("DAILY RESET: Profit target reset for new trading day at " + Time[0]);
             }
 
-            // Check if profit target is reached and disable trading
-            if (isProfitTargetEnabled && !profitTargetReached && cumulativeProfit >= ProfitTargetAmount)
+            // Check unrealized P&L in real-time for profit target
+            if (isProfitTargetEnabled && !profitTargetReached)
             {
-                profitTargetReached = true;
-                Print("PROFIT TARGET REACHED: Cumulative profit " + cumulativeProfit + " reached target " + ProfitTargetAmount + " at " + Time[0]);
-                Print("TRADING DISABLED: Strategy will no longer enter new positions");
+                double unrealizedPL = 0;
+                if (Position.MarketPosition == MarketPosition.Long && lastEntryPrice > 0)
+                {
+                    unrealizedPL = (Close[0] - lastEntryPrice) * Position.Quantity;
+                }
+                else if (Position.MarketPosition == MarketPosition.Short && lastEntryPrice > 0)
+                {
+                    unrealizedPL = (lastEntryPrice - Close[0]) * Position.Quantity;
+                }
+
+                double totalPL = cumulativeProfit + unrealizedPL;
+                
+                if (totalPL >= ProfitTargetAmount)
+                {
+                    profitTargetReached = true;
+                    Print("PROFIT TARGET REACHED: Total P&L " + totalPL.ToString("F2") + " (Realized: " + cumulativeProfit.ToString("F2") + " + Unrealized: " + unrealizedPL.ToString("F2") + ") reached target " + ProfitTargetAmount + " at " + Time[0]);
+                    Print("TRADING DISABLED: Strategy will no longer enter new positions");
+                    
+                    // Close current position if any
+                    if (Position.MarketPosition == MarketPosition.Long)
+                    {
+                        ExitLong(DefaultQuantity, "Profit Target Exit", "Long on Green Dot");
+                        Print("PROFIT TARGET EXIT: Closing long position at " + Close[0]);
+                    }
+                    else if (Position.MarketPosition == MarketPosition.Short)
+                    {
+                        ExitShort(DefaultQuantity, "Profit Target Exit", "Short on Red Dot");
+                        Print("PROFIT TARGET EXIT: Closing short position at " + Close[0]);
+                    }
+                }
             }
 
             double prevHigh = High[1];
@@ -187,18 +214,20 @@ namespace NinjaTrader.NinjaScript.Strategies
             if ((State == State.Realtime || State == State.Historical) && !profitTargetReached)
             {
                 // Entry Logic: Go short on red dot signal (only on bar close)
-                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen && IsFirstTickOfBar)
+                if (redDotSignal[0] && Position.MarketPosition == MarketPosition.Flat && IsFirstTickOfBar)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
+                    longPositionOpen = false;
                     waitingForGreenDotExit = true;
+                    waitingForRedDotExit = false;
                     justEntered = true; // Set flag to prevent immediate exit
                     lastEntryPrice = Close[0];
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
                 // Entry Logic: Go long when stopped out on green dot (real-time)
-                if (greenDotSignal[0] && shortPositionOpen && waitingForGreenDotExit && !justEntered)
+                if (greenDotSignal[0] && Position.MarketPosition == MarketPosition.Short && waitingForGreenDotExit && !justEntered)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
@@ -209,14 +238,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                     // Immediately enter long position
                     EnterLong(DefaultQuantity, "Long on Green Dot");
                     longPositionOpen = true;
+                    shortPositionOpen = false;
                     waitingForRedDotExit = true;
+                    waitingForGreenDotExit = false;
                     lastEntryPrice = Close[0];
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
                 // Exit Logic: Exit long when red dot signal appears (only on candle close)
-                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered && IsFirstTickOfBar)
+                if (redDotSignal[0] && Position.MarketPosition == MarketPosition.Long && waitingForRedDotExit && !justEntered && IsFirstTickOfBar)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
@@ -227,7 +258,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                     // Immediately enter short position
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
+                    longPositionOpen = false;
                     waitingForGreenDotExit = true;
+                    waitingForRedDotExit = false;
                     lastEntryPrice = Close[0];
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
@@ -245,7 +278,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
         {
             // Only check for real-time exits if we have a short position and profit target not reached
-            if (shortPositionOpen && waitingForGreenDotExit && !justEntered && CurrentBar >= 3 && !profitTargetReached)
+            if (Position.MarketPosition == MarketPosition.Short && waitingForGreenDotExit && !justEntered && CurrentBar >= 3 && !profitTargetReached)
             {
                 // Check if green dot conditions are met in real-time
                 double prevHigh = High[1];
@@ -268,13 +301,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                     stopLossLevel = prevOpen;
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
                     shortPositionOpen = false;
+                    longPositionOpen = false;
                     waitingForGreenDotExit = false;
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter long position
                     EnterLong(DefaultQuantity, "Long on Green Dot");
                     longPositionOpen = true;
+                    shortPositionOpen = false;
                     waitingForRedDotExit = true;
+                    waitingForGreenDotExit = false;
                     lastEntryPrice = Close[0];
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
