@@ -47,6 +47,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         // NEW: Strategy restart detection
         private bool isFirstRun = true;
         private DateTime strategyStartTime = DateTime.MinValue;
+        private bool hasProcessedFirstBar = false;
 
         // Profit Target Properties
         [NinjaScriptProperty]
@@ -113,6 +114,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 profitTargetReached = false;
                 lastTradeDate = DateTime.MinValue;
                 isFirstRun = true;
+                hasProcessedFirstBar = false;
                 strategyStartTime = DateTime.Now;
                 Print("*** STRATEGY INITIALIZED ***: Profit target reset. EnableProfitTarget=" + EnableProfitTarget + " ProfitTargetAmount=" + ProfitTargetAmount + " ResetProfitTargetDaily=" + ResetProfitTargetDaily + " AutoResetOnMidDayRestart=" + AutoResetOnMidDayRestart);
             }
@@ -145,6 +147,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                         Print("*** MID-DAY RESTART DETECTED (Scenario 3) ***: Profit target reached but P&L is zero");
                     }
                     
+                    // NEW: Scenario 4: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
+                    else if (profitTargetReached && dailyProfit == 0 && totalPL > 0)
+                    {
+                        isMidDayRestart = true;
+                        Print("*** MID-DAY RESTART DETECTED (Scenario 4) ***: TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L)");
+                    }
+                    
                     if (isMidDayRestart)
                     {
                         // Reset profit target for mid-day restart
@@ -165,7 +174,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             // Debug print at the very start
             Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + " ProfitTargetReached=" + profitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd"));
 
-            // ENHANCED MID-DAY RE-ENABLE RESET LOGIC
+            // ENHANCED MID-DAY RE-ENABLE RESET LOGIC - MORE AGGRESSIVE
             if (EnableProfitTarget && AutoResetOnMidDayRestart && profitTargetReached)
             {
                 // Multiple scenarios for mid-day restart detection
@@ -199,11 +208,33 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("MID-DAY RE-ENABLE RESET (Scenario 4): Trading hours restart at " + Time[0]);
                 }
                 
+                // NEW: Scenario 5: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
+                else if (dailyProfit == 0 && totalPL > 0)
+                {
+                    shouldReset = true;
+                    Print("MID-DAY RE-ENABLE RESET (Scenario 5): TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L) at " + Time[0]);
+                }
+                
+                // NEW: Scenario 6: First few bars after restart with profit target reached
+                else if (!hasProcessedFirstBar && profitTargetReached)
+                {
+                    shouldReset = true;
+                    Print("MID-DAY RE-ENABLE RESET (Scenario 6): First bar after restart with profit target reached at " + Time[0]);
+                }
+                
                 if (shouldReset)
                 {
                     profitTargetReached = false;
+                    dailyProfit = 0;
+                    totalPL = 0;
                     Print("*** MID-DAY RESTART RESET COMPLETED ***: Profit target flag reset to FALSE");
                 }
+            }
+
+            // Mark that we've processed the first bar
+            if (!hasProcessedFirstBar)
+            {
+                hasProcessedFirstBar = true;
             }
 
             // Additional safety check: if we're on a different date than lastTradeDate, reset everything
