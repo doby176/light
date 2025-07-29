@@ -43,6 +43,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double trailingStopPrice = 0;
         private bool trailingStopActive = false;
         private double entryPrice = 0;
+        private bool justExitedOnTrailingStop = false; // Flag to prevent immediate re-entry after trailing stop exit
 
         protected override void OnStateChange()
         {
@@ -165,7 +166,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (State == State.Realtime || State == State.Historical)
             {
                 // Entry Logic: Go short on red dot signal (only on bar close)
-                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen && IsFirstTickOfBar)
+                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen && IsFirstTickOfBar && !justExitedOnTrailingStop)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -174,6 +175,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     entryPrice = Close[0];
                     trailingStopActive = false;
                     trailingStopPrice = 0;
+                    justExitedOnTrailingStop = false; // Reset the flag
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
@@ -223,6 +225,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (justEntered && IsFirstTickOfBar)
                 {
                     justEntered = false;
+                }
+
+                // Reset the justExitedOnTrailingStop flag after a few bars to allow re-entry
+                if (justExitedOnTrailingStop && CurrentBar > 0)
+                {
+                    // Wait for 3 bars before allowing re-entry after trailing stop exit
+                    if (CurrentBar >= 3)
+                    {
+                        justExitedOnTrailingStop = false;
+                    }
                 }
             }
         }
@@ -310,6 +322,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         shortPositionOpen = false;
                         waitingForGreenDotExit = false;
                         trailingStopActive = false;
+                        justExitedOnTrailingStop = true; // Set flag to prevent immediate re-entry
                         Print("TRAILING STOP EXIT for SHORT at " + Time[0] + " Stop Price: " + trailingStopPrice);
                     }
                 }
