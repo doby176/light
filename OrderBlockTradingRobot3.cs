@@ -31,15 +31,17 @@ namespace NinjaTrader.NinjaScript.Strategies
         private Series<bool> redDotSignal;
         private Series<bool> greenDotSignal;
         private bool shortPositionOpen = false;
+        private bool longPositionOpen = false;
         private double stopLossLevel = 0;
         private bool waitingForGreenDotExit = false;
+        private bool waitingForRedDotExit = false;
         private bool justEntered = false; // Flag to prevent immediate exit
 
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
-                Description = "Order Block Trading Robot - Short on Red Dots, Stop ONLY on Green Dots";
+                Description = "Order Block Trading Robot - Short on Red Dots, Long on Green Dots, Stop on Opposite Signals";
                 Name = "Order Block Trading FINAL";
                 Calculate = Calculate.OnPriceChange; // Changed to OnPriceChange for real-time exit
                 EntriesPerDirection = 1;
@@ -133,7 +135,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (State == State.Realtime || State == State.Historical)
             {
                 // Entry Logic: Go short on red dot signal (only on bar close)
-                if (redDotSignal[0] && !shortPositionOpen && IsFirstTickOfBar)
+                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen && IsFirstTickOfBar)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -142,7 +144,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Exit Logic: Exit short when green dot signal appears (real-time)
+                // Entry Logic: Go long when stopped out on green dot (real-time)
                 if (greenDotSignal[0] && shortPositionOpen && waitingForGreenDotExit && !justEntered)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
@@ -150,6 +152,30 @@ namespace NinjaTrader.NinjaScript.Strategies
                     shortPositionOpen = false;
                     waitingForGreenDotExit = false;
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
+                    
+                    // Immediately enter long position
+                    EnterLong(DefaultQuantity, "Long on Green Dot");
+                    longPositionOpen = true;
+                    waitingForRedDotExit = true;
+                    justEntered = true; // Set flag to prevent immediate exit
+                    Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
+                }
+
+                // Exit Logic: Exit long when red dot signal appears (real-time)
+                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
+                {
+                    stopLossLevel = activeOrderBlockLevel[0];
+                    ExitLong(DefaultQuantity, "Real-time Stop on Red Dot", "Long on Green Dot");
+                    longPositionOpen = false;
+                    waitingForRedDotExit = false;
+                    Print("REAL-TIME STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
+                    
+                    // Immediately enter short position
+                    EnterShort(DefaultQuantity, "Short on Red Dot");
+                    shortPositionOpen = true;
+                    waitingForGreenDotExit = true;
+                    justEntered = true; // Set flag to prevent immediate exit
+                    Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
                 // Reset the justEntered flag after the first tick of the next bar
@@ -174,6 +200,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (marketPosition == MarketPosition.Short)
                 {
                     Print("SHORT FILLED: " + quantity + " contracts at " + price + " at " + time);
+                }
+                else if (marketPosition == MarketPosition.Long)
+                {
+                    Print("LONG FILLED: " + quantity + " contracts at " + price + " at " + time);
                 }
                 else if (marketPosition == MarketPosition.Flat)
                 {
