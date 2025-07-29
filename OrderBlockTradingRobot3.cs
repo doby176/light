@@ -30,7 +30,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private Series<bool> showGreenDot;
         private Series<bool> redDotSignal;
         private Series<bool> greenDotSignal;
-        private Series<bool> redDotExitSignal; // Separate signal for long position exit
+
         private bool shortPositionOpen = false;
         private bool longPositionOpen = false;
         private double stopLossLevel = 0;
@@ -45,7 +45,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 Description = "Order Block Trading Robot - Short on Red Dots, Long on Green Dots, Stop on Opposite Signals";
                 Name = "Order Block Trading FINAL";
-                Calculate = Calculate.OnPriceChange; // Changed to OnPriceChange for real-time exit
+                Calculate = Calculate.OnBarClose; // Changed back to OnBarClose for proper candle close behavior
                 EntriesPerDirection = 1;
                 EntryHandling = EntryHandling.AllEntries;
                 IsExitOnSessionCloseStrategy = true;
@@ -70,7 +70,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 showGreenDot = new Series<bool>(this);
                 redDotSignal = new Series<bool>(this);
                 greenDotSignal = new Series<bool>(this);
-                redDotExitSignal = new Series<bool>(this);
+
             }
         }
 
@@ -109,15 +109,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
             }
 
-            // Set red dot exit signal only on candle close (first tick of bar)
-            if (IsFirstTickOfBar && redDotSignal[0])
-            {
-                redDotExitSignal[0] = true;
-            }
-            else
-            {
-                redDotExitSignal[0] = false;
-            }
+
 
 
 
@@ -152,8 +144,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             // Trading Logic - Entry and Exit
             if (State == State.Realtime || State == State.Historical)
             {
-                // Entry Logic: Go short on red dot signal (only on bar close)
-                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen && IsFirstTickOfBar)
+                // Entry Logic: Go short on red dot signal (on bar close)
+                if (redDotSignal[0] && !shortPositionOpen && !longPositionOpen)
                 {
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
@@ -182,8 +174,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Exit Logic: Exit long when red dot signal appears (only on candle close)
-                if (redDotExitSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
+                // Exit Logic: Exit long when red dot signal appears (on bar close)
+                if (redDotSignal[0] && longPositionOpen && waitingForRedDotExit && !justEntered)
                 {
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
@@ -199,19 +191,52 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                 }
 
-                // Reset the justEntered flag after the first tick of the next bar
-                if (justEntered && IsFirstTickOfBar)
+                // Reset the justEntered flag after the first bar
+                if (justEntered)
                 {
                     justEntered = false;
                 }
             }
         }
 
-        // OnMarketData method - kept for compatibility but exit logic moved to OnBarUpdate
+        // Real-time exit method for short position
         protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
         {
-            // Exit logic is now handled in OnBarUpdate with Calculate.OnPriceChange
-            // This method is kept for any future real-time enhancements
+            // Only check for real-time exits if we have a short position
+            if (shortPositionOpen && waitingForGreenDotExit && !justEntered && CurrentBar >= 3)
+            {
+                // Check if green dot conditions are met in real-time
+                double prevHigh = High[1];
+                double prevClose = Close[1];
+                double prevOpen = Open[1];
+                
+                // Real-time inefficiency check using current bar's low
+                bool inefficiency = Math.Abs(prevHigh - Low[0]) > Math.Abs(prevClose - prevOpen) * 1.5;
+
+                // Real-time break of structure using current bar's high
+                double highestHigh3 = Math.Max(Math.Max(High[1], High[2]), High[3]);
+                bool bosUp = High[0] > highestHigh3;
+
+                // Real-time order block detection
+                bool isOrderBlock = inefficiency && bosUp;
+
+                // If green dot forms in real-time, exit immediately
+                if (isOrderBlock && waitingForNextGreen[0])
+                {
+                    stopLossLevel = prevOpen;
+                    ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
+                    shortPositionOpen = false;
+                    waitingForGreenDotExit = false;
+                    Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
+                    
+                    // Immediately enter long position
+                    EnterLong(DefaultQuantity, "Long on Green Dot");
+                    longPositionOpen = true;
+                    waitingForRedDotExit = true;
+                    justEntered = true; // Set flag to prevent immediate exit
+                    Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
+                }
+            }
         }
 
         protected override void OnExecutionUpdate(Execution execution, string executionId, double price, int quantity, MarketPosition marketPosition, string orderId, DateTime time)
