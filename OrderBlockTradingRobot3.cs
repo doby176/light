@@ -34,6 +34,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(Name = "Enable Max Profit", Description = "Enable maximum daily profit feature", Order = 2, GroupName = "Max Profit")]
         public bool EnableMaxProfit { get; set; }
 
+        [NinjaScriptProperty]
+        [Range(0, double.MaxValue)]
+        [Display(Name = "Trailing Stop Points", Description = "Trailing stop distance in points (0 = disabled)", Order = 1, GroupName = "Trailing Stop")]
+        public double TrailingStopPoints { get; set; }
+
 
 
         private Series<double> activeOrderBlockLevel;
@@ -51,7 +56,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool justEntered = false; // Flag to prevent immediate exit
         private bool maxProfitReached = false; // Flag to stop trading when max profit is reached
         private DateTime lastTradeDate = DateTime.MinValue; // Track the last trade date
-        private double trailStopLevel = 0; // Current trailing stop level for short position
+
 
         protected override void OnStateChange()
         {
@@ -79,6 +84,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // Max Profit Parameters
                 MaxDailyProfit = 1000; // Maximum daily profit in currency units
                 EnableMaxProfit = true; // Enable/disable max profit feature
+                
+                // Trailing Stop Parameters
+                TrailingStopPoints = 0; // Trailing stop distance in points (0 = disabled)
                 
 
             }
@@ -112,35 +120,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return; // Stop all trading logic
             }
 
-            // Simple trailing stop for short position only
-            if (shortPositionOpen && trailStopLevel > 0)
-            {
-                // Check if trailing stop is hit
-                if (High[0] >= trailStopLevel)
-                {
-                    ExitShort(DefaultQuantity, "Trailing Stop Hit", "Short on Red Dot");
-                    shortPositionOpen = false;
-                    waitingForGreenDotExit = false;
-                    trailStopLevel = 0;
-                    Print("TRAILING STOP HIT (SHORT): Exit at " + trailStopLevel + " at " + Time[0]);
-                    return;
-                }
 
-                // Update trailing stop on higher high of previous RED candle
-                if (CurrentBar >= 2)
-                {
-                    bool prevCandleIsRed = Close[1] < Open[1];
-                    if (prevCandleIsRed && High[0] > High[1])
-                    {
-                        double newTrailLevel = High[1];
-                        if (newTrailLevel > trailStopLevel)
-                        {
-                            trailStopLevel = newTrailLevel;
-                            Print("TRAILING STOP UPDATED (SHORT): New level = " + trailStopLevel + " at " + Time[0]);
-                        }
-                    }
-                }
-            }
 
             double prevHigh = High[1];
             double prevClose = Close[1];
@@ -216,10 +196,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = true;
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
-                    
-                    // Initialize trailing stop for short position
-                    trailStopLevel = High[0];
-                    Print("TRAILING STOP INITIALIZED (SHORT): Level = " + trailStopLevel + " at " + Time[0]);
                 }
 
 
@@ -257,10 +233,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = true;
                     justEntered = true; // Set flag to prevent immediate exit
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
-                    
-                    // Initialize trailing stop for short position
-                    trailStopLevel = High[0];
-                    Print("TRAILING STOP INITIALIZED (SHORT): Level = " + trailStopLevel + " at " + Time[0]);
                 }
 
                 // Reset the justEntered flag after the first tick of the next bar
