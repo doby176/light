@@ -429,7 +429,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                             CancelOrder(trailingStopOrderId);
                         }
                         
-                        trailingStopOrderId = ExitLongStopMarket(DefaultQuantity, currentTrailingStopLevel, "Trailing Stop", "Long on Green Dot");
+                        Order trailingStopOrder = ExitLongStopMarket(DefaultQuantity, currentTrailingStopLevel, "Trailing Stop", "Long on Green Dot");
+                        trailingStopOrderId = trailingStopOrder.OrderId;
                         Print("TRAILING STOP UPDATED for LONG: " + currentTrailingStopLevel + " at " + Time[0]);
                     }
                 }
@@ -467,7 +468,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                             CancelOrder(trailingStopOrderId);
                         }
                         
-                        trailingStopOrderId = ExitShortStopMarket(DefaultQuantity, currentTrailingStopLevel, "Trailing Stop", "Short on Red Dot");
+                        Order trailingStopOrder = ExitShortStopMarket(DefaultQuantity, currentTrailingStopLevel, "Trailing Stop", "Short on Red Dot");
+                        trailingStopOrderId = trailingStopOrder.OrderId;
                         Print("TRAILING STOP UPDATED for SHORT: " + currentTrailingStopLevel + " at " + Time[0]);
                     }
                 }
