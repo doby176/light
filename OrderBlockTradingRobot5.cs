@@ -124,10 +124,22 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 closedBelowOrderBlock = true;
                 waitingForNextGreen[0] = true;
-                waitingForNextRed[0] = true; // Set waiting flag for red dot
+                
+                // Only trigger red dot if we're not already waiting for one
+                if (!waitingForNextRed[1])
+                {
+                    redDotSignal[0] = true; // Signal for short entry
+                    waitingForNextRed[0] = true; // Set waiting flag to prevent multiple signals
+                }
+                else
+                {
+                    redDotSignal[0] = false;
+                    waitingForNextRed[0] = true;
+                }
             }
             else
             {
+                redDotSignal[0] = false;
                 if (CurrentBar > 0)
                 {
                     waitingForNextGreen[0] = waitingForNextGreen[1];
@@ -153,15 +165,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                     greenDotSignal[0] = false;
                 }
 
-                // Show red dot only if we're waiting for the next one after a close below
+                // Reset red dot waiting flag when new order block forms
                 if (waitingForNextRed[0])
                 {
-                    redDotSignal[0] = true; // Signal for short entry
                     waitingForNextRed[0] = false; // Reset the waiting flag
-                }
-                else
-                {
-                    redDotSignal[0] = false;
                 }
             }
             else
@@ -169,7 +176,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 activeOrderBlockLevel[0] = activeOrderBlockLevel[1];
                 showGreenDot[0] = false;
                 greenDotSignal[0] = false;
-                redDotSignal[0] = false;
             }
 
             // Update Trailing Stop
