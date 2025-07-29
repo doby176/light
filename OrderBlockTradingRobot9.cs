@@ -259,8 +259,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("DAILY RESET: Profit target reset for new trading day at " + Time[0] + " (Previous lastTradeDate: " + (lastTradeDate == DateTime.MinValue ? "MinValue" : lastTradeDate.ToString("yyyy-MM-dd")) + ")");
             }
 
-            // Calculate total P&L (realized + unrealized) in real-time ONLY if profit target is enabled
-            if (EnableProfitTarget && !profitTargetReached)
+            // Calculate total P&L (realized + unrealized) in real-time if profit target is enabled
+            if (EnableProfitTarget)
             {
                 double unrealizedPL = 0;
                 
@@ -303,8 +303,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("DEBUG P&L: Realized=" + dailyProfit.ToString("F2") + " Unrealized=" + unrealizedPL.ToString("F2") + " Total=" + totalPL.ToString("F2") + " Target=" + ProfitTargetAmount + " Reached=" + profitTargetReached + " TickSize=" + TickSize);
                 }
                 
-                // Check if profit target is reached
-                if (totalPL >= ProfitTargetAmount)
+                // Check if profit target is reached (only if not already reached)
+                if (!profitTargetReached && totalPL >= ProfitTargetAmount)
                 {
                     profitTargetReached = true;
                     Print("*** PROFIT TARGET REACHED ***: Total P&L " + totalPL.ToString("F2") + " (Realized: " + dailyProfit.ToString("F2") + " + Unrealized: " + unrealizedPL.ToString("F2") + ") reached target " + ProfitTargetAmount + " at " + Time[0]);
@@ -321,6 +321,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                         ExitShort(DefaultQuantity, "Profit Target Exit", "Short on Red Dot");
                         Print("*** PROFIT TARGET EXIT ***: Closing short position at " + Close[0]);
                     }
+                }
+                
+                // NEW: Check if P&L has dropped below target (for potential re-enabling)
+                if (profitTargetReached && totalPL < ProfitTargetAmount * 0.8) // Re-enable at 80% of target
+                {
+                    profitTargetReached = false;
+                    Print("*** PROFIT TARGET RESET ***: P&L dropped to " + totalPL.ToString("F2") + " (below 80% of target " + ProfitTargetAmount + "), re-enabling trading at " + Time[0]);
                 }
             }
 
