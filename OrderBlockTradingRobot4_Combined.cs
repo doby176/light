@@ -409,12 +409,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                         return;
                     }
                     
-                    // DOUBLE CHECK: Make sure we're not in a position that hit per-trade profit target
-                    if (EnablePerTradeProfitTarget && profitTargetReachedForCurrentTrade)
-                    {
-                        Print("*** BLOCKED SHORT ENTRY ***: Previous trade hit per-trade profit target at " + Time[0]);
-                        return;
-                    }
+                    // Note: We don't check profitTargetReachedForCurrentTrade here because
+                    // per-trade targets should allow new trades after the current trade is closed
+                    // The per-trade target only affects the current open position
                     
                     EnterShort(DefaultQuantity, "Short on Red Dot");
                     shortPositionOpen = true;
