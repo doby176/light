@@ -31,8 +31,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private Series<bool> redDotSignal;
         private Series<bool> greenDotSignal;
 
-        private bool shortPositionOpen = false;
-        private bool longPositionOpen = false;
+
         private double stopLossLevel = 0;
         private bool waitingForGreenDotExit = false;
         private bool waitingForRedDotExit = false;
@@ -112,14 +111,25 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         protected override void OnBarUpdate()
         {
+            // Debug print at the very start
+            Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + " ProfitTargetReached=" + profitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd"));
+
+            // This block ensures profit target state is correctly managed on strategy start/restart within the same day
+            // It acts as a failsafe if State.DataLoaded might not fully reset 'profitTargetReached'
+            if (EnableProfitTarget && profitTargetReached && dailyProfit == 0 && totalPL == 0 && Time[0].Date == lastTradeDate.Date)
+            {
+                profitTargetReached = false;
+                Print("MID-DAY RE-ENABLE RESET: Profit target flag reset to FALSE. Time: " + Time[0]);
+            }
+
             if (CurrentBar < 3) return;
 
-            // Check if we should reset profit target daily
+            // Check if we should reset profit target daily (for new days)
             if (ResetProfitTargetDaily && IsFirstTickOfBar && Time[0].Date != lastTradeDate.Date)
             {
                 dailyProfit = 0;
                 totalPL = 0;
-                profitTargetReached = false;
+                profitTargetReached = false; // Ensure it's false for a new day
                 lastTradeDate = Time[0].Date;
                 Print("DAILY RESET: Profit target reset for new trading day at " + Time[0]);
             }
@@ -266,8 +276,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     
                     EnterShort(DefaultQuantity, "Short on Red Dot");
-                    shortPositionOpen = true;
-                    longPositionOpen = false;
                     waitingForGreenDotExit = true;
                     waitingForRedDotExit = false;
                     justEntered = true; // Set flag to prevent immediate exit
@@ -288,14 +296,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                     
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
-                    shortPositionOpen = false;
                     waitingForGreenDotExit = false;
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter long position
                     EnterLong(DefaultQuantity, "Long on Green Dot");
-                    longPositionOpen = true;
-                    shortPositionOpen = false;
                     waitingForRedDotExit = true;
                     waitingForGreenDotExit = false;
                     lastEntryPrice = Close[0];
@@ -316,14 +321,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                     
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitLong(DefaultQuantity, "Stop on Red Dot", "Long on Green Dot");
-                    longPositionOpen = false;
                     waitingForRedDotExit = false;
                     Print("STOP LOSS: Red dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
                     // Immediately enter short position
                     EnterShort(DefaultQuantity, "Short on Red Dot");
-                    shortPositionOpen = true;
-                    longPositionOpen = false;
                     waitingForGreenDotExit = true;
                     waitingForRedDotExit = false;
                     lastEntryPrice = Close[0];
@@ -366,8 +368,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     stopLossLevel = prevOpen;
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
-                    shortPositionOpen = false;
-                    longPositionOpen = false;
                     waitingForGreenDotExit = false;
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
@@ -376,8 +376,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         // Immediately enter long position
                         EnterLong(DefaultQuantity, "Long on Green Dot");
-                        longPositionOpen = true;
-                        shortPositionOpen = false;
                         waitingForRedDotExit = true;
                         waitingForGreenDotExit = false;
                         lastEntryPrice = Close[0];
