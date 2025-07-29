@@ -34,9 +34,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(Name = "Enable Max Profit", Description = "Enable maximum daily profit feature", Order = 2, GroupName = "Max Profit")]
         public bool EnableMaxProfit { get; set; }
 
-        [NinjaScriptProperty]
-        [Display(Name = "Enable Trailing Stop", Description = "Enable trailing stop feature", Order = 1, GroupName = "Trailing Stop")]
-        public bool EnableTrailingStop { get; set; }
+
 
         private Series<double> activeOrderBlockLevel;
         private Series<bool> waitingForNextGreen;
@@ -53,8 +51,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool justEntered = false; // Flag to prevent immediate exit
         private bool maxProfitReached = false; // Flag to stop trading when max profit is reached
         private DateTime lastTradeDate = DateTime.MinValue; // Track the last trade date
-        private double trailStopLevel = 0; // Current trailing stop level
-        private bool trailStopSet = false; // Flag to track if trailing stop is active
+        private double trailStopLevel = 0; // Current trailing stop level for short position
 
         protected override void OnStateChange()
         {
@@ -83,8 +80,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 MaxDailyProfit = 1000; // Maximum daily profit in currency units
                 EnableMaxProfit = true; // Enable/disable max profit feature
                 
-                // Trailing Stop Parameters
-                EnableTrailingStop = true; // Enable/disable trailing stop feature
+
             }
             else if (State == State.Configure)
             {
@@ -116,11 +112,34 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return; // Stop all trading logic
             }
 
-            // Trailing Stop Logic
-            if (EnableTrailingStop && trailStopSet)
+            // Simple trailing stop for short position only
+            if (shortPositionOpen && trailStopLevel > 0)
             {
-                UpdateTrailingStop();
-                CheckTrailingStop();
+                // Check if trailing stop is hit
+                if (High[0] >= trailStopLevel)
+                {
+                    ExitShort(DefaultQuantity, "Trailing Stop Hit", "Short on Red Dot");
+                    shortPositionOpen = false;
+                    waitingForGreenDotExit = false;
+                    trailStopLevel = 0;
+                    Print("TRAILING STOP HIT (SHORT): Exit at " + trailStopLevel + " at " + Time[0]);
+                    return;
+                }
+
+                // Update trailing stop on higher high of previous RED candle
+                if (CurrentBar >= 2)
+                {
+                    bool prevCandleIsRed = Close[1] < Open[1];
+                    if (prevCandleIsRed && High[0] > High[1])
+                    {
+                        double newTrailLevel = High[1];
+                        if (newTrailLevel > trailStopLevel)
+                        {
+                            trailStopLevel = newTrailLevel;
+                            Print("TRAILING STOP UPDATED (SHORT): New level = " + trailStopLevel + " at " + Time[0]);
+                        }
+                    }
+                }
             }
 
             double prevHigh = High[1];
@@ -199,10 +218,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                     
                     // Initialize trailing stop for short position
-                    if (EnableTrailingStop)
-                    {
-                        InitializeTrailingStop();
-                    }
+                    trailStopLevel = High[0];
+                    Print("TRAILING STOP INITIALIZED (SHORT): Level = " + trailStopLevel + " at " + Time[0]);
                 }
 
 
@@ -242,10 +259,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("SHORT ENTRY: Red dot signal at " + Time[0] + " Price: " + Close[0]);
                     
                     // Initialize trailing stop for short position
-                    if (EnableTrailingStop)
-                    {
-                        InitializeTrailingStop();
-                    }
+                    trailStopLevel = High[0];
+                    Print("TRAILING STOP INITIALIZED (SHORT): Level = " + trailStopLevel + " at " + Time[0]);
                 }
 
                 // Reset the justEntered flag after the first tick of the next bar
@@ -265,11 +280,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return; // Stop all trading logic
             }
 
-            // Check trailing stop in real-time
-            if (EnableTrailingStop && trailStopSet)
-            {
-                CheckTrailingStop();
-            }
+
 
             // Check for max profit on unrealized gains
             if (EnableMaxProfit && !maxProfitReached && Position.MarketPosition != MarketPosition.Flat)
@@ -393,85 +404,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             return totalDailyProfit;
         }
 
-        // Method to update trailing stop based on candle patterns
-        private void UpdateTrailingStop()
-        {
-            if (CurrentBar < 2) return;
 
-            if (shortPositionOpen)
-            {
-                // For short position: trail stop on higher high of previous RED candle
-                bool prevCandleIsRed = Close[1] < Open[1];
-                if (prevCandleIsRed && High[0] > High[1])
-                {
-                    // New higher high on previous red candle - update trailing stop
-                    double newTrailLevel = High[1];
-                    if (newTrailLevel > trailStopLevel)
-                    {
-                        trailStopLevel = newTrailLevel;
-                        Print("TRAILING STOP UPDATED (SHORT): New level = " + trailStopLevel + " at " + Time[0]);
-                    }
-                }
-            }
-            else if (longPositionOpen)
-            {
-                // For long position: trail stop on lower low of previous GREEN candle
-                bool prevCandleIsGreen = Close[1] > Open[1];
-                if (prevCandleIsGreen && Low[0] < Low[1])
-                {
-                    // New lower low on previous green candle - update trailing stop
-                    double newTrailLevel = Low[1];
-                    if (newTrailLevel < trailStopLevel || trailStopLevel == 0)
-                    {
-                        trailStopLevel = newTrailLevel;
-                        Print("TRAILING STOP UPDATED (LONG): New level = " + trailStopLevel + " at " + Time[0]);
-                    }
-                }
-            }
-        }
-
-        // Method to initialize trailing stop when position is entered
-        private void InitializeTrailingStop()
-        {
-            if (shortPositionOpen)
-            {
-                // For short position: start with the high of the current bar
-                trailStopLevel = High[0];
-                trailStopSet = true;
-                Print("TRAILING STOP INITIALIZED (SHORT): Level = " + trailStopLevel + " at " + Time[0]);
-            }
-            else if (longPositionOpen)
-            {
-                // For long position: start with the low of the current bar
-                trailStopLevel = Low[0];
-                trailStopSet = true;
-                Print("TRAILING STOP INITIALIZED (LONG): Level = " + trailStopLevel + " at " + Time[0]);
-            }
-        }
-
-        // Method to check if trailing stop has been hit
-        private void CheckTrailingStop()
-        {
-            if (!trailStopSet) return;
-
-            if (shortPositionOpen && High[0] >= trailStopLevel)
-            {
-                // Trailing stop hit for short position
-                ExitShort(DefaultQuantity, "Trailing Stop Hit", "Short on Red Dot");
-                shortPositionOpen = false;
-                waitingForGreenDotExit = false;
-                trailStopSet = false;
-                Print("TRAILING STOP HIT (SHORT): Exit at " + trailStopLevel + " at " + Time[0]);
-            }
-            else if (longPositionOpen && Low[0] <= trailStopLevel)
-            {
-                // Trailing stop hit for long position
-                ExitLong(DefaultQuantity, "Trailing Stop Hit", "Long on Green Dot");
-                longPositionOpen = false;
-                waitingForRedDotExit = false;
-                trailStopSet = false;
-                Print("TRAILING STOP HIT (LONG): Exit at " + trailStopLevel + " at " + Time[0]);
-            }
-        }
     }
 }
