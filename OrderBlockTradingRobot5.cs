@@ -45,6 +45,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private DateTime lastTradeDate = DateTime.MinValue;
         private double lastEntryPrice = 0;
         private int lastEntryQuantity = 0;
+        private double totalPL = 0; // Total P&L (realized + unrealized)
 
         // Profit Target Properties
         [NinjaScriptProperty]
@@ -102,6 +103,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 // Reset profit tracking at start
                 dailyProfit = 0;
+                totalPL = 0;
                 profitTargetReached = false;
                 lastTradeDate = DateTime.MinValue;
             }
@@ -115,26 +117,55 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (ResetProfitTargetDaily && IsFirstTickOfBar && Time[0].Date != lastTradeDate.Date)
             {
                 dailyProfit = 0;
+                totalPL = 0;
                 profitTargetReached = false;
                 lastTradeDate = Time[0].Date;
                 Print("DAILY RESET: Profit target reset for new trading day at " + Time[0]);
             }
 
-            // Check if profit target is reached
-            if (EnableProfitTarget && profitTargetReached)
+            // Calculate total P&L (realized + unrealized) in real-time
+            if (EnableProfitTarget && !profitTargetReached)
             {
-                // Close any open positions if profit target reached
-                if (Position.MarketPosition == MarketPosition.Long)
+                double unrealizedPL = 0;
+                
+                // Calculate unrealized P&L for current position
+                if (Position.MarketPosition == MarketPosition.Long && lastEntryPrice > 0)
                 {
-                    ExitLong(DefaultQuantity, "Profit Target Exit", "Long on Green Dot");
-                    Print("PROFIT TARGET EXIT: Closing long position at " + Close[0]);
+                    unrealizedPL = (Close[0] - lastEntryPrice) * Position.Quantity;
                 }
-                else if (Position.MarketPosition == MarketPosition.Short)
+                else if (Position.MarketPosition == MarketPosition.Short && lastEntryPrice > 0)
                 {
-                    ExitShort(DefaultQuantity, "Profit Target Exit", "Short on Red Dot");
-                    Print("PROFIT TARGET EXIT: Closing short position at " + Close[0]);
+                    unrealizedPL = (lastEntryPrice - Close[0]) * Position.Quantity;
                 }
-                return; // Don't process any more trading logic
+
+                // Total P&L = realized profit + unrealized profit
+                totalPL = dailyProfit + unrealizedPL;
+                
+                // Check if profit target is reached
+                if (totalPL >= ProfitTargetAmount)
+                {
+                    profitTargetReached = true;
+                    Print("PROFIT TARGET REACHED: Total P&L " + totalPL.ToString("F2") + " (Realized: " + dailyProfit.ToString("F2") + " + Unrealized: " + unrealizedPL.ToString("F2") + ") reached target " + ProfitTargetAmount + " at " + Time[0]);
+                    Print("TRADING DISABLED: Strategy will no longer enter new positions");
+                    
+                    // Close current position if any
+                    if (Position.MarketPosition == MarketPosition.Long)
+                    {
+                        ExitLong(DefaultQuantity, "Profit Target Exit", "Long on Green Dot");
+                        Print("PROFIT TARGET EXIT: Closing long position at " + Close[0]);
+                    }
+                    else if (Position.MarketPosition == MarketPosition.Short)
+                    {
+                        ExitShort(DefaultQuantity, "Profit Target Exit", "Short on Red Dot");
+                        Print("PROFIT TARGET EXIT: Closing short position at " + Close[0]);
+                    }
+                }
+            }
+
+            // If profit target reached, don't process any trading logic
+            if (profitTargetReached)
+            {
+                return;
             }
 
             double prevHigh = High[1];
@@ -194,7 +225,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
             // Trading Logic - Entry and Exit (only if profit target not reached)
-            if ((State == State.Realtime || State == State.Historical) && !profitTargetReached)
+            if (State == State.Realtime || State == State.Historical)
             {
                 // Entry Logic: Go short on red dot signal (only on bar close)
                 if (redDotSignal[0] && Position.MarketPosition == MarketPosition.Flat && IsFirstTickOfBar)
@@ -291,16 +322,20 @@ namespace NinjaTrader.NinjaScript.Strategies
                     waitingForGreenDotExit = false;
                     Print("REAL-TIME STOP LOSS: Green dot signal at " + Time[0] + " Stop Level: " + stopLossLevel);
                     
-                    // Immediately enter long position
-                    EnterLong(DefaultQuantity, "Long on Green Dot");
-                    longPositionOpen = true;
-                    shortPositionOpen = false;
-                    waitingForRedDotExit = true;
-                    waitingForGreenDotExit = false;
-                    lastEntryPrice = Close[0];
-                    lastEntryQuantity = DefaultQuantity;
-                    justEntered = true; // Set flag to prevent immediate exit
-                    Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
+                    // Only enter long if profit target not reached
+                    if (!profitTargetReached)
+                    {
+                        // Immediately enter long position
+                        EnterLong(DefaultQuantity, "Long on Green Dot");
+                        longPositionOpen = true;
+                        shortPositionOpen = false;
+                        waitingForRedDotExit = true;
+                        waitingForGreenDotExit = false;
+                        lastEntryPrice = Close[0];
+                        lastEntryQuantity = DefaultQuantity;
+                        justEntered = true; // Set flag to prevent immediate exit
+                        Print("LONG ENTRY: Green dot signal at " + Time[0] + " Price: " + Close[0]);
+                    }
                 }
             }
         }
@@ -337,11 +372,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                         dailyProfit += profitLoss;
                         Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time + " | P&L: " + profitLoss.ToString("F2") + " | Daily P&L: " + dailyProfit.ToString("F2"));
                         
-                        // Check if profit target is reached
-                        if (EnableProfitTarget && !profitTargetReached && dailyProfit >= ProfitTargetAmount)
+                        // Update total P&L after realized profit is added
+                        totalPL = dailyProfit;
+                        
+                        // Check if profit target is reached (this is a backup check)
+                        if (EnableProfitTarget && !profitTargetReached && totalPL >= ProfitTargetAmount)
                         {
                             profitTargetReached = true;
-                            Print("PROFIT TARGET REACHED: Daily profit " + dailyProfit.ToString("F2") + " reached target " + ProfitTargetAmount + " at " + time);
+                            Print("PROFIT TARGET REACHED: Total P&L " + totalPL.ToString("F2") + " reached target " + ProfitTargetAmount + " at " + time);
                             Print("TRADING DISABLED: Strategy will no longer enter new positions");
                         }
                     }
