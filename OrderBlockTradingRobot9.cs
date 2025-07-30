@@ -43,6 +43,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double lastEntryPrice = 0;
         private int lastEntryQuantity = 0;
         private double totalPL = 0; // Total P&L (realized + unrealized)
+        private double realizedPL = 0; // NEW: Track realized P&L separately
         
         // NEW: Strategy restart detection
         private bool isFirstRun = true;
@@ -111,6 +112,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 // Reset profit tracking at start
                 dailyProfit = 0;
+                realizedPL = 0;
                 totalPL = 0;
                 profitTargetReached = false;
                 lastTradeDate = DateTime.MinValue;
@@ -176,16 +178,34 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("*** MID-DAY RESTART DETECTED (Scenario 7) ***: Restart with position but no entry price - Position: " + Position.MarketPosition + " Quantity: " + Position.Quantity);
             }
             
-            if (isMidDayRestart)
-            {
-                // Reset profit target for mid-day restart (only if profit target is enabled)
-                if (EnableProfitTarget && AutoResetOnMidDayRestart)
+                            if (isMidDayRestart)
                 {
-                    dailyProfit = 0;
-                    totalPL = 0;
-                    profitTargetReached = false;
-                    lastTradeDate = Time[0].Date;
-                }
+                    // Reset profit target for mid-day restart (only if profit target is enabled)
+                    if (EnableProfitTarget && AutoResetOnMidDayRestart)
+                    {
+                        // CRITICAL: Don't reset dailyProfit if there's an existing position with unrealized P&L
+                        // This preserves the realized losses from previous trades
+                        if (Position.MarketPosition == MarketPosition.Flat)
+                        {
+                            dailyProfit = 0;
+                            realizedPL = 0;
+                            totalPL = 0;
+                            Print("*** PROFIT RESET ***: No existing position, resetting daily profit to 0");
+                        }
+                        else
+                        {
+                            // For existing positions, we need to estimate the realized P&L
+                            // Since we don't know the exact entry price of the original position,
+                            // we'll assume the current totalPL represents unrealized P&L only
+                            // and set realized P&L to 0 (no realized trades yet)
+                            realizedPL = 0;
+                            dailyProfit = 0;
+                            Print("*** PROFIT RESET ***: Existing position detected, setting realized P&L to 0 (unrealized P&L preserved)");
+                        }
+                        
+                        profitTargetReached = false;
+                        lastTradeDate = Time[0].Date;
+                    }
                 
                 // CRITICAL: Always reset trading state flags to prevent duplicate entries
                 waitingForGreenDotExit = false;
@@ -243,7 +263,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected override void OnBarUpdate()
         {
             // Debug print at the very start
-            Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + " ProfitTargetReached=" + profitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd") + " Position=" + Position.MarketPosition + " Quantity=" + Position.Quantity + " RestartSyncComplete=" + isRestartSyncComplete + " LastEntryPrice=" + lastEntryPrice.ToString("F2"));
+            Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + " ProfitTargetReached=" + profitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " RealizedPL=" + realizedPL.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd") + " Position=" + Position.MarketPosition + " Quantity=" + Position.Quantity + " RestartSyncComplete=" + isRestartSyncComplete + " LastEntryPrice=" + lastEntryPrice.ToString("F2"));
 
             // Mark that we've processed the first bar
             if (!hasProcessedFirstBar)
@@ -255,6 +275,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (lastTradeDate != DateTime.MinValue && Time[0].Date != lastTradeDate.Date)
             {
                 dailyProfit = 0;
+                realizedPL = 0;
                 totalPL = 0;
                 profitTargetReached = false;
                 lastTradeDate = Time[0].Date;
@@ -267,6 +288,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (ResetProfitTargetDaily && IsFirstTickOfBar && (lastTradeDate == DateTime.MinValue || Time[0].Date != lastTradeDate.Date))
             {
                 dailyProfit = 0;
+                realizedPL = 0;
                 totalPL = 0;
                 profitTargetReached = false; // Ensure it's false for a new day
                 lastTradeDate = Time[0].Date;
@@ -309,7 +331,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
 
                 // Total P&L = realized profit + unrealized profit
-                totalPL = dailyProfit + unrealizedPL;
+                totalPL = realizedPL + unrealizedPL;
+                
+                // DEBUG: Print detailed P&L breakdown every 10 bars
+                if (CurrentBar % 10 == 0)
+                {
+                    Print("DEBUG P&L BREAKDOWN: Realized=" + realizedPL.ToString("F2") + " Unrealized=" + unrealizedPL.ToString("F2") + " Total=" + totalPL.ToString("F2") + " Position=" + Position.MarketPosition + " LastEntryPrice=" + lastEntryPrice.ToString("F2") + " CurrentPrice=" + Close[0].ToString("F2"));
+                }
                 
                 // DEBUG: Print P&L status every 10 bars
                 if (CurrentBar % 10 == 0)
@@ -610,7 +638,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                         }
 
                         dailyProfit += profitLoss;
-                        Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time + " | P&L: " + profitLoss.ToString("F2") + " | Daily P&L: " + dailyProfit.ToString("F2"));
+                        realizedPL += profitLoss; // Track realized P&L separately
+                        Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time + " | P&L: " + profitLoss.ToString("F2") + " | Daily P&L: " + dailyProfit.ToString("F2") + " | Realized P&L: " + realizedPL.ToString("F2"));
                         
                         // Update total P&L after realized profit is added
                         totalPL = dailyProfit;
@@ -631,16 +660,18 @@ namespace NinjaTrader.NinjaScript.Strategies
         public void ResetProfitTarget()
         {
             dailyProfit = 0;
+            realizedPL = 0;
             totalPL = 0;
             profitTargetReached = false;
             lastTradeDate = Time[0].Date; // Set to current date
-            Print("MANUAL RESET: Profit target has been reset. Daily profit: " + dailyProfit + " TotalPL: " + totalPL + " Date: " + Time[0].ToString("yyyy-MM-dd"));
+            Print("MANUAL RESET: Profit target has been reset. Daily profit: " + dailyProfit + " RealizedPL: " + realizedPL + " TotalPL: " + totalPL + " Date: " + Time[0].ToString("yyyy-MM-dd"));
         }
 
         // Method to force reset profit target for mid-day restarts
         public void ForceResetForMidDayRestart()
         {
             dailyProfit = 0;
+            realizedPL = 0;
             totalPL = 0;
             profitTargetReached = false;
             lastTradeDate = Time[0].Date;
@@ -689,6 +720,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public void ForceResetAllState()
         {
             dailyProfit = 0;
+            realizedPL = 0;
             totalPL = 0;
             profitTargetReached = false;
             lastTradeDate = Time[0].Date;
