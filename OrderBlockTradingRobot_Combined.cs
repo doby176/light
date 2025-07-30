@@ -153,6 +153,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("*** STRATEGY INITIALIZED ***: Combined profit targets reset.");
                 Print("Daily Profit Target: Enable=" + EnableDailyProfitTarget + " Amount=" + DailyProfitTargetAmount + " ResetDaily=" + ResetDailyProfitTargetDaily + " AutoReset=" + AutoResetDailyOnMidDayRestart);
                 Print("Per-Trade Profit Target: Enable=" + EnablePerTradeProfitTarget + " Amount=" + PerTradeProfitTargetAmount + " ResetDaily=" + ResetPerTradeProfitTargetDaily + " AutoReset=" + AutoResetPerTradeOnMidDayRestart);
+                Print("*** IMPORTANT: Make sure to set 'Enable Daily Profit Target' to TRUE in strategy properties if you want daily profit target enforcement ***");
             }
             else if (State == State.Realtime)
             {
@@ -292,11 +293,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     currentTradeUnrealizedPL = dollarValue;
                 }
 
-                // Update total P&L for daily profit target
-                if (EnableDailyProfitTarget)
-                {
-                    totalPL = dailyProfit + dollarValue;
-                }
+                // Update total P&L (ALWAYS track total P&L = realized + unrealized)
+                totalPL = dailyProfit + dollarValue;
                 
                 // DEBUG: Print P&L status every 10 bars
                 if (CurrentBar % 10 == 0)
@@ -305,18 +303,27 @@ namespace NinjaTrader.NinjaScript.Strategies
                           " PerTrade Unrealized=" + currentTradeUnrealizedPL.ToString("F2") + " TickSize=" + TickSize);
                 }
                 
-                // Check if daily profit target is reached
-                if (EnableDailyProfitTarget && !dailyProfitTargetReached && totalPL >= DailyProfitTargetAmount)
+                // Check if daily profit target is reached (ALWAYS check, but only enforce when enabled)
+                if (!dailyProfitTargetReached && totalPL >= DailyProfitTargetAmount)
                 {
                     dailyProfitTargetReached = true;
                     Print("*** DAILY PROFIT TARGET REACHED ***: Total P&L " + totalPL.ToString("F2") + " reached target " + DailyProfitTargetAmount + " at " + Time[0]);
-                    Print("*** TRADING DISABLED ***: Strategy will no longer enter new positions");
                     
-                    // Close current position if any
-                    if (Position.MarketPosition == MarketPosition.Short)
+                    // Only enforce the target if the feature is enabled
+                    if (EnableDailyProfitTarget)
                     {
-                        ExitShort(DefaultQuantity, "Daily Profit Target Exit", "Short on Red Dot");
-                        Print("*** DAILY PROFIT TARGET EXIT ***: Closing short position at " + Close[0]);
+                        Print("*** TRADING DISABLED ***: Strategy will no longer enter new positions");
+                        
+                        // Close current position if any
+                        if (Position.MarketPosition == MarketPosition.Short)
+                        {
+                            ExitShort(DefaultQuantity, "Daily Profit Target Exit", "Short on Red Dot");
+                            Print("*** DAILY PROFIT TARGET EXIT ***: Closing short position at " + Close[0]);
+                        }
+                    }
+                    else
+                    {
+                        Print("*** DAILY PROFIT TARGET REACHED BUT NOT ENFORCED ***: Feature is disabled, trading continues");
                     }
                 }
                 
@@ -495,19 +502,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                             }
                         }
 
-                        // Update daily profit for realized trades
-                        if (EnableDailyProfitTarget)
-                        {
-                            dailyProfit += profitLoss;
-                            totalPL = dailyProfit; // Reset total PL to realized profit
-                        }
+                        // Update daily profit for realized trades (ALWAYS track realized P&L)
+                        dailyProfit += profitLoss;
+                        totalPL = dailyProfit; // Reset total PL to realized profit
 
                         Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time + " | P&L: " + profitLoss.ToString("F2"));
-                        
-                        if (EnableDailyProfitTarget)
-                        {
-                            Print("Daily P&L: " + dailyProfit.ToString("F2"));
-                        }
+                        Print("Daily P&L: " + dailyProfit.ToString("F2"));
                         
                         // Reset per-trade tracking after position is closed
                         if (EnablePerTradeProfitTarget)
@@ -520,11 +520,19 @@ namespace NinjaTrader.NinjaScript.Strategies
                         lastEntryQuantity = 0;
                         
                         // Check if daily profit target is reached (this is a backup check)
-                        if (EnableDailyProfitTarget && !dailyProfitTargetReached && totalPL >= DailyProfitTargetAmount)
+                        if (!dailyProfitTargetReached && totalPL >= DailyProfitTargetAmount)
                         {
                             dailyProfitTargetReached = true;
                             Print("DAILY PROFIT TARGET REACHED: Total P&L " + totalPL.ToString("F2") + " reached target " + DailyProfitTargetAmount + " at " + time);
-                            Print("TRADING DISABLED: Strategy will no longer enter new positions");
+                            
+                            if (EnableDailyProfitTarget)
+                            {
+                                Print("TRADING DISABLED: Strategy will no longer enter new positions");
+                            }
+                            else
+                            {
+                                Print("DAILY PROFIT TARGET REACHED BUT NOT ENFORCED: Feature is disabled, trading continues");
+                            }
                         }
                     }
                 }
