@@ -48,6 +48,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool isFirstRun = true;
         private DateTime strategyStartTime = DateTime.MinValue;
         private bool hasProcessedFirstBar = false;
+        private bool isRestartSyncComplete = false; // NEW: Track if restart sync is complete
 
         // Profit Target Properties
         [NinjaScriptProperty]
@@ -123,83 +124,116 @@ namespace NinjaTrader.NinjaScript.Strategies
             // NEW: Enhanced mid-day restart detection and position state reset
             bool isMidDayRestart = false;
             
-            if (EnableProfitTarget && AutoResetOnMidDayRestart)
+            // CRITICAL: Always check for restart scenarios, not just when profit target is enabled
+            // Check if this is a mid-day restart scenario
+            
+            // Scenario 1: First run of the day with zero P&L
+            if (isFirstRun && dailyProfit == 0 && totalPL == 0)
             {
-                // Check if this is a mid-day restart scenario
-                
-                // Scenario 1: First run of the day with zero P&L
-                if (isFirstRun && dailyProfit == 0 && totalPL == 0)
+                isMidDayRestart = true;
+                Print("*** MID-DAY RESTART DETECTED (Scenario 1) ***: First run with zero P&L");
+            }
+            
+            // Scenario 2: Strategy restarted during trading hours with zero P&L
+            else if (!isFirstRun && dailyProfit == 0 && totalPL == 0 && Time[0].TimeOfDay > new TimeSpan(9, 30, 0))
+            {
+                isMidDayRestart = true;
+                Print("*** MID-DAY RESTART DETECTED (Scenario 2) ***: Restart during trading hours with zero P&L");
+            }
+            
+            // Scenario 3: Profit target reached but P&L is zero (inconsistent state)
+            else if (profitTargetReached && dailyProfit == 0 && totalPL == 0)
+            {
+                isMidDayRestart = true;
+                Print("*** MID-DAY RESTART DETECTED (Scenario 3) ***: Profit target reached but P&L is zero");
+            }
+            
+            // NEW: Scenario 4: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
+            else if (isFirstRun && profitTargetReached && dailyProfit == 0 && totalPL > 0 && totalPL < ProfitTargetAmount)
+            {
+                isMidDayRestart = true;
+                Print("*** MID-DAY RESTART DETECTED (Scenario 4) ***: TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L)");
+            }
+            
+            // NEW: Scenario 5: Strategy restart with existing position (most common mid-day restart)
+            else if (isFirstRun && Position.MarketPosition != MarketPosition.Flat)
+            {
+                isMidDayRestart = true;
+                Print("*** MID-DAY RESTART DETECTED (Scenario 5) ***: Restart with existing position: " + Position.MarketPosition + " Quantity: " + Position.Quantity);
+            }
+            
+            // NEW: Scenario 6: Strategy restart with non-zero TotalPL (indicates existing position)
+            else if (isFirstRun && totalPL != 0)
+            {
+                isMidDayRestart = true;
+                Print("*** MID-DAY RESTART DETECTED (Scenario 6) ***: Restart with TotalPL=" + totalPL + " (indicates existing position)");
+            }
+            
+            // NEW: Scenario 7: Strategy restart with inconsistent state (position exists but no entry price)
+            else if (isFirstRun && Position.MarketPosition != MarketPosition.Flat && lastEntryPrice == 0)
+            {
+                isMidDayRestart = true;
+                Print("*** MID-DAY RESTART DETECTED (Scenario 7) ***: Restart with position but no entry price - Position: " + Position.MarketPosition + " Quantity: " + Position.Quantity);
+            }
+            
+            if (isMidDayRestart)
+            {
+                // Reset profit target for mid-day restart (only if profit target is enabled)
+                if (EnableProfitTarget && AutoResetOnMidDayRestart)
                 {
-                    isMidDayRestart = true;
-                    Print("*** MID-DAY RESTART DETECTED (Scenario 1) ***: First run with zero P&L");
-                }
-                
-                // Scenario 2: Strategy restarted during trading hours with zero P&L
-                else if (!isFirstRun && dailyProfit == 0 && totalPL == 0 && Time[0].TimeOfDay > new TimeSpan(9, 30, 0))
-                {
-                    isMidDayRestart = true;
-                    Print("*** MID-DAY RESTART DETECTED (Scenario 2) ***: Restart during trading hours with zero P&L");
-                }
-                
-                // Scenario 3: Profit target reached but P&L is zero (inconsistent state)
-                else if (profitTargetReached && dailyProfit == 0 && totalPL == 0)
-                {
-                    isMidDayRestart = true;
-                    Print("*** MID-DAY RESTART DETECTED (Scenario 3) ***: Profit target reached but P&L is zero");
-                }
-                
-                // NEW: Scenario 4: TotalPL is non-zero but DailyProfit is zero (restart with unrealized P&L)
-                else if (isFirstRun && profitTargetReached && dailyProfit == 0 && totalPL > 0 && totalPL < ProfitTargetAmount)
-                {
-                    isMidDayRestart = true;
-                    Print("*** MID-DAY RESTART DETECTED (Scenario 4) ***: TotalPL=" + totalPL + " but DailyProfit=0 (restart with unrealized P&L)");
-                }
-                
-                // NEW: Scenario 5: Strategy restart with existing position (most common mid-day restart)
-                else if (isFirstRun && Position.MarketPosition != MarketPosition.Flat)
-                {
-                    isMidDayRestart = true;
-                    Print("*** MID-DAY RESTART DETECTED (Scenario 5) ***: Restart with existing position: " + Position.MarketPosition + " Quantity: " + Position.Quantity);
-                }
-                
-                if (isMidDayRestart)
-                {
-                    // Reset profit target for mid-day restart
                     dailyProfit = 0;
                     totalPL = 0;
                     profitTargetReached = false;
                     lastTradeDate = Time[0].Date;
-                    
-                    // CRITICAL: Reset all trading state flags to prevent duplicate entries
-                    waitingForGreenDotExit = false;
-                    waitingForRedDotExit = false;
-                    justEntered = false;
-                    lastEntryPrice = 0;
-                    lastEntryQuantity = 0;
-                    
-                    // If there's an existing position, update the entry tracking
-                    if (Position.MarketPosition != MarketPosition.Flat)
-                    {
-                        lastEntryPrice = Position.AveragePrice;
-                        lastEntryQuantity = Position.Quantity;
-                        
-                        // Set appropriate waiting flags based on current position
-                        if (Position.MarketPosition == MarketPosition.Short)
-                        {
-                            waitingForGreenDotExit = true;
-                            waitingForRedDotExit = false;
-                            Print("*** POSITION STATE SYNC ***: Short position detected, waiting for green dot exit");
-                        }
-                        else if (Position.MarketPosition == MarketPosition.Long)
-                        {
-                            waitingForRedDotExit = true;
-                            waitingForGreenDotExit = false;
-                            Print("*** POSITION STATE SYNC ***: Long position detected, waiting for red dot exit");
-                        }
-                    }
-                    
-                    Print("*** MID-DAY RESTART RESET ***: Profit target and trading state reset for mid-day restart at " + Time[0]);
                 }
+                
+                // CRITICAL: Always reset trading state flags to prevent duplicate entries
+                waitingForGreenDotExit = false;
+                waitingForRedDotExit = false;
+                justEntered = false;
+                lastEntryPrice = 0;
+                lastEntryQuantity = 0;
+                isRestartSyncComplete = false; // Mark that we need to complete restart sync
+                
+                // If there's an existing position, update the entry tracking
+                if (Position.MarketPosition != MarketPosition.Flat)
+                {
+                    lastEntryPrice = Position.AveragePrice;
+                    lastEntryQuantity = Position.Quantity;
+                    
+                                         // Set appropriate waiting flags based on current position
+                     if (Position.MarketPosition == MarketPosition.Short)
+                     {
+                         waitingForGreenDotExit = true;
+                         waitingForRedDotExit = false;
+                         Print("*** POSITION STATE SYNC ***: Short position detected, waiting for green dot exit");
+                     }
+                     else if (Position.MarketPosition == MarketPosition.Long)
+                     {
+                         waitingForRedDotExit = true;
+                         waitingForGreenDotExit = false;
+                         Print("*** POSITION STATE SYNC ***: Long position detected, waiting for red dot exit");
+                     }
+                     
+                     // Mark restart sync as complete
+                     isRestartSyncComplete = true;
+                     Print("*** RESTART SYNC COMPLETE ***: Position state synchronized successfully");
+                 }
+                 else
+                 {
+                     // No existing position, mark restart sync as complete
+                     isRestartSyncComplete = true;
+                     Print("*** RESTART SYNC COMPLETE ***: No existing position, ready to trade");
+                 }
+                 
+                 Print("*** MID-DAY RESTART RESET ***: Trading state reset for mid-day restart at " + Time[0] + " Position: " + Position.MarketPosition + " Quantity: " + Position.Quantity);
+            }
+            
+            // FALLBACK: If we haven't completed restart sync by now, force it to complete
+            if (isFirstRun && !isRestartSyncComplete)
+            {
+                isRestartSyncComplete = true;
+                Print("*** FALLBACK RESTART SYNC ***: Forcing restart sync completion at " + Time[0]);
             }
             
             isFirstRun = false;
@@ -209,7 +243,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected override void OnBarUpdate()
         {
             // Debug print at the very start
-            Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + " ProfitTargetReached=" + profitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd"));
+            Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + " ProfitTargetReached=" + profitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") + " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd") + " Position=" + Position.MarketPosition + " Quantity=" + Position.Quantity + " RestartSyncComplete=" + isRestartSyncComplete + " LastEntryPrice=" + lastEntryPrice.ToString("F2"));
 
             // Mark that we've processed the first bar
             if (!hasProcessedFirstBar)
@@ -381,6 +415,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                     return;
                 }
                 
+                // NEW: Additional check to ensure restart sync is complete before trading
+                if (!isRestartSyncComplete)
+                {
+                    Print("*** RESTART SYNC PENDING ***: Waiting for restart synchronization to complete, skipping new entries at " + Time[0]);
+                    return;
+                }
+                
                 // Entry Logic: Go short on red dot signal (only on bar close)
                 if (redDotSignal[0] && Position.MarketPosition == MarketPosition.Flat && IsFirstTickOfBar)
                 {
@@ -466,6 +507,12 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 // We have a position but no entry price recorded - this indicates a restart scenario
                 // Don't process any real-time exits until we properly sync the state
+                return;
+            }
+            
+            // NEW: Additional check to ensure restart sync is complete before processing real-time exits
+            if (!isRestartSyncComplete)
+            {
                 return;
             }
             
@@ -652,7 +699,31 @@ namespace NinjaTrader.NinjaScript.Strategies
             lastEntryQuantity = 0;
             isFirstRun = true;
             hasProcessedFirstBar = false;
+            isRestartSyncComplete = false;
             Print("*** FORCE RESET ALL STATE ***: All strategy state variables reset at " + Time[0]);
+        }
+
+        // Method to manually complete restart sync (for testing)
+        public void ForceCompleteRestartSync()
+        {
+            isRestartSyncComplete = true;
+            if (Position.MarketPosition != MarketPosition.Flat)
+            {
+                lastEntryPrice = Position.AveragePrice;
+                lastEntryQuantity = Position.Quantity;
+                
+                if (Position.MarketPosition == MarketPosition.Short)
+                {
+                    waitingForGreenDotExit = true;
+                    waitingForRedDotExit = false;
+                }
+                else if (Position.MarketPosition == MarketPosition.Long)
+                {
+                    waitingForRedDotExit = true;
+                    waitingForGreenDotExit = false;
+                }
+            }
+            Print("*** FORCE COMPLETE RESTART SYNC ***: Restart sync manually completed at " + Time[0] + " Position: " + Position.MarketPosition + " Quantity: " + Position.Quantity);
         }
     }
 }
