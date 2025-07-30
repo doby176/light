@@ -300,7 +300,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (CurrentBar % 10 == 0)
                 {
                     Print("DEBUG P&L: Daily Realized=" + dailyProfit.ToString("F2") + " Daily Total=" + totalPL.ToString("F2") + 
-                          " PerTrade Unrealized=" + currentTradeUnrealizedPL.ToString("F2") + " TickSize=" + TickSize);
+                          " PerTrade Unrealized=" + currentTradeUnrealizedPL.ToString("F2") + " TickSize=" + TickSize + 
+                          " Entry=" + lastEntryPrice + " Current=" + Close[0] + " Points=" + pointsDiff.ToString("F2"));
                 }
                 
                 // Check if daily profit target is reached (ALWAYS check, but only enforce when enabled)
@@ -477,9 +478,17 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (execution.Order.OrderState == OrderState.Filled)
             {
+                Print("EXECUTION UPDATE: Order=" + execution.Order.OrderType + " Action=" + execution.Order.OrderAction + 
+                      " Position=" + marketPosition + " Price=" + price + " Qty=" + quantity + " Time=" + time);
+                
                 if (marketPosition == MarketPosition.Short)
                 {
                     Print("SHORT FILLED: " + quantity + " contracts at " + price + " at " + time);
+                    
+                    // Update entry price and quantity with actual fill data
+                    lastEntryPrice = price;
+                    lastEntryQuantity = quantity;
+                    Print("ENTRY UPDATED: lastEntryPrice=" + lastEntryPrice + " lastEntryQuantity=" + lastEntryQuantity);
                 }
                 else if (marketPosition == MarketPosition.Flat)
                 {
@@ -487,10 +496,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (lastEntryPrice > 0 && lastEntryQuantity > 0)
                     {
                         double profitLoss = 0;
-                        if (execution.Order.OrderType == OrderType.Market && execution.Order.OrderAction == OrderAction.Buy)
+                        
+                        // IMPROVED: Check for ANY buy order that closes a short position
+                        // This includes Market Buy, Limit Buy, Stop Market Buy, etc.
+                        if (execution.Order.OrderAction == OrderAction.Buy)
                         {
-                            // Short position closed
+                            // Short position closed - calculate profit/loss
                             double pointsDiff = lastEntryPrice - price;
+                            
                             // Use proper dollar calculation based on instrument
                             if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
                             {
@@ -500,6 +513,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                             {
                                 profitLoss = pointsDiff * lastEntryQuantity * TickSize * 100; // Convert to dollars
                             }
+                            
+                            Print("P&L CALCULATION: Entry=" + lastEntryPrice + " Exit=" + price + " Points=" + pointsDiff.ToString("F2") + " Profit=" + profitLoss.ToString("F2"));
+                        }
+                        else
+                        {
+                            Print("WARNING: Position closed but not a Buy order. OrderAction=" + execution.Order.OrderAction);
                         }
 
                         // Update daily profit for realized trades (ALWAYS track realized P&L)
@@ -508,6 +527,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                         Print("POSITION CLOSED: " + quantity + " contracts at " + price + " at " + time + " | P&L: " + profitLoss.ToString("F2"));
                         Print("Daily P&L: " + dailyProfit.ToString("F2"));
+                        Print("Total P&L: " + totalPL.ToString("F2"));
                         
                         // Reset per-trade tracking after position is closed
                         if (EnablePerTradeProfitTarget)
@@ -534,6 +554,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                                 Print("DAILY PROFIT TARGET REACHED BUT NOT ENFORCED: Feature is disabled, trading continues");
                             }
                         }
+                    }
+                    else
+                    {
+                        Print("WARNING: Position closed but lastEntryPrice=" + lastEntryPrice + " lastEntryQuantity=" + lastEntryQuantity);
                     }
                 }
             }
@@ -591,6 +615,22 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             DailyProfitTargetAmount = amount;
             Print("*** FORCE SET DAILY PROFIT TARGET TO: " + amount + " ***");
+        }
+
+        // Method to force set daily profit for testing
+        public void ForceSetDailyProfit(double profit)
+        {
+            dailyProfit = profit;
+            totalPL = dailyProfit;
+            Print("*** FORCE SET DAILY PROFIT TO: " + profit + " ***");
+            Print("*** DAILY PROFIT: " + dailyProfit + " TOTAL PL: " + totalPL + " ***");
+        }
+
+        // Method to force set daily profit target reached flag for testing
+        public void ForceSetDailyProfitTargetReached(bool reached)
+        {
+            dailyProfitTargetReached = reached;
+            Print("*** FORCE SET DAILY PROFIT TARGET REACHED TO: " + reached + " ***");
         }
 
         // ===== PUBLIC METHODS FOR PER-TRADE PROFIT TARGET =====
