@@ -479,6 +479,28 @@ namespace NinjaTrader.NinjaScript.Strategies
                         return;
                     }
                     
+                    // Calculate the realized P&L from the short position before closing it
+                    double shortExitPrice = Close[0];
+                    double shortProfitLoss = 0;
+                    if (lastEntryPrice > 0 && lastEntryQuantity > 0)
+                    {
+                        // Short position: profit = entry price - exit price
+                        double pointsDiff = lastEntryPrice - shortExitPrice;
+                        if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                        {
+                            shortProfitLoss = pointsDiff * lastEntryQuantity * Instrument.MasterInstrument.PointValue;
+                        }
+                        else
+                        {
+                            shortProfitLoss = pointsDiff * lastEntryQuantity * TickSize * 100;
+                        }
+                        
+                        // Add to realized P&L immediately
+                        realizedPL += shortProfitLoss;
+                        dailyProfit += shortProfitLoss;
+                        Print("*** SHORT EXIT P&L CALCULATION ***: Entry=" + lastEntryPrice + " Exit=" + shortExitPrice + " P&L=" + shortProfitLoss.ToString("F2") + " Total Realized=" + realizedPL.ToString("F2"));
+                    }
+                    
                     stopLossLevel = activeOrderBlockLevel[0];
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
                     waitingForGreenDotExit = false;
@@ -502,6 +524,28 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         Print("*** BLOCKED SHORT ENTRY FROM LONG EXIT ***: Profit target reached at " + Time[0]);
                         return;
+                    }
+                    
+                    // Calculate the realized P&L from the long position before closing it
+                    double longExitPrice = Close[0];
+                    double longProfitLoss = 0;
+                    if (lastEntryPrice > 0 && lastEntryQuantity > 0)
+                    {
+                        // Long position: profit = exit price - entry price
+                        double pointsDiff = longExitPrice - lastEntryPrice;
+                        if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                        {
+                            longProfitLoss = pointsDiff * lastEntryQuantity * Instrument.MasterInstrument.PointValue;
+                        }
+                        else
+                        {
+                            longProfitLoss = pointsDiff * lastEntryQuantity * TickSize * 100;
+                        }
+                        
+                        // Add to realized P&L immediately
+                        realizedPL += longProfitLoss;
+                        dailyProfit += longProfitLoss;
+                        Print("*** LONG EXIT P&L CALCULATION ***: Entry=" + lastEntryPrice + " Exit=" + longExitPrice + " P&L=" + longProfitLoss.ToString("F2") + " Total Realized=" + realizedPL.ToString("F2"));
                     }
                     
                     stopLossLevel = activeOrderBlockLevel[0];
@@ -565,6 +609,28 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // If green dot forms in real-time, exit immediately
                 if (isOrderBlock && waitingForNextGreen[0])
                 {
+                    // Calculate the realized P&L from the short position before closing it
+                    double shortExitPrice = Close[0];
+                    double shortProfitLoss = 0;
+                    if (lastEntryPrice > 0 && lastEntryQuantity > 0)
+                    {
+                        // Short position: profit = entry price - exit price
+                        double pointsDiff = lastEntryPrice - shortExitPrice;
+                        if (Instrument.MasterInstrument.InstrumentType == InstrumentType.Future)
+                        {
+                            shortProfitLoss = pointsDiff * lastEntryQuantity * Instrument.MasterInstrument.PointValue;
+                        }
+                        else
+                        {
+                            shortProfitLoss = pointsDiff * lastEntryQuantity * TickSize * 100;
+                        }
+                        
+                        // Add to realized P&L immediately
+                        realizedPL += shortProfitLoss;
+                        dailyProfit += shortProfitLoss;
+                        Print("*** REAL-TIME SHORT EXIT P&L CALCULATION ***: Entry=" + lastEntryPrice + " Exit=" + shortExitPrice + " P&L=" + shortProfitLoss.ToString("F2") + " Total Realized=" + realizedPL.ToString("F2"));
+                    }
+                    
                     stopLossLevel = prevOpen;
                     ExitShort(DefaultQuantity, "Real-time Stop on Green Dot", "Short on Red Dot");
                     waitingForGreenDotExit = false;
