@@ -221,7 +221,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             // Debug print at the very start
             Print("OnBarUpdate Start: CurrentBar=" + CurrentBar + " Time=" + Time[0] + 
-                  " DailyTargetReached=" + dailyProfitTargetReached + " DailyProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") +
+                  " DailyTargetReached=" + dailyProfitTargetReached + " DailyRealizedProfit=" + dailyProfit.ToString("F2") + " TotalPL=" + totalPL.ToString("F2") +
                   " PerTradeTargetReached=" + perTradeProfitTargetReached + " CurrentTradeUnrealizedPL=" + currentTradeUnrealizedPL.ToString("F2") +
                   " LastTradeDate=" + lastTradeDate.ToString("yyyy-MM-dd"));
 
