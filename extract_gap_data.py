@@ -30,15 +30,16 @@ def load_gap_data(csv_file_path):
 
                 # Parse numeric values
                 filled = row['filled'].lower() == 'true'
+                reversal_after_fill = row['reversal_after_fill'] == '1.0' if row['reversal_after_fill'] else False
                 
                 # CORRECTED MAPPING to match ThinkOrSwim indicator:
-                # ZONE 1: Move before gap fill (from max_move_gap_direction_first_30min_pct)
+                # ZONE 1: Move before gap fill (from max_move_gap_direction_first_30min_pct) - ONLY FILLED GAPS
                 move_before_fill = float(row['max_move_gap_direction_first_30min_pct']) if row['max_move_gap_direction_first_30min_pct'] else 0
                 
                 # ZONE 2: Stop out for unfilled gaps (from max_move_gap_direction_first_30min_pct for unfilled only)
                 max_move_unfilled = float(row['max_move_gap_direction_first_30min_pct']) if row['max_move_gap_direction_first_30min_pct'] else 0
                 
-                # ZONE 3: Move after gap fill (from move_before_reversal_fill_direction_pct)
+                # ZONE 3: Move after gap fill (from move_before_reversal_fill_direction_pct) - ONLY GAPS WITH REVERSALS
                 move_after_fill = float(row['move_before_reversal_fill_direction_pct']) if row['move_before_reversal_fill_direction_pct'] else 0
 
                 data.append({
@@ -46,6 +47,7 @@ def load_gap_data(csv_file_path):
                     'day_num': day_num,
                     'gap_dir_num': gap_dir_num,
                     'filled': filled,
+                    'reversal_after_fill': reversal_after_fill,
                     'move_before_fill': move_before_fill,
                     'max_move_unfilled': max_move_unfilled,
                     'move_after_fill': move_after_fill
@@ -86,10 +88,15 @@ def calculate_metrics(data):
         filled_count = sum(1 for r in records if r['filled'])
         fill_rate = (filled_count / len(records)) * 100
 
-        # ZONE 1: Calculate median/average move before fill (for ALL gaps - this is the initial move)
-        moves_before_fill = [r['move_before_fill'] for r in records if r['move_before_fill'] > 0]
-        median_move_before_fill = sorted(moves_before_fill)[len(moves_before_fill)//2] if moves_before_fill else 0
-        avg_move_before_fill = sum(moves_before_fill) / len(moves_before_fill) if moves_before_fill else 0
+        # ZONE 1: Calculate median/average move before fill (for FILLED gaps only)
+        filled_records = [r for r in records if r['filled']]
+        if filled_records:
+            moves_before_fill = [r['move_before_fill'] for r in filled_records if r['move_before_fill'] > 0]
+            median_move_before_fill = sorted(moves_before_fill)[len(moves_before_fill)//2] if moves_before_fill else 0
+            avg_move_before_fill = sum(moves_before_fill) / len(moves_before_fill) if moves_before_fill else 0
+        else:
+            median_move_before_fill = 0
+            avg_move_before_fill = 0
 
         # ZONE 2: Calculate median/average max move for unfilled gaps (stop levels)
         unfilled_records = [r for r in records if not r['filled']]
@@ -101,10 +108,10 @@ def calculate_metrics(data):
             median_max_unfilled = 0
             avg_max_unfilled = 0
 
-        # ZONE 3: Calculate median/average move after fill (for filled gaps only)
-        filled_records = [r for r in records if r['filled']]
-        if filled_records:
-            moves = [r['move_after_fill'] for r in filled_records if r['move_after_fill'] > 0]
+        # ZONE 3: Calculate median/average move after fill (for filled gaps with reversals only)
+        filled_with_reversal_records = [r for r in records if r['filled'] and r['reversal_after_fill']]
+        if filled_with_reversal_records:
+            moves = [r['move_after_fill'] for r in filled_with_reversal_records if r['move_after_fill'] > 0]
             median_move_after_fill = sorted(moves)[len(moves)//2] if moves else 0
             avg_move_after_fill = sum(moves) / len(moves) if moves else 0
         else:
