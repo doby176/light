@@ -2,18 +2,20 @@
 # Based on 1MChart historical gap analysis data (1929 records from 2015-2024)
 # Provides gap fill probability and price targets
 
-declare lower;
-
 # Input parameters
 input showLabels = yes;
 input showPriceTargets = yes;
 input showProbability = yes;
+input showAverageTargets = yes;
 
-# Get current QQQ data
-def currentOpen = close;
-def prevClose = close[1];
-def gapValue = currentOpen - prevClose;
-def gapPercentage = (gapValue / prevClose) * 100;
+# Get daily open and close for gap calculations (not current candle)
+def dailyOpen = open;
+def dailyClose = close;
+def prevDailyClose = close[1];
+
+# Calculate gap based on daily open vs previous close
+def gapValue = dailyOpen - prevDailyClose;
+def gapPercentage = (gapValue / prevDailyClose) * 100;
 def gapDirection = if gapValue > 0 then 1 else -1; # 1 for up, -1 for down
 
 # Determine gap size bin
@@ -159,6 +161,70 @@ def currentMedianMove =
         else 0.50
     else 0.25; # Default
 
+# Average moves before fill (percentage) - Real data from filled gaps
+def currentAverageMove = 
+    if gapSizeBin == 1 then # Bin 1 (0.15-0.35%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.15 else 0.18
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.22 else 0.21
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.24 else 0.25
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.23 else 0.42
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.28 else 0.16
+        else 0.20
+    else if gapSizeBin == 2 then # Bin 2 (0.35-0.5%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.19 else 0.32
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.31 else 0.18
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.23 else 0.22
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.31 else 0.37
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.05 else 0.31
+        else 0.25
+    else if gapSizeBin == 3 then # Bin 3 (0.5-1%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.30 else 0.32
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.38 else 0.37
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.08 else 0.24
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.20 else 0.23
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.29 else 0.18
+        else 0.25
+    else if gapSizeBin == 4 then # Bin 4 (1-1.5%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.00 else 0.00
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.02 else 0.00
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 1.15 else 0.00
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.00 else 0.00
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 2.45 else 0.00
+        else 0.60
+    else if gapSizeBin == 5 then # Bin 5 (1.5%+)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.00 else 0.05
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.00 else 0.00
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.00 else 0.00
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.00 else 1.52
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.15 else 0.00
+        else 0.60
+    else 0.30; # Default
+
 # Median max moves for unfilled gaps - Real data from unfilled gaps
 def currentMaxMoveUnfilled = 
     if gapSizeBin == 1 then # Bin 1 (0.15-0.35%)
@@ -223,55 +289,151 @@ def currentMaxMoveUnfilled =
         else 0.40
     else 0.30; # Default
 
+# Average max moves for unfilled gaps - Real data from unfilled gaps
+def currentAverageMaxUnfilled = 
+    if gapSizeBin == 1 then # Bin 1 (0.15-0.35%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.42 else 0.36
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.38 else 0.34
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.33 else 0.46
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.32 else 0.41
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.47 else 0.45
+        else 0.40
+    else if gapSizeBin == 2 then # Bin 2 (0.35-0.5%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.54 else 0.46
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.51 else 0.37
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.34 else 0.45
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.36 else 0.38
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.39 else 0.42
+        else 0.45
+    else if gapSizeBin == 3 then # Bin 3 (0.5-1%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.40 else 0.50
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.44 else 0.44
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.27 else 0.42
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.31 else 0.53
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.34 else 0.47
+        else 0.45
+    else if gapSizeBin == 4 then # Bin 4 (1-1.5%)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.46 else 0.45
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.57 else 0.37
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.49 else 0.34
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.29 else 0.57
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.56 else 0.42
+        else 0.50
+    else if gapSizeBin == 5 then # Bin 5 (1.5%+)
+        if dayOfWeek == 0 then # Monday
+            if gapDirection == 1 then 0.23 else 0.44
+        else if dayOfWeek == 1 then # Tuesday
+            if gapDirection == 1 then 0.46 else 0.41
+        else if dayOfWeek == 2 then # Wednesday
+            if gapDirection == 1 then 0.49 else 0.45
+        else if dayOfWeek == 3 then # Thursday
+            if gapDirection == 1 then 0.53 else 0.31
+        else if dayOfWeek == 4 then # Friday
+            if gapDirection == 1 then 0.53 else 0.31
+        else 0.45
+    else 0.35; # Default
+
 # Calculate price targets based on historical patterns
-def entryPrice = currentOpen;
-def exitPrice = if gapDirection == 1 then 
-                   currentOpen * (1 + currentMedianMove / 100)
-                else 
-                   currentOpen * (1 - currentMedianMove / 100);
-def stopLossPrice = if gapDirection == 1 then 
-                       currentOpen * (1 - currentMaxMoveUnfilled / 100)
-                    else 
-                       currentOpen * (1 + currentMaxMoveUnfilled / 100);
+def entryPrice = dailyOpen;
 
-# Risk/Reward calculation
-def riskRewardRatio = AbsValue((exitPrice - entryPrice) / (entryPrice - stopLossPrice));
+# Median target prices
+def medianExitPrice = if gapDirection == 1 then 
+                         dailyOpen * (1 + currentMedianMove / 100)
+                      else 
+                         dailyOpen * (1 - currentMedianMove / 100);
 
-# Plot gap fill probability (lower panel)
-plot gapFillProb = currentGapFillRate;
-gapFillProb.SetPaintingStrategy(PaintingStrategy.LINE);
-gapFillProb.SetLineWeight(2);
-gapFillProb.AssignValueColor(if currentGapFillRate > 60 then Color.GREEN else if currentGapFillRate > 50 then Color.YELLOW else Color.RED);
+# Average target prices
+def averageExitPrice = if gapDirection == 1 then 
+                         dailyOpen * (1 + currentAverageMove / 100)
+                      else 
+                         dailyOpen * (1 - currentAverageMove / 100);
+
+# Stop loss prices (median and average)
+def medianStopLossPrice = if gapDirection == 1 then 
+                            dailyOpen * (1 - currentMaxMoveUnfilled / 100)
+                         else 
+                            dailyOpen * (1 + currentMaxMoveUnfilled / 100);
+
+def averageStopLossPrice = if gapDirection == 1 then 
+                             dailyOpen * (1 - currentAverageMaxUnfilled / 100)
+                          else 
+                             dailyOpen * (1 + currentAverageMaxUnfilled / 100);
+
+# Risk/Reward calculations
+def medianRiskRewardRatio = AbsValue((medianExitPrice - entryPrice) / (entryPrice - medianStopLossPrice));
+def averageRiskRewardRatio = AbsValue((averageExitPrice - entryPrice) / (entryPrice - averageStopLossPrice));
 
 # Plot price targets as horizontal lines on main chart
+# Entry line (white)
 plot entryLine = if showPriceTargets then entryPrice else Double.NaN;
 entryLine.SetPaintingStrategy(PaintingStrategy.LINE);
-entryLine.SetLineWeight(1);
+entryLine.SetLineWeight(2);
 entryLine.AssignValueColor(Color.WHITE);
 
-plot exitLine = if showPriceTargets then exitPrice else Double.NaN;
-exitLine.SetPaintingStrategy(PaintingStrategy.LINE);
-exitLine.SetLineWeight(2);
-exitLine.AssignValueColor(Color.GREEN);
+# Median target line (green for long, red for short)
+plot medianTargetLine = if showPriceTargets then medianExitPrice else Double.NaN;
+medianTargetLine.SetPaintingStrategy(PaintingStrategy.LINE);
+medianTargetLine.SetLineWeight(3);
+medianTargetLine.AssignValueColor(if gapDirection == 1 then Color.RED else Color.GREEN);
 
-plot stopLossLine = if showPriceTargets then stopLossPrice else Double.NaN;
-stopLossLine.SetPaintingStrategy(PaintingStrategy.LINE);
-stopLossLine.SetLineWeight(2);
-stopLossLine.AssignValueColor(Color.RED);
+# Average target line (lighter green for long, lighter red for short)
+plot averageTargetLine = if showPriceTargets and showAverageTargets then averageExitPrice else Double.NaN;
+averageTargetLine.SetPaintingStrategy(PaintingStrategy.LINE);
+averageTargetLine.SetLineWeight(2);
+averageTargetLine.AssignValueColor(if gapDirection == 1 then Color.DARK_RED else Color.DARK_GREEN);
+
+# Median stop loss line (orange)
+plot medianStopLine = if showPriceTargets then medianStopLossPrice else Double.NaN;
+medianStopLine.SetPaintingStrategy(PaintingStrategy.LINE);
+medianStopLine.SetLineWeight(3);
+medianStopLine.AssignValueColor(Color.ORANGE);
+
+# Average stop loss line (lighter orange)
+plot averageStopLine = if showPriceTargets and showAverageTargets then averageStopLossPrice else Double.NaN;
+averageStopLine.SetPaintingStrategy(PaintingStrategy.LINE);
+averageStopLine.SetLineWeight(2);
+averageStopLine.AssignValueColor(Color.DARK_ORANGE);
 
 # Add informative labels
-AddLabel(showLabels, "Gap: " + Round(gapPercentage, 2) + "% " + (if gapDirection == 1 then "UP" else "DOWN"), if gapDirection == 1 then Color.GREEN else Color.RED);
+AddLabel(showLabels, "Gap: " + Round(gapPercentage, 2) + "% " + (if gapDirection == 1 then "UP" else "DOWN"), if gapDirection == 1 then Color.RED else Color.GREEN);
 AddLabel(showProbability, "Fill Prob: " + Round(currentGapFillRate, 1) + "%", if currentGapFillRate > 60 then Color.GREEN else if currentGapFillRate > 50 then Color.YELLOW else Color.RED);
+
+# Price target labels
 AddLabel(showPriceTargets, "Entry: $" + Round(entryPrice, 2), Color.WHITE);
-AddLabel(showPriceTargets, "Target: $" + Round(exitPrice, 2), Color.GREEN);
-AddLabel(showPriceTargets, "Stop: $" + Round(stopLossPrice, 2), Color.RED);
-AddLabel(showPriceTargets, "R/R: " + Round(riskRewardRatio, 2), if riskRewardRatio > 2 then Color.GREEN else Color.YELLOW);
+AddLabel(showPriceTargets, "Median Target: $" + Round(medianExitPrice, 2), if gapDirection == 1 then Color.RED else Color.GREEN);
+AddLabel(showPriceTargets and showAverageTargets, "Avg Target: $" + Round(averageExitPrice, 2), if gapDirection == 1 then Color.DARK_RED else Color.DARK_GREEN);
+AddLabel(showPriceTargets, "Median Stop: $" + Round(medianStopLossPrice, 2), Color.ORANGE);
+AddLabel(showPriceTargets and showAverageTargets, "Avg Stop: $" + Round(averageStopLossPrice, 2), Color.DARK_ORANGE);
+
+# Risk/Reward labels
+AddLabel(showPriceTargets, "Median R/R: " + Round(medianRiskRewardRatio, 2), if medianRiskRewardRatio > 2 then Color.GREEN else Color.YELLOW);
+AddLabel(showPriceTargets and showAverageTargets, "Avg R/R: " + Round(averageRiskRewardRatio, 2), if averageRiskRewardRatio > 2 then Color.GREEN else Color.YELLOW);
 
 # Add data source label
 AddLabel(yes, "1MChart Data (1929 records)", Color.CYAN);
 
 # Alert conditions for high probability setups
-Alert(gapFillProb > 70 and gapDirection == 1, "High Probability Gap Up Fill (>70%)", Alert.BAR, Sound.DING);
-Alert(gapFillProb > 70 and gapDirection == -1, "High Probability Gap Down Fill (>70%)", Alert.BAR, Sound.DING);
-Alert(gapFillProb < 30 and gapDirection == 1, "Low Probability Gap Up (<30%) - Consider Short", Alert.BAR, Sound.DING);
-Alert(gapFillProb < 30 and gapDirection == -1, "Low Probability Gap Down (<30%) - Consider Long", Alert.BAR, Sound.DING);
+Alert(currentGapFillRate > 70 and gapDirection == 1, "High Probability Gap Up Fill (>70%)", Alert.BAR, Sound.DING);
+Alert(currentGapFillRate > 70 and gapDirection == -1, "High Probability Gap Down Fill (>70%)", Alert.BAR, Sound.DING);
+Alert(currentGapFillRate < 30 and gapDirection == 1, "Low Probability Gap Up (<30%) - Consider Short", Alert.BAR, Sound.DING);
+Alert(currentGapFillRate < 30 and gapDirection == -1, "Low Probability Gap Down (<30%) - Consider Long", Alert.BAR, Sound.DING);
