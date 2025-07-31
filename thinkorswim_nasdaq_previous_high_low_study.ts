@@ -161,15 +161,15 @@ plot(low_continuation_strength, "Low Continuation Strength", Color.CYAN, 1);
 plot(low_reversal_strength, "Low Reversal Strength", Color.MAGENTA, 1);
 
 # Add signal shapes
-plotshape(high_continuation_signal, "High Continuation", Shape.TRIANGLE, Location.TOP, Color.ORANGE, 0);
-plotshape(high_reversal_signal, "High Reversal", Shape.TRIANGLE, Location.BOTTOM, Color.PINK, 0);
-plotshape(low_continuation_signal, "Low Continuation", Shape.TRIANGLE, Location.BOTTOM, Color.CYAN, 0);
-plotshape(low_reversal_signal, "Low Reversal", Shape.TRIANGLE, Location.TOP, Color.MAGENTA, 0);
+plotshape(high_continuation_signal, "High Continuation", Shape.TRIANGLE, Location.TOP, Color.ORANGE);
+plotshape(high_reversal_signal, "High Reversal", Shape.TRIANGLE, Location.BOTTOM, Color.PINK);
+plotshape(low_continuation_signal, "Low Continuation", Shape.TRIANGLE, Location.BOTTOM, Color.CYAN);
+plotshape(low_reversal_signal, "Low Reversal", Shape.TRIANGLE, Location.TOP, Color.MAGENTA);
 
-plotshape(high_breakout_signal, "High Breakout", Shape.DIAMOND, Location.TOP, Color.RED, 0);
-plotshape(low_breakout_signal, "Low Breakout", Shape.DIAMOND, Location.BOTTOM, Color.GREEN, 0);
-plotshape(high_rejection_signal, "High Rejection", Shape.CROSS, Location.TOP, Color.RED, 0);
-plotshape(low_rejection_signal, "Low Rejection", Shape.CROSS, Location.BOTTOM, Color.GREEN, 0);
+plotshape(high_breakout_signal, "High Breakout", Shape.DIAMOND, Location.TOP, Color.RED);
+plotshape(low_breakout_signal, "Low Breakout", Shape.DIAMOND, Location.BOTTOM, Color.GREEN);
+plotshape(high_rejection_signal, "High Rejection", Shape.CROSS, Location.TOP, Color.RED);
+plotshape(low_rejection_signal, "Low Rejection", Shape.CROSS, Location.BOTTOM, Color.GREEN);
 
 # Detailed analysis labels
 def position_text = if open_position == 1 then "Above Prev High" else 

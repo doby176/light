@@ -123,11 +123,11 @@ AddLabel(show_analysis, "Day: " +
      if is_wednesday then "Wednesday" else if is_thursday then "Thursday" else "Friday"), 
     Color.WHITE);
 
-# Add signals to chart
-plotshape(high_continuation_signal, "High Continuation Signal", Shape.TRIANGLE, Location.TOP, Color.ORANGE, 0);
-plotshape(high_reversal_signal, "High Reversal Signal", Shape.TRIANGLE, Location.BOTTOM, Color.PINK, 0);
-plotshape(low_continuation_signal, "Low Continuation Signal", Shape.TRIANGLE, Location.BOTTOM, Color.CYAN, 0);
-plotshape(low_reversal_signal, "Low Reversal Signal", Shape.TRIANGLE, Location.TOP, Color.MAGENTA, 0);
+# Add signals to chart using plotshape
+plotshape(high_continuation_signal, "High Continuation Signal", Shape.TRIANGLE, Location.TOP, Color.ORANGE);
+plotshape(high_reversal_signal, "High Reversal Signal", Shape.TRIANGLE, Location.BOTTOM, Color.PINK);
+plotshape(low_continuation_signal, "Low Continuation Signal", Shape.TRIANGLE, Location.BOTTOM, Color.CYAN);
+plotshape(low_reversal_signal, "Low Reversal Signal", Shape.TRIANGLE, Location.TOP, Color.MAGENTA);
 
 # Alert conditions
 Alert(high_continuation_signal and show_alerts, "Previous High Continuation Signal", Alert.BAR, Sound.DING);
