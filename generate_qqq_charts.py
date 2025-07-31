@@ -88,7 +88,7 @@ def create_fill_rate_by_size_chart(df):
                 ha='center', va='center', fontweight='bold', color='white', fontsize=11)
     
     plt.tight_layout()
-    plt.savefig('qqq_fill_rates_by_size.png', dpi=300, bbox_inches='tight')
+    plt.savefig('static/qqq_fill_rates_by_size.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("✓ Fill rate chart saved")
 
@@ -139,7 +139,7 @@ def create_day_of_week_analysis(df):
     ax2.set_ylabel('Day of Week', fontsize=12, fontweight='bold')
     
     plt.tight_layout()
-    plt.savefig('qqq_day_of_week_analysis.png', dpi=300, bbox_inches='tight')
+    plt.savefig('static/qqq_day_of_week_analysis.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("✓ Day of week analysis chart saved")
 
@@ -196,7 +196,7 @@ def create_gap_direction_analysis(df):
     ax.grid(True, alpha=0.3, axis='y')
     
     plt.tight_layout()
-    plt.savefig('qqq_gap_direction_analysis.png', dpi=300, bbox_inches='tight')
+    plt.savefig('static/qqq_gap_direction_analysis.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("✓ Gap direction analysis chart saved")
 
@@ -244,7 +244,7 @@ def create_price_movement_zones(df):
     ax.grid(True, alpha=0.3, axis='y')
     
     plt.subplots_adjust(bottom=0.15, left=0.1, right=0.95, top=0.9)
-    plt.savefig('qqq_price_movement_zones.png', dpi=300)
+    plt.savefig('static/qqq_price_movement_zones.png', dpi=300)
     plt.close()
     print("✓ Price movement zones chart saved")
 
@@ -283,7 +283,7 @@ def create_strategy_success_rates():
     
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
-    plt.savefig('qqq_strategy_success_rates.png', dpi=300, bbox_inches='tight')
+    plt.savefig('static/qqq_strategy_success_rates.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("✓ Strategy success rates chart saved")
 
@@ -329,13 +329,16 @@ def create_timeline_analysis(df):
     ax2.grid(True, alpha=0.3, axis='y')
     
     plt.tight_layout()
-    plt.savefig('qqq_timeline_analysis.png', dpi=300, bbox_inches='tight')
+    plt.savefig('static/qqq_timeline_analysis.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("✓ Timeline analysis chart saved")
 
 def main():
     """Main function to create all charts"""
     print("🚀 Creating QQQ Gap Analysis Charts...")
+    
+    # Create static directory if it doesn't exist
+    os.makedirs('static', exist_ok=True)
     
     # Load data
     df = load_and_prepare_data()
@@ -349,7 +352,7 @@ def main():
     create_timeline_analysis(df)
     
     print("\n✅ All charts created successfully!")
-    print("📁 Charts saved in current directory:")
+    print("📁 Charts saved in static/ directory:")
     print("1. qqq_fill_rates_by_size.png - Fill rates by gap size")
     print("2. qqq_day_of_week_analysis.png - Day of week analysis")
     print("3. qqq_gap_direction_analysis.png - Up vs down gaps")
