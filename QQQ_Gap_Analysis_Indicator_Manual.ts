@@ -546,16 +546,9 @@ longShortZoneAverageLine.SetPaintingStrategy(PaintingStrategy.LINE);
 longShortZoneAverageLine.SetLineWeight(2);
 longShortZoneAverageLine.AssignValueColor(if gapDirection == 1 then Color.DARK_GREEN else Color.DARK_RED);
 
-# Consolidated labels to stay within ThinkOrSwim limits
-AddLabel(not hasValidInputs, "⚠️ Enter Daily Open & Previous Close", Color.RED);
-
+# Minimal labels to stay within ThinkOrSwim limits
+AddLabel(not hasValidInputs, "Enter Daily Open & Previous Close", Color.RED);
 AddLabel(hasValidInputs, "Gap: " + Round(gapPercentage, 2) + "% " + (if gapDirection == 1 then "UP" else "DOWN") + " | Fill: " + Round(currentGapFillRate, 1) + "%", if currentGapFillRate > 60 then Color.GREEN else if currentGapFillRate > 50 then Color.YELLOW else Color.RED);
-
-AddLabel(hasValidInputs, "Daily: $" + Round(dailyOpenPrice, 2) + " | Prev: $" + Round(previousDailyClose, 2), Color.WHITE);
-
-AddLabel(hasValidInputs and showPriceTargets, "Z1(S/L): $" + Round(shortLongZoneMedian, 2) + " | Z2(STOP): $" + Round(stopOutZoneMedian, 2), if gapDirection == 1 then Color.RED else Color.GREEN);
-
-AddLabel(hasValidInputs and showPriceTargets, "Z3(L/S): $" + Round(longShortZoneMedian, 2) + " | 1MChart Data", if gapDirection == 1 then Color.GREEN else Color.RED);
 
 # Alert conditions for high probability setups
 Alert(hasValidInputs and currentGapFillRate > 70 and gapDirection == 1, "High Probability Gap Up Fill (>70%)", Alert.BAR, Sound.DING);
