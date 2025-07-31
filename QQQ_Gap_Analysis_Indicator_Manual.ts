@@ -491,16 +491,16 @@ def shortLongZoneAverage = if gapDirection == 1 then
                              dailyOpenPrice * (1 - moveBeforeFillAverage / 100);
 
 # ZONE 2: STOP out zone prices (move on unfilled gaps) - FROM OPEN PRICE
-# FIXED: Stop should be in OPPOSITE direction of gap
+# FIXED: Stop should be in SAME direction as gap
 def stopOutZoneMedian = if gapDirection == 1 then 
-                          dailyOpenPrice * (1 - moveOnUnfilledGapMedian / 100)
+                          dailyOpenPrice * (1 + moveOnUnfilledGapMedian / 100)
                        else 
-                          dailyOpenPrice * (1 + moveOnUnfilledGapMedian / 100);
+                          dailyOpenPrice * (1 - moveOnUnfilledGapMedian / 100);
 
 def stopOutZoneAverage = if gapDirection == 1 then 
-                           dailyOpenPrice * (1 - moveOnUnfilledGapAverage / 100)
+                           dailyOpenPrice * (1 + moveOnUnfilledGapAverage / 100)
                         else 
-                           dailyOpenPrice * (1 + moveOnUnfilledGapAverage / 100);
+                           dailyOpenPrice * (1 - moveOnUnfilledGapAverage / 100);
 
 # ZONE 3: LONG/SHORT zone prices (move after gap fill) - FROM CLOSE PRICE (after gap fills)
 # For this zone, we need to estimate the close price after gap fill
