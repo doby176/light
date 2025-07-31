@@ -107,10 +107,10 @@ plot(prev_day_low, "Previous Day Low", Color.GREEN, 1);
 plot(current_open, "Current Open", Color.YELLOW, 2);
 
 # Plot continuation and reversal moves
-plot(if high_touch then continuation_move_10min_high else Double.NaN, "High Continuation 10min", Color.ORANGE, 1);
-plot(if high_touch then reversal_move_10min_high else Double.NaN, "High Reversal 10min", Color.PINK, 1);
-plot(if low_touch then continuation_move_10min_low else Double.NaN, "Low Continuation 10min", Color.CYAN, 1);
-plot(if low_touch then reversal_move_10min_low else Double.NaN, "Low Reversal 10min", Color.MAGENTA, 1);
+plot(if high_touch then continuation_move_10min_high else NaN, "High Continuation 10min", Color.ORANGE, 1);
+plot(if high_touch then reversal_move_10min_high else NaN, "High Reversal 10min", Color.PINK, 1);
+plot(if low_touch then continuation_move_10min_low else NaN, "Low Continuation 10min", Color.CYAN, 1);
+plot(if low_touch then reversal_move_10min_low else NaN, "Low Reversal 10min", Color.MAGENTA, 1);
 
 # Add labels for analysis
 AddLabel(show_analysis, "Open Position: " + 
