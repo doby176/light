@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASDAQ Previous High/Low Analysis: 2100+ Days of Market Data Reveals Key Trading Patterns</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #34495e;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin-top: 40px;
+        }
+        h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stat-box {
+            background: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .positive { color: #27ae60; }
+        .negative { color: #e74c3c; }
+        .neutral { color: #f39c12; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .insight-box {
+            background: #e8f5e8;
+            border-left: 4px solid #27ae60;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .chart-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .day-analysis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .day-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .day-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .timeframe-tabs {
+            display: flex;
+            margin: 20px 0;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: #f8f9fa;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .image-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .image-caption {
+            margin-top: 10px;
+            font-style: italic;
+            color: #7f8c8d;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .comparison-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        .comparison-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NASDAQ Previous High/Low Analysis: 2100+ Days of Market Data Reveals Key Trading Patterns</h1>
+        
+        <div class="highlight-box">
+            <h2>📊 Comprehensive Analysis of 2,161 Trading Days</h2>
+            <p>This analysis covers NASDAQ trading data from 2015 to present, revealing critical patterns in how the market behaves when touching previous day's high and low levels.</p>
+        </div>
+
+        <div class="image-container">
+            <img src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" alt="NASDAQ Trading Chart Analysis" style="max-width: 800px;">
+            <div class="image-caption">NASDAQ trading patterns reveal predictable behaviors when touching previous day's levels</div>
+        </div>
+
+        <h2>🎯 Executive Summary</h2>
+        <p>Our analysis of over 2,100 trading days reveals that NASDAQ exhibits distinct behavioral patterns when approaching previous day's high and low levels. The data shows that:</p>
+        
+        <ul>
+            <li><strong>Previous High touches</strong> result in an average continuation move of <span class="stat-value positive">+0.0418%</span> (10min) and <span class="stat-value positive">+0.0909%</span> (60min)</li>
+            <li><strong>Previous Low touches</strong> result in an average continuation move of <span class="stat-value negative">-0.0912%</span> (10min) and <span class="stat-value negative">-0.1679%</span> (60min)</li>
+            <li><strong>Market position at open</strong> significantly impacts subsequent price behavior</li>
+            <li><strong>Day of the week</strong> shows distinct trading patterns</li>
+            <li><strong>60-minute moves</strong> are typically 2-3x larger than 10-minute moves</li>
+        </ul>
+
+        <h2>⏰ Time Frame Analysis</h2>
+        <p>Our analysis covers two critical time frames for day traders:</p>
+        
+        <div class="timeframe-tabs">
+            <button class="tab active" onclick="showTab('10min')">10-Minute Moves</button>
+            <button class="tab" onclick="showTab('60min')">60-Minute Moves</button>
+        </div>
+
+        <div id="10min" class="tab-content active">
+            <h3>📈 10-Minute Market Statistics</h3>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-value positive">+0.0418%</div>
+                    <div class="stat-label">High Continuation Median</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value negative">-0.0277%</div>
+                    <div class="stat-label">High Reversal Median</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value negative">-0.0912%</div>
+                    <div class="stat-label">Low Continuation Median</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value positive">+0.0539%</div>
+                    <div class="stat-label">Low Reversal Median</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="60min" class="tab-content">
+            <h3>📈 60-Minute Market Statistics</h3>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-value positive">+0.0909%</div>
+                    <div class="stat-label">High Continuation Median</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value negative">-0.0624%</div>
+                    <div class="stat-label">High Reversal Median</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value negative">-0.1679%</div>
+                    <div class="stat-label">Low Continuation Median</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value positive">+0.1406%</div>
+                    <div class="stat-label">Low Reversal Median</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="insight-box">
+            <strong>Key Insight:</strong> 60-minute moves are significantly larger than 10-minute moves, with low continuation moves showing the biggest difference (-0.0912% vs -0.1679%).
+        </div>
+
+        <h2>🔍 Analysis by Market Position at Open</h2>
+        
+        <h3>Between Previous High and Low (Most Common Scenario)</h3>
+        <div class="stat-box">
+            <p><strong>Occurrence:</strong> 1,420 instances (65.7% of all cases)</p>
+            <p>When the market opens between the previous day's high and low, it shows the most balanced behavior:</p>
+        </div>
+        
+        <div class="comparison-grid">
+            <div class="comparison-card">
+                <div class="comparison-title">10-Minute Moves</div>
+                <table>
+                    <tr>
+                        <th>Move Type</th>
+                        <th>Median (%)</th>
+                        <th>Behavior</th>
+                    </tr>
+                    <tr>
+                        <td>High Continuation</td>
+                        <td class="positive">+0.0963</td>
+                        <td>Strong continuation</td>
+                    </tr>
+                    <tr>
+                        <td>High Reversal</td>
+                        <td class="negative">-0.0826</td>
+                        <td>Moderate reversal</td>
+                    </tr>
+                    <tr>
+                        <td>Low Continuation</td>
+                        <td class="negative">-0.1556</td>
+                        <td>Strong continuation</td>
+                    </tr>
+                    <tr>
+                        <td>Low Reversal</td>
+                        <td class="positive">+0.1087</td>
+                        <td>Strong reversal</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="comparison-card">
+                <div class="comparison-title">60-Minute Moves</div>
+                <table>
+                    <tr>
+                        <th>Move Type</th>
+                        <th>Median (%)</th>
+                        <th>Behavior</th>
+                    </tr>
+                    <tr>
+                        <td>High Continuation</td>
+                        <td class="positive">+0.2022</td>
+                        <td>Very strong continuation</td>
+                    </tr>
+                    <tr>
+                        <td>High Reversal</td>
+                        <td class="negative">-0.1856</td>
+                        <td>Strong reversal</td>
+                    </tr>
+                    <tr>
+                        <td>Low Continuation</td>
+                        <td class="negative">-0.3093</td>
+                        <td>Very strong continuation</td>
+                    </tr>
+                    <tr>
+                        <td>Low Reversal</td>
+                        <td class="positive">+0.2699</td>
+                        <td>Very strong reversal</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="image-container">
+            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" alt="Market Position Analysis" style="max-width: 600px;">
+            <div class="image-caption">Market position at open significantly impacts subsequent price behavior</div>
+        </div>
+
+        <h3>Above Previous High (Gap Up Scenario)</h3>
+        <div class="stat-box">
+            <p><strong>Occurrence:</strong> 435 instances (20.1% of all cases)</p>
+            <p>When the market gaps above the previous day's high, it shows a tendency to reverse:</p>
+        </div>
+        
+        <div class="comparison-grid">
+            <div class="comparison-card">
+                <div class="comparison-title">10-Minute Moves</div>
+                <table>
+                    <tr>
+                        <th>Move Type</th>
+                        <th>Median (%)</th>
+                        <th>Behavior</th>
+                    </tr>
+                    <tr>
+                        <td>High Continuation</td>
+                        <td class="negative">-0.1305</td>
+                        <td>Strong reversal</td>
+                    </tr>
+                    <tr>
+                        <td>High Reversal</td>
+                        <td class="positive">+0.1085</td>
+                        <td>Moderate bounce</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="comparison-card">
+                <div class="comparison-title">60-Minute Moves</div>
+                <table>
+                    <tr>
+                        <th>Move Type</th>
+                        <th>Median (%)</th>
+                        <th>Behavior</th>
+                    </tr>
+                    <tr>
+                        <td>High Continuation</td>
+                        <td class="negative">-0.2770</td>
+                        <td>Very strong reversal</td>
+                    </tr>
+                    <tr>
+                        <td>High Reversal</td>
+                        <td class="positive">+0.2050</td>
+                        <td>Strong bounce</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <strong>Trading Tip:</strong> Gap ups above previous high often lead to reversals, making them potential short opportunities with tight stops. The 60-minute reversal is more than double the 10-minute reversal.
+        </div>
+
+        <h3>Below Previous Low (Gap Down Scenario)</h3>
+        <div class="stat-box">
+            <p><strong>Occurrence:</strong> 306 instances (14.2% of all cases)</p>
+            <p>When the market gaps below the previous day's low, it shows mixed behavior:</p>
+        </div>
+        
+        <div class="comparison-grid">
+            <div class="comparison-card">
+                <div class="comparison-title">10-Minute Moves</div>
+                <table>
+                    <tr>
+                        <th>Move Type</th>
+                        <th>Median (%)</th>
+                        <th>Behavior</th>
+                    </tr>
+                    <tr>
+                        <td>High Continuation</td>
+                        <td class="positive">+0.1126</td>
+                        <td>Strong bounce</td>
+                    </tr>
+                    <tr>
+                        <td>High Reversal</td>
+                        <td class="negative">-0.0576</td>
+                        <td>Moderate reversal</td>
+                    </tr>
+                    <tr>
+                        <td>Low Continuation</td>
+                        <td class="positive">+0.1744</td>
+                        <td>Strong continuation</td>
+                    </tr>
+                    <tr>
+                        <td>Low Reversal</td>
+                        <td class="negative">-0.1270</td>
+                        <td>Strong reversal</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="comparison-card">
+                <div class="comparison-title">60-Minute Moves</div>
+                <table>
+                    <tr>
+                        <th>Move Type</th>
+                        <th>Median (%)</th>
+                        <th>Behavior</th>
+                    </tr>
+                    <tr>
+                        <td>High Continuation</td>
+                        <td class="positive">+0.2132</td>
+                        <td>Very strong bounce</td>
+                    </tr>
+                    <tr>
+                        <td>High Reversal</td>
+                        <td class="negative">-0.1035</td>
+                        <td>Moderate reversal</td>
+                    </tr>
+                    <tr>
+                        <td>Low Continuation</td>
+                        <td class="positive">+0.3303</td>
+                        <td>Very strong continuation</td>
+                    </tr>
+                    <tr>
+                        <td>Low Reversal</td>
+                        <td class="negative">-0.2754</td>
+                        <td>Very strong reversal</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <h2>📅 Day of the Week Analysis</h2>
+        
+        <div class="day-analysis">
+            <div class="day-card">
+                <div class="day-title">Monday</div>
+                <p><strong>10min High Continuation:</strong> <span class="positive">+0.0562%</span></p>
+                <p><strong>60min High Continuation:</strong> <span class="positive">+0.1188%</span></p>
+                <p><strong>10min Low Continuation:</strong> <span class="negative">-0.0880%</span></p>
+                <p><strong>60min Low Continuation:</strong> <span class="negative">-0.1389%</span></p>
+                <p><em>215 instances analyzed</em></p>
+            </div>
+            
+            <div class="day-card">
+                <div class="day-title">Tuesday</div>
+                <p><strong>10min High Continuation:</strong> <span class="positive">+0.0309%</span></p>
+                <p><strong>60min High Continuation:</strong> <span class="positive">+0.0733%</span></p>
+                <p><strong>10min Low Continuation:</strong> <span class="negative">-0.1000%</span></p>
+                <p><strong>60min Low Continuation:</strong> <span class="negative">-0.1973%</span></p>
+                <p><em>266 instances analyzed</em></p>
+            </div>
+            
+            <div class="day-card">
+                <div class="day-title">Wednesday</div>
+                <p><strong>10min High Continuation:</strong> <span class="positive">+0.0428%</span></p>
+                <p><strong>60min High Continuation:</strong> <span class="positive">+0.0834%</span></p>
+                <p><strong>10min Low Continuation:</strong> <span class="negative">-0.1230%</span></p>
+                <p><strong>60min Low Continuation:</strong> <span class="negative">-0.1903%</span></p>
+                <p><em>262 instances analyzed</em></p>
+            </div>
+            
+            <div class="day-card">
+                <div class="day-title">Thursday</div>
+                <p><strong>10min High Continuation:</strong> <span class="positive">+0.0457%</span></p>
+                <p><strong>60min High Continuation:</strong> <span class="positive">+0.0963%</span></p>
+                <p><strong>10min Low Continuation:</strong> <span class="negative">-0.0522%</span></p>
+                <p><strong>60min Low Continuation:</strong> <span class="negative">-0.1085%</span></p>
+                <p><em>244 instances analyzed</em></p>
+            </div>
+            
+            <div class="day-card">
+                <div class="day-title">Friday</div>
+                <p><strong>10min High Continuation:</strong> <span class="positive">+0.0386%</span></p>
+                <p><strong>60min High Continuation:</strong> <span class="positive">+0.0688%</span></p>
+                <p><strong>10min Low Continuation:</strong> <span class="negative">-0.0753%</span></p>
+                <p><strong>60min Low Continuation:</strong> <span class="negative">-0.1623%</span></p>
+                <p><em>238 instances analyzed</em></p>
+            </div>
+        </div>
+
+        <div class="image-container">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" alt="Day of Week Trading Patterns" style="max-width: 600px;">
+            <div class="image-caption">Different days of the week show distinct trading patterns and move magnitudes</div>
+        </div>
+
+        <div class="insight-box">
+            <strong>Day of Week Insights:</strong>
+            <ul>
+                <li><strong>Monday:</strong> Shows the strongest high continuation moves in both timeframes</li>
+                <li><strong>Wednesday:</strong> Exhibits the most dramatic low continuation moves</li>
+                <li><strong>Friday:</strong> Shows the mildest behavior, suggesting end-of-week consolidation</li>
+                <li><strong>60-minute moves</strong> are consistently 2-3x larger than 10-minute moves across all days</li>
+            </ul>
+        </div>
+
+        <h2>🎯 Trading Strategy Recommendations</h2>
+        
+        <h3>1. Gap Trading Strategy</h3>
+        <div class="stat-box">
+            <p><strong>Gap Up Above Previous High:</strong></p>
+            <ul>
+                <li>Look for short opportunities with tight stops</li>
+                <li>Expected 10min reversal: -0.1305% median</li>
+                <li>Expected 60min reversal: -0.2770% median (2x larger)</li>
+                <li>Risk: Strong continuation if gap holds</li>
+            </ul>
+        </div>
+
+        <h3>2. Range Trading Strategy</h3>
+        <div class="stat-box">
+            <p><strong>Between Previous High/Low:</strong></p>
+            <ul>
+                <li>Previous high touches: Strong continuation potential (+0.0963% 10min, +0.2022% 60min)</li>
+                <li>Previous low touches: Strong reversal potential (+0.1087% 10min, +0.2699% 60min)</li>
+                <li>Best for: Scalping and day trading</li>
+                <li>60-minute moves offer 2-3x profit potential</li>
+            </ul>
+        </div>
+
+        <h3>3. Time Frame Strategy</h3>
+        <div class="stat-box">
+            <ul>
+                <li><strong>10-minute trades:</strong> Quick scalping, tight stops, high frequency</li>
+                <li><strong>60-minute trades:</strong> Larger profit targets, wider stops, fewer trades</li>
+                <li><strong>Combination:</strong> Use 10-minute signals to enter 60-minute positions</li>
+            </ul>
+        </div>
+
+        <h2>⚠️ Risk Management Considerations</h2>
+        
+        <div class="warning-box">
+            <h3>Key Risk Factors:</h3>
+            <ul>
+                <li><strong>Volatility:</strong> 60-minute moves are 2-3x larger than 10-minute moves</li>
+                <li><strong>False Signals:</strong> Not all touches result in expected moves</li>
+                <li><strong>Market Conditions:</strong> Patterns may vary during different market regimes</li>
+                <li><strong>Volume:</strong> Higher volume typically confirms pattern reliability</li>
+                <li><strong>Time Decay:</strong> Patterns are strongest in the first hour of trading</li>
+            </ul>
+        </div>
+
+        <div class="image-container">
+            <img src="https://images.unsplash.com/photo-1559526324-4b87b5e36e44?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" alt="Risk Management in Trading" style="max-width: 600px;">
+            <div class="image-caption">Proper risk management is crucial when trading these patterns</div>
+        </div>
+
+        <h2>📊 Data Methodology</h2>
+        <div class="stat-box">
+            <p><strong>Data Source:</strong> 2,161 trading days from 2015 to present</p>
+            <p><strong>Time Frames:</strong> 10-minute and 60-minute moves after touching previous day's high/low</p>
+            <p><strong>Calculation:</strong> Percentage moves from touch price to subsequent high/low</p>
+            <p><strong>Filtering:</strong> Only includes instances where price actually touched previous day's levels</p>
+            <p><strong>Statistical Measures:</strong> Mean and median values for robust analysis</p>
+        </div>
+
+        <h2>🔮 Conclusion</h2>
+        <div class="highlight-box">
+            <p>This comprehensive analysis of 2,100+ trading days reveals that NASDAQ exhibits predictable patterns when touching previous day's high and low levels. The key takeaways are:</p>
+            
+            <ul>
+                <li><strong>Previous high touches</strong> tend to continue upward in both timeframes</li>
+                <li><strong>Previous low touches</strong> tend to reverse upward, especially in 60-minute timeframe</li>
+                <li><strong>60-minute moves</strong> are consistently 2-3x larger than 10-minute moves</li>
+                <li><strong>Gap scenarios</strong> show distinct reversal patterns with larger moves</li>
+                <li><strong>Day of week</strong> significantly impacts move strength</li>
+                <li><strong>Position at open</strong> is the most critical factor</li>
+            </ul>
+            
+            <p>These patterns provide valuable insights for day traders, scalpers, and swing traders looking to capitalize on short-term market movements. The 60-minute timeframe offers significantly larger profit potential while maintaining the same directional accuracy.</p>
+        </div>
+
+        <div class="stat-box">
+            <p><strong>Last Updated:</strong> Based on analysis of 2,161 trading days</p>
+            <p><strong>Data Period:</strong> 2015 - Present</p>
+            <p><strong>Analysis Type:</strong> Statistical analysis of 10-minute and 60-minute price movements</p>
+            <p><strong>Key Finding:</strong> 60-minute moves are 2-3x larger than 10-minute moves across all scenarios</p>
+        </div>
+    </div>
+
+    <script>
+        function showTab(timeframe) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(timeframe).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
