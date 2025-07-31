@@ -8,10 +8,10 @@ input showPriceTargets = yes;
 input showProbability = yes;
 input showAverageTargets = yes;
 
-# Get daily open and close for gap calculations (not current candle)
-def dailyOpen = open;
-def dailyClose = close;
-def prevDailyClose = close[1];
+# Get daily open and close for gap calculations (regardless of current chart timeframe)
+def dailyOpen = GetValue(open, 0, 1);  # Daily open
+def dailyClose = GetValue(close, 0, 1);  # Daily close
+def prevDailyClose = GetValue(close, 1, 1);  # Previous day's close
 
 # Calculate gap based on daily open vs previous close
 def gapValue = dailyOpen - prevDailyClose;
