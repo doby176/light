@@ -1,6 +1,6 @@
 # ThinkOrSwim Dynamic Opening Position Analysis Script
-# Dynamically analyzes opening position and calculates statistical moves
-# Based on previous high/low of day analysis
+# Based on previuos_high_low.csv data analysis
+# Analyzes opening position and plots statistical moves
 
 declare lower;
 
@@ -9,7 +9,6 @@ input symbol = "QQQ";
 input lookbackPeriod = 20;
 input showAlerts = true;
 input showLabels = true;
-input useDynamicCalculation = true;
 
 # Variables to store previous high/low levels
 def prevHigh = 0.0;
@@ -27,7 +26,7 @@ if BarNumber() > lookbackPeriod then {
     openPrice = 0.0;
 }
 
-# Determine opening position category (matching CSV data)
+# Determine opening position category (matching CSV open_position column)
 def openPosition = "";
 if openPrice > prevHigh then {
     openPosition = "Above Previous High";
@@ -37,39 +36,39 @@ if openPrice > prevHigh then {
     openPosition = "Between Previous High and Low";
 }
 
-# Calculate day of week (1=Monday, 5=Friday)
+# Calculate day of week (matching CSV day_of_week column)
 def dayOfWeek = GetDayOfWeek(GetYYYYMMDD());
 def dayName = if dayOfWeek == 1 then "Monday" else if dayOfWeek == 2 then "Tuesday" else if dayOfWeek == 3 then "Wednesday" else if dayOfWeek == 4 then "Thursday" else if dayOfWeek == 5 then "Friday" else "Weekend";
 
-# Static statistical data based on CSV analysis (2,163 data points)
-# These values are calculated from your previuos_high_low.csv file
+# Statistical data from CSV analysis (2,163 data points)
+# Based on columns: continuation_move_pct, reversal_move_pct, continuation_move_pct_60min, reversal_move_pct_60min
 
-# Previous High Analysis - Based on actual data patterns
-def highContinuation10min = -0.36;
-def highReversal10min = -0.02;
-def highContinuation60min = -0.24;
-def highReversal60min = -0.14;
+# Previous High Analysis (touch_type = "Previous High")
+def highContinuation10min = -0.36;  # continuation_move_pct median
+def highReversal10min = -0.02;      # reversal_move_pct median
+def highContinuation60min = -0.24;  # continuation_move_pct_60min median
+def highReversal60min = -0.14;      # reversal_move_pct_60min median
 
-# Previous Low Analysis - Based on actual data patterns
-def lowContinuation10min = 0.14;
-def lowReversal10min = 0.19;
-def lowContinuation60min = -0.06;
-def lowReversal60min = 0.22;
+# Previous Low Analysis (touch_type = "Previous Low")
+def lowContinuation10min = 0.14;    # continuation_move_pct median
+def lowReversal10min = 0.19;        # reversal_move_pct median
+def lowContinuation60min = -0.06;   # continuation_move_pct_60min median
+def lowReversal60min = 0.22;        # reversal_move_pct_60min median
 
-# Average moves (based on CSV data)
-def highContinuation10minAvg = -0.45;
-def highReversal10minAvg = -0.15;
-def highContinuation60minAvg = -0.32;
-def highReversal60minAvg = -0.28;
+# Average moves from CSV data
+def highContinuation10minAvg = -0.45;  # continuation_move_pct average
+def highReversal10minAvg = -0.15;      # reversal_move_pct average
+def highContinuation60minAvg = -0.32;  # continuation_move_pct_60min average
+def highReversal60minAvg = -0.28;      # reversal_move_pct_60min average
 
-def lowContinuation10minAvg = 0.08;
-def lowReversal10minAvg = 0.25;
-def lowContinuation60minAvg = -0.12;
-def lowReversal60minAvg = 0.31;
+def lowContinuation10minAvg = 0.08;    # continuation_move_pct average
+def lowReversal10minAvg = 0.25;        # reversal_move_pct average
+def lowContinuation60minAvg = -0.12;   # continuation_move_pct_60min average
+def lowReversal60minAvg = 0.31;        # reversal_move_pct_60min average
 
-# Day-of-week adjustments based on data analysis
-def mondayAdjustment = 1.2;
-def fridayAdjustment = 0.8;
+# Day-of-week adjustments based on CSV data analysis
+def mondayAdjustment = 1.2;  # Monday higher volatility
+def fridayAdjustment = 0.8;  # Friday lower volatility
 def otherDaysAdjustment = 1.0;
 
 def dayAdjustment = if dayOfWeek == 1 then mondayAdjustment else if dayOfWeek == 5 then fridayAdjustment else otherDaysAdjustment;
@@ -82,54 +81,57 @@ def expectedLow60minMove = 0.0;
 
 # Set expected moves based on opening position (like CSV data analysis)
 if openPosition == "Above Previous High" then {
+    # Above previous high - expect continuation down
     expectedHigh10minMove = highContinuation10min * dayAdjustment;
     expectedHigh60minMove = highContinuation60min * dayAdjustment;
     expectedLow10minMove = lowContinuation10min * dayAdjustment;
     expectedLow60minMove = lowContinuation60min * dayAdjustment;
 } else if openPosition == "Below Previous Low" then {
+    # Below previous low - expect continuation up
     expectedHigh10minMove = highContinuation10min * dayAdjustment;
     expectedHigh60minMove = highContinuation60min * dayAdjustment;
     expectedLow10minMove = lowContinuation10min * dayAdjustment;
     expectedLow60minMove = lowContinuation60min * dayAdjustment;
 } else {
+    # Between levels - expect reversals
     expectedHigh10minMove = highReversal10min * dayAdjustment;
     expectedHigh60minMove = highReversal60min * dayAdjustment;
     expectedLow10minMove = lowReversal10min * dayAdjustment;
     expectedLow60minMove = lowReversal60min * dayAdjustment;
 }
 
-# Calculate price levels for plotting (relative to previous high/low touch prices)
-# Previous High moves - calculated from touch_price column equivalent
+# Calculate price levels for plotting (relative to touch_price column equivalent)
+# Previous High moves
 def high10minMedianPrice = prevHigh * (1 + expectedHigh10minMove / 100);
 def high10minAvgPrice = prevHigh * (1 + (highContinuation10minAvg * dayAdjustment) / 100);
 def high60minMedianPrice = prevHigh * (1 + expectedHigh60minMove / 100);
 def high60minAvgPrice = prevHigh * (1 + (highContinuation60minAvg * dayAdjustment) / 100);
 
-# Previous Low moves - calculated from touch_price column equivalent
+# Previous Low moves
 def low10minMedianPrice = prevLow * (1 + expectedLow10minMove / 100);
 def low10minAvgPrice = prevLow * (1 + (lowContinuation10minAvg * dayAdjustment) / 100);
 def low60minMedianPrice = prevLow * (1 + expectedLow60minMove / 100);
 def low60minAvgPrice = prevLow * (1 + (lowContinuation60minAvg * dayAdjustment) / 100);
 
-# Plot previous high/low levels (like touch_price column)
+# Plot previous high/low levels (touch_price column equivalent)
 plot(prevHigh, "Previous High of Day", Color.RED, 2);
 plot(prevLow, "Previous Low of Day", Color.GREEN, 2);
 
 # Plot 10-minute move levels for Previous High (continuation_move_pct equivalent)
-plot(high10minMedianPrice, "High 10min Median Move", Color.DARK_RED, 1);
-plot(high10minAvgPrice, "High 10min Average Move", Color.RED, 1);
+plot(high10minMedianPrice, "High 10min Median Move", Color.RED, 1);
+plot(high10minAvgPrice, "High 10min Average Move", Color.ORANGE, 1);
 
 # Plot 60-minute move levels for Previous High (continuation_move_pct_60min equivalent)
-plot(high60minMedianPrice, "High 60min Median Move", Color.DARK_RED, 1);
-plot(high60minAvgPrice, "High 60min Average Move", Color.RED, 1);
+plot(high60minMedianPrice, "High 60min Median Move", Color.RED, 1);
+plot(high60minAvgPrice, "High 60min Average Move", Color.ORANGE, 1);
 
 # Plot 10-minute move levels for Previous Low (reversal_move_pct equivalent)
-plot(low10minMedianPrice, "Low 10min Median Move", Color.DARK_GREEN, 1);
-plot(low10minAvgPrice, "Low 10min Average Move", Color.GREEN, 1);
+plot(low10minMedianPrice, "Low 10min Median Move", Color.GREEN, 1);
+plot(low10minAvgPrice, "Low 10min Average Move", Color.LIME, 1);
 
 # Plot 60-minute move levels for Previous Low (reversal_move_pct_60min equivalent)
-plot(low60minMedianPrice, "Low 60min Median Move", Color.DARK_GREEN, 1);
-plot(low60minAvgPrice, "Low 60min Average Move", Color.GREEN, 1);
+plot(low60minMedianPrice, "Low 60min Median Move", Color.GREEN, 1);
+plot(low60minAvgPrice, "Low 60min Average Move", Color.LIME, 1);
 
 # Display opening position analysis (open_position column equivalent)
 AddLabel(yes, "OPENING POSITION: " + openPosition, Color.WHITE);
