@@ -31,7 +31,7 @@ def load_gap_data(csv_file_path):
                 # Parse numeric values
                 filled = row['filled'].lower() == 'true'
                 
-                # CORRECTED MAPPING:
+                # CORRECTED MAPPING to match ThinkOrSwim indicator:
                 # ZONE 1: Move before gap fill (from max_move_gap_direction_first_30min_pct)
                 move_before_fill = float(row['max_move_gap_direction_first_30min_pct']) if row['max_move_gap_direction_first_30min_pct'] else 0
                 
