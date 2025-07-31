@@ -546,10 +546,6 @@ longShortZoneAverageLine.SetPaintingStrategy(PaintingStrategy.LINE);
 longShortZoneAverageLine.SetLineWeight(2);
 longShortZoneAverageLine.AssignValueColor(if gapDirection == 1 then Color.DARK_GREEN else Color.DARK_RED);
 
-# Minimal labels to stay within ThinkOrSwim limits
-AddLabel(not hasValidInputs, "Enter Daily Open & Previous Close", Color.RED);
-AddLabel(hasValidInputs, "Gap: " + Round(gapPercentage, 2) + "% " + (if gapDirection == 1 then "UP" else "DOWN") + " | Fill: " + Round(currentGapFillRate, 1) + "%", if currentGapFillRate > 60 then Color.GREEN else if currentGapFillRate > 50 then Color.YELLOW else Color.RED);
-
 # Alert conditions for high probability setups
 Alert(hasValidInputs and currentGapFillRate > 70 and gapDirection == 1, "High Probability Gap Up Fill (>70%)", Alert.BAR, Sound.DING);
 Alert(hasValidInputs and currentGapFillRate > 70 and gapDirection == -1, "High Probability Gap Down Fill (>70%)", Alert.BAR, Sound.DING);
