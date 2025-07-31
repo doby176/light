@@ -537,7 +537,7 @@ def main():
     
     # Configuration
     csv_path = 'previuos_high_low.csv'  # Change this to your CSV file path
-    output_dir = 'charts'  # Change this to your desired output directory
+    output_dir = 'static'  # Change this to your desired output directory
     
     # Create output directory
     if not os.path.exists(output_dir):
