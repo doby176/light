@@ -546,31 +546,16 @@ longShortZoneAverageLine.SetPaintingStrategy(PaintingStrategy.LINE);
 longShortZoneAverageLine.SetLineWeight(2);
 longShortZoneAverageLine.AssignValueColor(if gapDirection == 1 then Color.DARK_GREEN else Color.DARK_RED);
 
-# Add informative labels
-AddLabel(showLabels and hasValidInputs, "Gap: " + Round(gapPercentage, 2) + "% " + (if gapDirection == 1 then "UP" else "DOWN"), if gapDirection == 1 then Color.RED else Color.GREEN);
-AddLabel(showProbability and hasValidInputs, "Fill Prob: " + Round(currentGapFillRate, 1) + "%", if currentGapFillRate > 60 then Color.GREEN else if currentGapFillRate > 50 then Color.YELLOW else Color.RED);
-
-# Input validation label
+# Consolidated labels to stay within ThinkOrSwim limits
 AddLabel(not hasValidInputs, "⚠️ Enter Daily Open & Previous Close", Color.RED);
 
-# Manual input display
-AddLabel(hasValidInputs, "Daily Open: $" + Round(dailyOpenPrice, 2), Color.WHITE);
-AddLabel(hasValidInputs, "Prev Close: $" + Round(previousDailyClose, 2), Color.WHITE);
+AddLabel(hasValidInputs, "Gap: " + Round(gapPercentage, 2) + "% " + (if gapDirection == 1 then "UP" else "DOWN") + " | Fill: " + Round(currentGapFillRate, 1) + "%", if currentGapFillRate > 60 then Color.GREEN else if currentGapFillRate > 50 then Color.YELLOW else Color.RED);
 
-# ZONE 1: SHORT/LONG zone labels (move before gap fill)
-AddLabel(showPriceTargets and hasValidInputs, "SHORT/LONG Median: $" + Round(shortLongZoneMedian, 2), if gapDirection == 1 then Color.RED else Color.GREEN);
-AddLabel(showPriceTargets and showAverageTargets and hasValidInputs, "SHORT/LONG Avg: $" + Round(shortLongZoneAverage, 2), if gapDirection == 1 then Color.DARK_RED else Color.DARK_GREEN);
+AddLabel(hasValidInputs, "Daily: $" + Round(dailyOpenPrice, 2) + " | Prev: $" + Round(previousDailyClose, 2), Color.WHITE);
 
-# ZONE 2: STOP out zone labels (move on unfilled gaps)
-AddLabel(showPriceTargets and hasValidInputs, "STOP Median: $" + Round(stopOutZoneMedian, 2), Color.ORANGE);
-AddLabel(showPriceTargets and showAverageTargets and hasValidInputs, "STOP Avg: $" + Round(stopOutZoneAverage, 2), Color.DARK_ORANGE);
+AddLabel(hasValidInputs and showPriceTargets, "Z1(S/L): $" + Round(shortLongZoneMedian, 2) + " | Z2(STOP): $" + Round(stopOutZoneMedian, 2), if gapDirection == 1 then Color.RED else Color.GREEN);
 
-# ZONE 3: LONG/SHORT zone labels (move after gap fill)
-AddLabel(showPriceTargets and hasValidInputs, "LONG/SHORT Median: $" + Round(longShortZoneMedian, 2), if gapDirection == 1 then Color.GREEN else Color.RED);
-AddLabel(showPriceTargets and showAverageTargets and hasValidInputs, "LONG/SHORT Avg: $" + Round(longShortZoneAverage, 2), if gapDirection == 1 then Color.DARK_GREEN else Color.DARK_RED);
-
-# Add data source label
-AddLabel(hasValidInputs, "1MChart Data (1929 records) - Manual Input", Color.CYAN);
+AddLabel(hasValidInputs and showPriceTargets, "Z3(L/S): $" + Round(longShortZoneMedian, 2) + " | 1MChart Data", if gapDirection == 1 then Color.GREEN else Color.RED);
 
 # Alert conditions for high probability setups
 Alert(hasValidInputs and currentGapFillRate > 70 and gapDirection == 1, "High Probability Gap Up Fill (>70%)", Alert.BAR, Sound.DING);
