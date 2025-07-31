@@ -116,20 +116,20 @@ plot(prevHigh, "Previous High of Day", Color.RED, 2);
 plot(prevLow, "Previous Low of Day", Color.GREEN, 2);
 
 # Plot 10-minute move levels for Previous High (continuation_move_pct equivalent)
-plot(high10minMedianPrice, "High 10min Median Move", Color.DARK_RED, 1, PlotStyle.LINE);
-plot(high10minAvgPrice, "High 10min Average Move", Color.RED, 1, PlotStyle.LINE);
+plot(high10minMedianPrice, "High 10min Median Move", Color.DARK_RED, 1);
+plot(high10minAvgPrice, "High 10min Average Move", Color.RED, 1);
 
 # Plot 60-minute move levels for Previous High (continuation_move_pct_60min equivalent)
-plot(high60minMedianPrice, "High 60min Median Move", Color.DARK_RED, 1, PlotStyle.LINE);
-plot(high60minAvgPrice, "High 60min Average Move", Color.RED, 1, PlotStyle.LINE);
+plot(high60minMedianPrice, "High 60min Median Move", Color.DARK_RED, 1);
+plot(high60minAvgPrice, "High 60min Average Move", Color.RED, 1);
 
 # Plot 10-minute move levels for Previous Low (reversal_move_pct equivalent)
-plot(low10minMedianPrice, "Low 10min Median Move", Color.DARK_GREEN, 1, PlotStyle.LINE);
-plot(low10minAvgPrice, "Low 10min Average Move", Color.GREEN, 1, PlotStyle.LINE);
+plot(low10minMedianPrice, "Low 10min Median Move", Color.DARK_GREEN, 1);
+plot(low10minAvgPrice, "Low 10min Average Move", Color.GREEN, 1);
 
 # Plot 60-minute move levels for Previous Low (reversal_move_pct_60min equivalent)
-plot(low60minMedianPrice, "Low 60min Median Move", Color.DARK_GREEN, 1, PlotStyle.LINE);
-plot(low60minAvgPrice, "Low 60min Average Move", Color.GREEN, 1, PlotStyle.LINE);
+plot(low60minMedianPrice, "Low 60min Median Move", Color.DARK_GREEN, 1);
+plot(low60minAvgPrice, "Low 60min Average Move", Color.GREEN, 1);
 
 # Display opening position analysis (open_position column equivalent)
 AddLabel(yes, "OPENING POSITION: " + openPosition, Color.WHITE);
