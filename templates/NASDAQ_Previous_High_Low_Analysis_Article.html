@@ -39,6 +39,15 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     
+    <style>
+        .position-item, .position-item h3, .position-item .stat-label, .position-item .stat-value {
+            color: black !important;
+        }
+        .cta-section h3, .cta-section p {
+            color: black !important;
+        }
+    </style>
+    
     <!-- Schema Markup for Rich Results -->
     <script type="application/ld+json">
     {
@@ -136,7 +145,7 @@
 
             <!-- Featured Image -->
             <div class="featured-image">
-                <img src="{{ url_for('static', filename='overall_statistics.png') }}" alt="NASDAQ Overall Statistics Analysis" class="article-image">
+                <img src="{{ url_for('static', filename='overall_statistics.png') }}" alt="NASDAQ Overall Statistics Analysis" class="article-image" style="max-width: 800px; width: 100%; height: auto; display: block; margin: 0 auto;">
                 <div class="image-caption">Figure 1: Comprehensive analysis of 10-minute vs 60-minute moves, distributions, and box plots from 2100+ trading days</div>
             </div>
 
@@ -231,7 +240,7 @@
                 <h2>🔍 Analysis by Market Position at Open</h2>
                 
                 <div class="article-image">
-                    <img src="{{ url_for('static', filename='position_analysis.png') }}" alt="Market Position Analysis" class="article-image">
+                    <img src="{{ url_for('static', filename='position_analysis.png') }}" alt="Market Position Analysis" class="article-image" style="max-width: 800px; width: 100%; height: auto; display: block; margin: 0 auto;">
                     <div class="image-caption">Figure 2: Analysis of trading patterns based on market position at open, including 10-minute vs 60-minute moves and success rates</div>
                 </div>
 
@@ -242,24 +251,24 @@
                 </div>
                 
                 <div class="position-comparison">
-                    <div class="position-item optimal">
-                        <h3>10-Minute Moves</h3>
+                    <div class="position-item optimal" style="color: black;">
+                        <h3 style="color: black;">10-Minute Moves</h3>
                         <div class="position-stats">
                             <div class="stat">
-                                <span class="stat-label">High Continuation:</span>
-                                <span class="stat-value positive">+0.0963%</span>
+                                <span class="stat-label" style="color: black;">High Continuation:</span>
+                                <span class="stat-value positive" style="color: black;">+0.0963%</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-label">High Reversal:</span>
-                                <span class="stat-value negative">-0.0826%</span>
+                                <span class="stat-label" style="color: black;">High Reversal:</span>
+                                <span class="stat-value negative" style="color: black;">-0.0826%</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-label">Low Continuation:</span>
-                                <span class="stat-value negative">-0.1556%</span>
+                                <span class="stat-label" style="color: black;">Low Continuation:</span>
+                                <span class="stat-value negative" style="color: black;">-0.1556%</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-label">Low Reversal:</span>
-                                <span class="stat-value positive">+0.1087%</span>
+                                <span class="stat-label" style="color: black;">Low Reversal:</span>
+                                <span class="stat-value positive" style="color: black;">+0.1087%</span>
                             </div>
                         </div>
                     </div>
@@ -385,7 +394,7 @@
                 <h2>📅 Day of the Week Analysis</h2>
                 
                 <div class="article-image">
-                    <img src="{{ url_for('static', filename='day_of_week_analysis.png') }}" alt="Day of Week Trading Patterns" class="article-image">
+                    <img src="{{ url_for('static', filename='day_of_week_analysis.png') }}" alt="Day of Week Trading Patterns" class="article-image" style="max-width: 800px; width: 100%; height: auto; display: block; margin: 0 auto;">
                     <div class="image-caption">Figure 3: Trading patterns by day of the week, showing distribution, 10-minute vs 60-minute moves, and heatmap analysis</div>
                 </div>
                 
@@ -462,7 +471,7 @@
                 <h2>📈 Time Series Analysis</h2>
                 
                 <div class="article-image">
-                    <img src="{{ url_for('static', filename='time_series_analysis.png') }}" alt="Time Series Analysis" class="article-image">
+                    <img src="{{ url_for('static', filename='time_series_analysis.png') }}" alt="Time Series Analysis" class="article-image" style="max-width: 800px; width: 100%; height: auto; display: block; margin: 0 auto;">
                     <div class="image-caption">Figure 4: Trading patterns over time (2015-present), showing yearly distribution, monthly patterns, and performance trends</div>
                 </div>
             </section>
@@ -526,7 +535,7 @@
                 <h2>📊 Trading Summary & Risk Analysis</h2>
                 
                 <div class="article-image">
-                    <img src="{{ url_for('static', filename='trading_summary.png') }}" alt="Trading Summary and Risk Analysis" class="article-image">
+                    <img src="{{ url_for('static', filename='trading_summary.png') }}" alt="Trading Summary and Risk Analysis" class="article-image" style="max-width: 800px; width: 100%; height: auto; display: block; margin: 0 auto;">
                     <div class="image-caption">Figure 5: Comprehensive trading summary including success rates, average moves, best performing scenarios, and risk vs reward analysis</div>
                 </div>
             </section>
