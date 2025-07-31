@@ -5,11 +5,11 @@
 declare lower;
 
 # Input parameters
-input symbol = "QQQ";  # Symbol to analyze
-input lookbackPeriod = 20;  # Number of bars to look back for previous high/low
-input showAlerts = true;  # Show alerts when conditions are met
-input showLabels = true;  # Show labels on chart
-input useDynamicCalculation = true;  # Use dynamic calculation vs static values
+input symbol = "QQQ";
+input lookbackPeriod = 20;
+input showAlerts = true;
+input showLabels = true;
+input useDynamicCalculation = true;
 
 # Variables to store previous high/low levels
 def prevHigh = 0.0;
@@ -17,17 +17,21 @@ def prevLow = 0.0;
 def openPrice = 0.0;
 
 # Calculate previous high and low of day
-if BarNumber() > lookbackPeriod {
+if BarNumber() > lookbackPeriod then {
     prevHigh = Highest(high[1], lookbackPeriod);
     prevLow = Lowest(low[1], lookbackPeriod);
     openPrice = open;
+} else {
+    prevHigh = 0.0;
+    prevLow = 0.0;
+    openPrice = 0.0;
 }
 
 # Determine opening position category (matching CSV data)
 def openPosition = "";
-if openPrice > prevHigh {
+if openPrice > prevHigh then {
     openPosition = "Above Previous High";
-} else if openPrice < prevLow {
+} else if openPrice < prevLow then {
     openPosition = "Below Previous Low";
 } else {
     openPosition = "Between Previous High and Low";
@@ -41,31 +45,31 @@ def dayName = if dayOfWeek == 1 then "Monday" else if dayOfWeek == 2 then "Tuesd
 # These values are calculated from your previuos_high_low.csv file
 
 # Previous High Analysis - Based on actual data patterns
-def highContinuation10min = -0.36;  # Median continuation move in first 10 minutes
-def highReversal10min = -0.02;      # Median reversal move in first 10 minutes
-def highContinuation60min = -0.24;  # Median continuation move in first 60 minutes
-def highReversal60min = -0.14;      # Median reversal move in first 60 minutes
+def highContinuation10min = -0.36;
+def highReversal10min = -0.02;
+def highContinuation60min = -0.24;
+def highReversal60min = -0.14;
 
 # Previous Low Analysis - Based on actual data patterns
-def lowContinuation10min = 0.14;    # Median continuation move in first 10 minutes
-def lowReversal10min = 0.19;        # Median reversal move in first 10 minutes
-def lowContinuation60min = -0.06;   # Median continuation move in first 60 minutes
-def lowReversal60min = 0.22;        # Median reversal move in first 60 minutes
+def lowContinuation10min = 0.14;
+def lowReversal10min = 0.19;
+def lowContinuation60min = -0.06;
+def lowReversal60min = 0.22;
 
 # Average moves (based on CSV data)
-def highContinuation10minAvg = -0.45;  # Average continuation move in first 10 minutes
-def highReversal10minAvg = -0.15;      # Average reversal move in first 10 minutes
-def highContinuation60minAvg = -0.32;  # Average continuation move in first 60 minutes
-def highReversal60minAvg = -0.28;      # Average reversal move in first 60 minutes
+def highContinuation10minAvg = -0.45;
+def highReversal10minAvg = -0.15;
+def highContinuation60minAvg = -0.32;
+def highReversal60minAvg = -0.28;
 
-def lowContinuation10minAvg = 0.08;    # Average continuation move in first 10 minutes
-def lowReversal10minAvg = 0.25;        # Average reversal move in first 10 minutes
-def lowContinuation60minAvg = -0.12;   # Average continuation move in first 60 minutes
-def lowReversal60minAvg = 0.31;        # Average reversal move in first 60 minutes
+def lowContinuation10minAvg = 0.08;
+def lowReversal10minAvg = 0.25;
+def lowContinuation60minAvg = -0.12;
+def lowReversal60minAvg = 0.31;
 
 # Day-of-week adjustments based on data analysis
-def mondayAdjustment = 1.2;  # Monday tends to have higher volatility
-def fridayAdjustment = 0.8;  # Friday tends to have lower volatility
+def mondayAdjustment = 1.2;
+def fridayAdjustment = 0.8;
 def otherDaysAdjustment = 1.0;
 
 def dayAdjustment = if dayOfWeek == 1 then mondayAdjustment else if dayOfWeek == 5 then fridayAdjustment else otherDaysAdjustment;
@@ -77,20 +81,17 @@ def expectedLow10minMove = 0.0;
 def expectedLow60minMove = 0.0;
 
 # Set expected moves based on opening position (like CSV data analysis)
-if openPosition == "Above Previous High" {
-    # Above previous high - expect continuation down
+if openPosition == "Above Previous High" then {
     expectedHigh10minMove = highContinuation10min * dayAdjustment;
     expectedHigh60minMove = highContinuation60min * dayAdjustment;
     expectedLow10minMove = lowContinuation10min * dayAdjustment;
     expectedLow60minMove = lowContinuation60min * dayAdjustment;
-} else if openPosition == "Below Previous Low" {
-    # Below previous low - expect continuation up
+} else if openPosition == "Below Previous Low" then {
     expectedHigh10minMove = highContinuation10min * dayAdjustment;
     expectedHigh60minMove = highContinuation60min * dayAdjustment;
     expectedLow10minMove = lowContinuation10min * dayAdjustment;
     expectedLow60minMove = lowContinuation60min * dayAdjustment;
 } else {
-    # Between levels - expect reversals
     expectedHigh10minMove = highReversal10min * dayAdjustment;
     expectedHigh60minMove = highReversal60min * dayAdjustment;
     expectedLow10minMove = lowReversal10min * dayAdjustment;
@@ -149,10 +150,10 @@ AddLabel(yes, "PREVIOUS LOW STATS:\n" +
         "60min Average: " + AsPercent((lowContinuation60minAvg * dayAdjustment) / 100), Color.GREEN);
 
 # Alerts for opening position changes
-if showAlerts {
-    if openPosition == "Above Previous High" {
+if showAlerts then {
+    if openPosition == "Above Previous High" then {
         Alert("Opened Above Previous High - Expecting Continuation Down", Alert.BAR, Sound.DING);
-    } else if openPosition == "Below Previous Low" {
+    } else if openPosition == "Below Previous Low" then {
         Alert("Opened Below Previous Low - Expecting Continuation Up", Alert.BAR, Sound.DING);
     } else {
         Alert("Opened Between Previous High/Low - Expecting Reversal", Alert.BAR, Sound.DING);
@@ -161,9 +162,9 @@ if showAlerts {
 
 # Additional analysis based on day of week (day_of_week column equivalent)
 def dayAnalysis = "";
-if dayOfWeek == 1 {
+if dayOfWeek == 1 then {
     dayAnalysis = "Monday - Higher volatility expected (20% adjustment)";
-} else if dayOfWeek == 5 {
+} else if dayOfWeek == 5 then {
     dayAnalysis = "Friday - Lower volatility expected (20% reduction)";
 } else {
     dayAnalysis = "Standard trading day";
