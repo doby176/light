@@ -502,22 +502,17 @@ def stopOutZoneAverage = if gapDirection == 1 then
                         else 
                            dailyOpenPrice * (1 - moveOnUnfilledGapAverage / 100);
 
-# ZONE 3: LONG/SHORT zone prices (move after gap fill) - FROM CLOSE PRICE (after gap fills)
-# For this zone, we need to estimate the close price after gap fill
-def estimatedCloseAfterFill = if gapDirection == 1 then 
-                                dailyOpenPrice * (1 - gapPercentage / 100)  # Gap fills = price returns to previous close
-                             else 
-                                dailyOpenPrice * (1 + gapPercentage / 100);  # Gap fills = price returns to previous close
-
+# ZONE 3: LONG/SHORT zone prices (move after gap fill) - FROM YESTERDAY'S CLOSE
+# CORRECTED: Using yesterday's close price, not estimated close
 def longShortZoneMedian = if gapDirection == 1 then 
-                            estimatedCloseAfterFill * (1 - moveAfterFillMedian / 100)
+                            previousDailyClose * (1 - moveAfterFillMedian / 100)
                          else 
-                            estimatedCloseAfterFill * (1 + moveAfterFillMedian / 100);
+                            previousDailyClose * (1 + moveAfterFillMedian / 100);
 
 def longShortZoneAverage = if gapDirection == 1 then 
-                             estimatedCloseAfterFill * (1 - moveAfterFillAverage / 100)
+                             previousDailyClose * (1 - moveAfterFillAverage / 100)
                           else 
-                             estimatedCloseAfterFill * (1 + moveAfterFillAverage / 100);
+                             previousDailyClose * (1 + moveAfterFillAverage / 100);
 
 # Only show data if manual inputs are provided
 def hasValidInputs = dailyOpenPrice > 0 and previousDailyClose > 0;
