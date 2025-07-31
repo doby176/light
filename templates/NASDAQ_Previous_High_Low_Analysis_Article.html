@@ -39,6 +39,15 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     
+    <style>
+        .position-item, .position-item h3, .position-item .stat-label, .position-item .stat-value {
+            color: black !important;
+        }
+        .cta-section h3, .cta-section p {
+            color: black !important;
+        }
+    </style>
+    
     <!-- Schema Markup for Rich Results -->
     <script type="application/ld+json">
     {
@@ -242,24 +251,24 @@
                 </div>
                 
                 <div class="position-comparison">
-                    <div class="position-item optimal">
-                        <h3>10-Minute Moves</h3>
+                    <div class="position-item optimal" style="color: black;">
+                        <h3 style="color: black;">10-Minute Moves</h3>
                         <div class="position-stats">
                             <div class="stat">
-                                <span class="stat-label">High Continuation:</span>
-                                <span class="stat-value positive">+0.0963%</span>
+                                <span class="stat-label" style="color: black;">High Continuation:</span>
+                                <span class="stat-value positive" style="color: black;">+0.0963%</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-label">High Reversal:</span>
-                                <span class="stat-value negative">-0.0826%</span>
+                                <span class="stat-label" style="color: black;">High Reversal:</span>
+                                <span class="stat-value negative" style="color: black;">-0.0826%</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-label">Low Continuation:</span>
-                                <span class="stat-value negative">-0.1556%</span>
+                                <span class="stat-label" style="color: black;">Low Continuation:</span>
+                                <span class="stat-value negative" style="color: black;">-0.1556%</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-label">Low Reversal:</span>
-                                <span class="stat-value positive">+0.1087%</span>
+                                <span class="stat-label" style="color: black;">Low Reversal:</span>
+                                <span class="stat-value positive" style="color: black;">+0.1087%</span>
                             </div>
                         </div>
                     </div>
