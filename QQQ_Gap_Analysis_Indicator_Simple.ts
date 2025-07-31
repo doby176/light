@@ -1,4 +1,4 @@
-# QQQ Gap Analysis Indicator
+# QQQ Gap Analysis Indicator (Simple Version)
 # Based on 1MChart historical gap analysis data (1929 records from 2015-2024)
 # Provides gap fill probability and price targets
 
@@ -8,11 +8,14 @@ input showPriceTargets = yes;
 input showProbability = yes;
 input showAverageTargets = yes;
 
-# Get daily open and close for gap calculations (regardless of current chart timeframe)
-# Use the correct ThinkOrSwim syntax for daily data
+# Get daily open and close for gap calculations
+# Use a different approach to get daily data regardless of chart timeframe
 def dailyOpen = open;
 def dailyClose = close;
 def prevDailyClose = close[1];
+
+# For debugging - let's see what values we're getting
+def debugGap = (dailyOpen - prevDailyClose) / prevDailyClose * 100;
 
 # Calculate gap based on daily open vs previous close
 def gapValue = dailyOpen - prevDailyClose;
