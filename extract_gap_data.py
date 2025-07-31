@@ -30,8 +30,15 @@ def load_gap_data(csv_file_path):
 
                 # Parse numeric values
                 filled = row['filled'].lower() == 'true'
-                move_before_fill = float(row['move_before_reversal_fill_direction_pct']) if row['move_before_reversal_fill_direction_pct'] else 0
+                
+                # CORRECTED MAPPING:
+                # ZONE 1: Move before gap fill (from max_move_gap_direction_first_30min_pct)
+                move_before_fill = float(row['max_move_gap_direction_first_30min_pct']) if row['max_move_gap_direction_first_30min_pct'] else 0
+                
+                # ZONE 2: Stop out for unfilled gaps (from max_move_gap_direction_first_30min_pct for unfilled only)
                 max_move_unfilled = float(row['max_move_gap_direction_first_30min_pct']) if row['max_move_gap_direction_first_30min_pct'] else 0
+                
+                # ZONE 3: Move after gap fill (from move_before_reversal_fill_direction_pct)
                 move_after_fill = float(row['move_before_reversal_fill_direction_pct']) if row['move_before_reversal_fill_direction_pct'] else 0
 
                 data.append({
@@ -79,17 +86,12 @@ def calculate_metrics(data):
         filled_count = sum(1 for r in records if r['filled'])
         fill_rate = (filled_count / len(records)) * 100
 
-        # Calculate median move before fill (for filled gaps only)
-        filled_records = [r for r in records if r['filled']]
-        if filled_records:
-            moves = [r['move_before_fill'] for r in filled_records if r['move_before_fill'] > 0]
-            median_move_before_fill = sorted(moves)[len(moves)//2] if moves else 0
-            avg_move_before_fill = sum(moves) / len(moves) if moves else 0
-        else:
-            median_move_before_fill = 0
-            avg_move_before_fill = 0
+        # ZONE 1: Calculate median/average move before fill (for ALL gaps - this is the initial move)
+        moves_before_fill = [r['move_before_fill'] for r in records if r['move_before_fill'] > 0]
+        median_move_before_fill = sorted(moves_before_fill)[len(moves_before_fill)//2] if moves_before_fill else 0
+        avg_move_before_fill = sum(moves_before_fill) / len(moves_before_fill) if moves_before_fill else 0
 
-        # Calculate median max move for unfilled gaps
+        # ZONE 2: Calculate median/average max move for unfilled gaps (stop levels)
         unfilled_records = [r for r in records if not r['filled']]
         if unfilled_records:
             moves = [r['max_move_unfilled'] for r in unfilled_records if r['max_move_unfilled'] > 0]
@@ -99,7 +101,8 @@ def calculate_metrics(data):
             median_max_unfilled = 0
             avg_max_unfilled = 0
 
-        # Calculate median move after fill (for filled gaps only)
+        # ZONE 3: Calculate median/average move after fill (for filled gaps only)
+        filled_records = [r for r in records if r['filled']]
         if filled_records:
             moves = [r['move_after_fill'] for r in filled_records if r['move_after_fill'] > 0]
             median_move_after_fill = sorted(moves)[len(moves)//2] if moves else 0
