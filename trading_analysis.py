@@ -94,8 +94,8 @@ class TradingAnalyzer:
         if not pl_str or pl_str.strip() == '':
             return 0.0
         
-        # Remove parentheses and $ signs
-        pl_str = pl_str.replace('$', '').replace(',', '').replace('(', '').replace(')', '')
+        # Remove parentheses, $ signs, commas, and tabs
+        pl_str = pl_str.replace('$', '').replace(',', '').replace('(', '').replace(')', '').replace('\t', '')
         
         try:
             return float(pl_str)
@@ -164,8 +164,69 @@ class TradingAnalyzer:
         
         return pd.DataFrame(trades)
     
+    def parse_thinkorswim_csv(self, file_path: str, strategy_name: str = "Strategy") -> pd.DataFrame:
+        """
+        Parse ThinkorSwim CSV file into a pandas DataFrame
+        """
+        try:
+            # Read CSV file
+            df = pd.read_csv(file_path, sep=';', encoding='utf-8')
+            
+            # Check if we have the expected columns
+            expected_columns = ['Id', 'Strategy', 'Side', 'Amount', 'Price', 'Date/Time', 'Trade P/L', 'P/L', 'Position']
+            
+            if not all(col in df.columns for col in expected_columns):
+                print(f"Warning: Expected columns not found in {file_path}")
+                print(f"Found columns: {list(df.columns)}")
+                return pd.DataFrame()
+            
+            # Clean and parse the data
+            trades = []
+            for _, row in df.iterrows():
+                try:
+                    # Clean price value (remove tabs and other characters)
+                    price_str = str(row['Price']).replace('$', '').replace(',', '').replace('\t', '')
+                    price = float(price_str)
+                    
+                    # Parse datetime
+                    dt = pd.to_datetime(row['Date/Time'], format='%m/%d/%y %I:%M %p')
+                    
+                    # Parse P&L values
+                    trade_pl_value = self._parse_pl(str(row['Trade P/L']))
+                    cumulative_pl_value = self._parse_pl(str(row['P/L']))
+                    
+                    trades.append({
+                        'id': int(row['Id']),
+                        'strategy': str(row['Strategy']),
+                        'side': str(row['Side']),
+                        'amount': float(row['Amount']),
+                        'price': price,
+                        'datetime': dt,
+                        'trade_pl': trade_pl_value,
+                        'cumulative_pl': cumulative_pl_value,
+                        'position': float(row['Position'])
+                    })
+                except (ValueError, IndexError) as e:
+                    print(f"Warning: Could not parse row {row['Id']}: {e}")
+                    continue
+            
+            if not trades:
+                print(f"No valid trades found in {file_path}")
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(trades)
+            
+            # Create trade pairs (entry/exit)
+            df = self._create_trade_pairs(df)
+            
+            return df
+            
+        except Exception as e:
+            print(f"Error reading CSV file {file_path}: {e}")
+            return pd.DataFrame()
+    
     def load_data(self, long_report: str, short_report: str):
-        """Load and parse both long and short strategy reports"""
+        """Load and parse both long and short strategy reports from text"""
         print("Parsing Long Strategy Report...")
         self.long_data = self.parse_thinkorswim_report(long_report, "Long Strategy")
         
@@ -173,10 +234,40 @@ class TradingAnalyzer:
         self.short_data = self.parse_thinkorswim_report(short_report, "Short Strategy")
         
         # Combine data
-        self.combined_data = pd.concat([
-            self.long_data.assign(strategy_type='Long'),
-            self.short_data.assign(strategy_type='Short')
-        ], ignore_index=True)
+        if not self.long_data.empty and not self.short_data.empty:
+            self.combined_data = pd.concat([
+                self.long_data.assign(strategy_type='Long'),
+                self.short_data.assign(strategy_type='Short')
+            ], ignore_index=True)
+        elif not self.long_data.empty:
+            self.combined_data = self.long_data.assign(strategy_type='Long')
+        elif not self.short_data.empty:
+            self.combined_data = self.short_data.assign(strategy_type='Short')
+        else:
+            self.combined_data = pd.DataFrame()
+        
+        print(f"Loaded {len(self.long_data)} long trades and {len(self.short_data)} short trades")
+    
+    def load_data_from_files(self, long_file_path: str, short_file_path: str):
+        """Load and parse both long and short strategy reports from CSV files"""
+        print("Parsing Long Strategy Report...")
+        self.long_data = self.parse_thinkorswim_csv(long_file_path, "Long Strategy")
+        
+        print("Parsing Short Strategy Report...")
+        self.short_data = self.parse_thinkorswim_csv(short_file_path, "Short Strategy")
+        
+        # Combine data
+        if not self.long_data.empty and not self.short_data.empty:
+            self.combined_data = pd.concat([
+                self.long_data.assign(strategy_type='Long'),
+                self.short_data.assign(strategy_type='Short')
+            ], ignore_index=True)
+        elif not self.long_data.empty:
+            self.combined_data = self.long_data.assign(strategy_type='Long')
+        elif not self.short_data.empty:
+            self.combined_data = self.short_data.assign(strategy_type='Short')
+        else:
+            self.combined_data = pd.DataFrame()
         
         print(f"Loaded {len(self.long_data)} long trades and {len(self.short_data)} short trades")
     
