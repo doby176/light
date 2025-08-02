@@ -1,23 +1,13 @@
 # Bullish Order Block Long Strategy for QQQ Shares on ThinkorSwim
 # Designed for 1-minute chart
-# Strategy: Go long on first green dot, stop out when price closes below last green dot
+# Strategy: Add 100 shares on each green dot, exit when price closes below green dot
 # Includes Alerts for Bullish Order Block and Close Below
-# **NEW: Closes all positions at market close to avoid overnight positions**
 
 # --- 1-Minute Data ---
 def close1 = close;
 def open1 = open;
 def high1 = high;
 def low1 = low;
-
-# --- Daily Close Logic - SIMPLE AND RELIABLE ---
-# Market closes at 16:00 (4:00 PM ET)
-# Close positions in last 5 minutes of trading (15:55-16:00)
-def isLast5Minutes = SecondsFromTime(1555) >= 0 and SecondsFromTime(1600) <= 300;
-def isMarketClosed = SecondsFromTime(1600) > 0;
-
-# Close all positions in last 5 minutes or after market close
-def shouldCloseDaily = isLast5Minutes or isMarketClosed;
 
 # --- Bullish Order Block Detection (1-Minute Chart) ---
 # Inefficiency: Shadow gap > 1.5x candle body
@@ -61,20 +51,16 @@ RedDot.SetLineWeight(3);
 # Check if green dot appears AND candle closes above it
 def greenDotWithValidClose = isBullishOrderBlock and bullishUnmitigated and close1 > bullishOrderBlockLevel;
 
-# Position management - FORCE CLOSE at end of day
-def currentPosition = if greenDotWithValidClose then 1 else if closeBelowBullish and !redDotPlotted[1] then 0 else if shouldCloseDaily then 0 else currentPosition[1];
+# Position management - track total shares
+def totalShares = if greenDotWithValidClose then totalShares[1] + 100 else if closeBelowBullish and !redDotPlotted[1] then 0 else totalShares[1];
 def entryPrice = if greenDotWithValidClose then close1 else entryPrice[1];
 
-# Go long only when green dot appears AND candle closes above it
-AddOrder(OrderType.BUY_TO_OPEN, greenDotWithValidClose, close1, 100, Color.GREEN, Color.GREEN, "QQQ Long on Green Dot (Valid Close)");
+# Add 100 shares on each green dot (valid close)
+AddOrder(OrderType.BUY_TO_OPEN, greenDotWithValidClose, close1, 100, Color.GREEN, Color.GREEN, "QQQ Add 100 Shares on Green Dot");
 
-# Exit long when price closes below the last green dot (red dot appears)
-AddOrder(OrderType.SELL_TO_CLOSE, closeBelowBullish and !redDotPlotted[1], close1, 100, Color.RED, Color.RED, "QQQ Exit Long (Close Below Green Dot)");
-
-# **FORCE CLOSE: Exit all positions at end of trading day**
-AddOrder(OrderType.SELL_TO_CLOSE, shouldCloseDaily and currentPosition[1] > 0, close1, 100, Color.ORANGE, Color.ORANGE, "QQQ FORCE CLOSE - End of Day");
+# Exit all positions when price closes below the last green dot (red dot appears)
+AddOrder(OrderType.SELL_TO_CLOSE, closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0, close1, totalShares[1], Color.RED, Color.RED, "QQQ Exit All Positions (Close Below Green Dot)");
 
 # --- Alerts ---
-Alert(greenDotWithValidClose, "QQQ Valid Long Entry - Green Dot with Close Above", Alert.BAR, Sound.Bell);
-Alert(closeBelowBullish and !redDotPlotted[1], "QQQ Exit Long - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
-Alert(shouldCloseDaily and currentPosition[1] > 0, "QQQ FORCE CLOSE - End of Trading Day", Alert.BAR, Sound.Chimes);
+Alert(greenDotWithValidClose, "QQQ Add 100 Shares - Green Dot with Close Above", Alert.BAR, Sound.Bell);
+Alert(closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0, "QQQ Exit All Positions - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
