@@ -2,7 +2,7 @@
 # Designed for 1-minute chart
 # Strategy: Go long on first green dot, stop out when price closes below last green dot
 # Includes Alerts for Bullish Order Block and Close Below
-# **NEW: Closes all positions at 3:59 PM ET daily to avoid overnight positions**
+# **NEW: Closes all positions at market close to avoid overnight positions**
 
 # --- 1-Minute Data ---
 def close1 = close;
@@ -10,20 +10,13 @@ def open1 = open;
 def high1 = high;
 def low1 = low;
 
-# --- Daily Close Logic ---
-# Get current time in ET - more reliable method
-def currentTime = GetTime();
-def currentHour = Floor(currentTime / 1000000) % 100;
-def currentMinute = Floor(currentTime / 10000) % 100;
+# --- Daily Close Logic - SIMPLE AND RELIABLE ---
+# Check if we're in the last 2 minutes of regular trading session
+def isLastMinute = SecondsFromTime(1600) <= 120; # Last 2 minutes before 4:00 PM
+def isMarketClosed = SecondsFromTime(1600) > 0; # After 4:00 PM
 
-# Close all positions at 3:59 PM ET (15:59) - last minute of regular trading
-def dailyCloseTime = currentHour == 15 and currentMinute == 59;
-
-# Alternative: Close at market close (4:00 PM ET)
-def marketCloseTime = currentHour == 16 and currentMinute == 0;
-
-# Use either condition to ensure we close before overnight
-def shouldCloseDaily = dailyCloseTime or marketCloseTime;
+# Close all positions in last 2 minutes of trading
+def shouldCloseDaily = isLastMinute or isMarketClosed;
 
 # --- Bullish Order Block Detection (1-Minute Chart) ---
 # Inefficiency: Shadow gap > 1.5x candle body
@@ -67,7 +60,7 @@ RedDot.SetLineWeight(3);
 # Check if green dot appears AND candle closes above it
 def greenDotWithValidClose = isBullishOrderBlock and bullishUnmitigated and close1 > bullishOrderBlockLevel;
 
-# Position management - reset position if daily close time
+# Position management - FORCE CLOSE at end of day
 def currentPosition = if greenDotWithValidClose then 1 else if closeBelowBullish and !redDotPlotted[1] then 0 else if shouldCloseDaily then 0 else currentPosition[1];
 def entryPrice = if greenDotWithValidClose then close1 else entryPrice[1];
 
@@ -77,10 +70,10 @@ AddOrder(OrderType.BUY_TO_OPEN, greenDotWithValidClose, close1, 1, Color.GREEN, 
 # Exit long when price closes below the last green dot (red dot appears)
 AddOrder(OrderType.SELL_TO_CLOSE, closeBelowBullish and !redDotPlotted[1], close1, 1, Color.RED, Color.RED, "NQ Exit Long (Close Below Green Dot)");
 
-# **NEW: Exit all positions at daily close time**
-AddOrder(OrderType.SELL_TO_CLOSE, shouldCloseDaily and currentPosition[1] > 0, close1, 1, Color.ORANGE, Color.ORANGE, "NQ Daily Close - Exit All Positions");
+# **FORCE CLOSE: Exit all positions at end of trading day**
+AddOrder(OrderType.SELL_TO_CLOSE, shouldCloseDaily and currentPosition[1] > 0, close1, 1, Color.ORANGE, Color.ORANGE, "NQ FORCE CLOSE - End of Day");
 
 # --- Alerts ---
 Alert(greenDotWithValidClose, "NQ Valid Long Entry - Green Dot with Close Above", Alert.BAR, Sound.Bell);
 Alert(closeBelowBullish and !redDotPlotted[1], "NQ Exit Long - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
-Alert(shouldCloseDaily and currentPosition[1] > 0, "NQ Daily Close - Exiting All Positions", Alert.BAR, Sound.Chimes);
+Alert(shouldCloseDaily and currentPosition[1] > 0, "NQ FORCE CLOSE - End of Trading Day", Alert.BAR, Sound.Chimes);
