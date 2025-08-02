@@ -1,6 +1,7 @@
-# Bullish Order Block LONG Strategy for QQQ Shares on Thinkorswim
+# Bullish Order Block Long Strategy for QQQ Shares on ThinkorSwim
 # Designed for 1-minute chart
-# Strategy: Go long on first green dot, stop out when price closes below green dot level
+# Strategy: Go long on green dot ONLY if candle closes above the green dot level
+# Exit long when price closes below the last green dot (first red dot appears)
 
 # --- 1-Minute Data ---
 def close1 = close;
@@ -34,20 +35,13 @@ def closeBelowBullish = close1 < lastBullishLevel and !IsNaN(lastBullishLevel) a
 # Track if a red dot has already been plotted
 def redDotPlotted = if isBullishOrderBlock then 0 else if closeBelowBullish and !redDotPlotted[1] then 1 else redDotPlotted[1];
 
-# --- Position State Tracking (using recursive definitions) ---
-def currentPosition = if currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated then 1
-                      else if currentPosition[1] == 1 and closeBelowBullish and !redDotPlotted[1] then 0
-                      else currentPosition[1];
-
-def entryPrice = if currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated then close1
-                 else entryPrice[1];
-
 # --- Strategy Logic ---
-# Go long on first green dot when flat
-def shouldGoLong = currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated;
+# Check if green dot appears AND candle closes above it
+def greenDotWithValidClose = isBullishOrderBlock and bullishUnmitigated and close1 > bullishOrderBlockLevel;
 
-# Exit long when price closes below green dot level
-def shouldExitLong = currentPosition[1] == 1 and closeBelowBullish and !redDotPlotted[1];
+# Position management
+def currentPosition = if greenDotWithValidClose then 1 else if closeBelowBullish and !redDotPlotted[1] then 0 else currentPosition[1];
+def entryPrice = if greenDotWithValidClose then close1 else entryPrice[1];
 
 # --- Plot Single Line on Order Block Candle ---
 plot BullishOrderBlock = if isBullishOrderBlock and bullishUnmitigated then bullishOrderBlockLevel else Double.NaN;
@@ -61,26 +55,13 @@ RedDot.SetDefaultColor(Color.RED);
 RedDot.SetStyle(Curve.POINTS);
 RedDot.SetLineWeight(3);
 
-# --- Plot Current Position ---
-plot Position = currentPosition;
-Position.SetDefaultColor(Color.YELLOW);
-Position.SetStyle(Curve.POINTS);
-Position.SetLineWeight(2);
-
 # --- Strategy Orders ---
-# Go long on first green dot
-AddOrder(OrderType.BUY_TO_OPEN, shouldGoLong, close1, 100, Color.GREEN, Color.GREEN, "Long on Green Dot");
+# Go long only when green dot appears AND candle closes above it
+AddOrder(OrderType.BUY_TO_OPEN, greenDotWithValidClose, close1, 100, Color.GREEN, Color.GREEN, "Long on Green Dot (Valid Close)");
 
-# Exit long when price closes below green dot level
-AddOrder(OrderType.SELL_TO_CLOSE, shouldExitLong, close1, 100, Color.RED, Color.RED, "Exit Long");
-
-# --- Performance Labels ---
-AddLabel(yes, "LONG Strategy", Color.WHITE);
-AddLabel(yes, "Position: " + (if currentPosition == 1 then "LONG" else "FLAT"), 
-         if currentPosition == 1 then Color.GREEN else Color.GRAY);
-AddLabel(yes, "Entry: $" + Round(entryPrice, 2), Color.WHITE);
-AddLabel(yes, "Stop Level: $" + Round(lastBullishLevel, 2), Color.RED);
+# Exit long when price closes below the last green dot (red dot appears)
+AddOrder(OrderType.SELL_TO_CLOSE, closeBelowBullish and !redDotPlotted[1], close1, 100, Color.RED, Color.RED, "Exit Long (Close Below Green Dot)");
 
 # --- Alerts ---
-Alert(shouldGoLong, "Green Dot - Enter LONG", Alert.BAR, Sound.Bell);
-Alert(shouldExitLong, "Red Dot - Exit LONG", Alert.BAR, Sound.Ding);
+Alert(greenDotWithValidClose, "Valid Long Entry - Green Dot with Close Above", Alert.BAR, Sound.Bell);
+Alert(closeBelowBullish and !redDotPlotted[1], "Exit Long - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
