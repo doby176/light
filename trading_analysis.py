@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ThinkorSwim Trading Results Analyzer
-Comprehensive analysis of trading strategy performance
+ThinkorSwim Trading Results Analysis Tool
+Analyzes trading strategy performance from ThinkorSwim strategy reports
 """
 
 import pandas as pd
@@ -9,6 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime, timedelta
+import re
+from typing import Dict, List, Tuple, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -18,8 +20,10 @@ class TradingAnalyzer:
         self.short_data = None
         self.combined_data = None
         
-    def parse_thinkorswim_report(self, report_text, strategy_name):
-        """Parse ThinkorSwim strategy report text into DataFrame"""
+    def parse_thinkorswim_report(self, report_text: str, strategy_name: str = "Strategy") -> pd.DataFrame:
+        """
+        Parse ThinkorSwim strategy report text into a pandas DataFrame
+        """
         lines = report_text.strip().split('\n')
         
         # Find the data section (after the header)
@@ -30,15 +34,18 @@ class TradingAnalyzer:
                 break
         
         if data_start is None:
-            # Try alternative header formats
+            # Try to find any line with semicolons that might be data
             for i, line in enumerate(lines):
-                if 'Id;' in line and 'Strategy;' in line and 'Side;' in line:
-                    data_start = i + 1
-                    break
+                if ';' in line and any(char.isdigit() for char in line):
+                    # Check if it looks like a trade line
+                    parts = line.split(';')
+                    if len(parts) >= 5 and parts[0].strip().isdigit():
+                        data_start = i
+                        break
         
         if data_start is None:
             print(f"Debug: Available lines in report:")
-            for i, line in enumerate(lines[:5]):  # Show first 5 lines
+            for i, line in enumerate(lines[:10]):  # Show first 10 lines
                 print(f"  Line {i}: {line[:100]}...")
             raise ValueError("Could not find data section in report")
         
@@ -50,55 +57,51 @@ class TradingAnalyzer:
         
         # Parse CSV-like data
         trades = []
-        print(f"Processing {len(data_lines)} data lines...")
+        for line in data_lines:
+            if line.strip():
+                # Split by semicolon and clean up
+                parts = [part.strip() for part in line.split(';')]
+                if len(parts) >= 9:
+                    try:
+                        trade = {
+                            'id': int(parts[0]),
+                            'strategy': parts[1],
+                            'side': parts[2],
+                            'amount': float(parts[3]),
+                            'price': float(parts[4].replace('$', '').replace(',', '')),
+                            'datetime': parts[5],
+                            'trade_pl': parts[6],
+                            'cumulative_pl': parts[7],
+                            'position': float(parts[8])
+                        }
+                        trades.append(trade)
+                    except (ValueError, IndexError) as e:
+                        print(f"Warning: Could not parse line: {line}")
+                        continue
         
-        for i, line in enumerate(data_lines):
-            parts = line.split(';')
-            if len(parts) >= 9:
-                try:
-                    trade = {
-                        'id': int(parts[0]),
-                        'strategy': parts[1],
-                        'side': parts[2],
-                        'amount': float(parts[3]),
-                        'price': float(parts[4].replace('$', '').replace(',', '')),
-                        'datetime': parts[5],
-                        'trade_pl': parts[6],
-                        'cumulative_pl': parts[7],
-                        'position': float(parts[8])
-                    }
-                    trades.append(trade)
-                except (ValueError, IndexError) as e:
-                    print(f"Error parsing line {i+1}: {line[:50]}... - {str(e)}")
-                    continue
-        
-        print(f"Successfully parsed {len(trades)} trades")
-        
-        df = pd.DataFrame(trades)
-        
-        # Clean and process data
-        try:
+        if not trades:
+            print("No valid trades found in report")
+            # Create empty DataFrame with expected columns
+            df = pd.DataFrame(columns=[
+                'id', 'strategy', 'side', 'amount', 'price', 'datetime', 
+                'trade_pl', 'cumulative_pl', 'position', 'strategy_name'
+            ])
+        else:
+            df = pd.DataFrame(trades)
+            
+            # Clean up P&L columns
+            df['trade_pl'] = df['trade_pl'].apply(self._parse_pl)
+            df['cumulative_pl'] = df['cumulative_pl'].apply(self._parse_pl)
+            
+            # Convert datetime
             df['datetime'] = pd.to_datetime(df['datetime'], format='%m/%d/%y %I:%M %p')
-        except:
-            # Try alternative format
-            df['datetime'] = pd.to_datetime(df['datetime'])
-        
-        df['date'] = df['datetime'].dt.date
-        df['time'] = df['datetime'].dt.time
-        df['hour'] = df['datetime'].dt.hour
-        df['day_of_week'] = df['datetime'].dt.day_name()
-        df['month'] = df['datetime'].dt.month
-        
-        # Process P&L columns
-        df['trade_pl_clean'] = df['trade_pl'].apply(self._parse_pl)
-        df['cumulative_pl_clean'] = df['cumulative_pl'].apply(self._parse_pl)
-        
-        # Add strategy identifier
-        df['strategy_type'] = strategy_name
+            
+            # Add strategy name
+            df['strategy_name'] = strategy_name
         
         return df
     
-    def _parse_pl(self, pl_str):
+    def _parse_pl(self, pl_str: str) -> float:
         """Parse P&L string to float"""
         if pd.isna(pl_str) or pl_str == '':
             return 0.0
@@ -107,376 +110,553 @@ class TradingAnalyzer:
         pl_str = str(pl_str).replace('$', '').replace(',', '')
         
         if '(' in pl_str and ')' in pl_str:
-            # Negative value
-            return -float(pl_str.replace('(', '').replace(')', ''))
+            # Negative value in parentheses
+            pl_str = pl_str.replace('(', '').replace(')', '')
+            return -float(pl_str)
         else:
-            # Positive value
             return float(pl_str)
     
-    def load_data(self, long_report_text, short_report_text):
+    def load_data(self, long_report: str, short_report: str):
         """Load both long and short strategy reports"""
         print("Loading trading data...")
         
-        try:
-            self.long_data = self.parse_thinkorswim_report(long_report_text, "Long")
-            print(f"Successfully parsed long strategy data: {len(self.long_data)} trades")
-        except Exception as e:
-            print(f"Error parsing long strategy data: {str(e)}")
-            self.long_data = pd.DataFrame()
-        
-        try:
-            self.short_data = self.parse_thinkorswim_report(short_report_text, "Short")
-            print(f"Successfully parsed short strategy data: {len(self.short_data)} trades")
-        except Exception as e:
-            print(f"Error parsing short strategy data: {str(e)}")
-            self.short_data = pd.DataFrame()
+        self.long_data = self.parse_thinkorswim_report(long_report, "Long Strategy")
+        self.short_data = self.parse_thinkorswim_report(short_report, "Short Strategy")
         
         # Combine data
-        if len(self.long_data) > 0 or len(self.short_data) > 0:
-            self.combined_data = pd.concat([self.long_data, self.short_data], ignore_index=True)
-            if len(self.combined_data) > 0:
-                self.combined_data = self.combined_data.sort_values('datetime')
-                print(f"Combined data: {len(self.combined_data)} total trades")
-                print(f"Date range: {self.combined_data['datetime'].min()} to {self.combined_data['datetime'].max()}")
-            else:
-                print("No valid trades found in combined data")
-        else:
-            print("No valid data found in either strategy")
-            self.combined_data = pd.DataFrame()
+        self.combined_data = pd.concat([self.long_data, self.short_data], ignore_index=True)
+        self.combined_data = self.combined_data.sort_values('datetime')
+        
+        print(f"Loaded {len(self.long_data)} long trades and {len(self.short_data)} short trades")
+        print(f"Total trades: {len(self.combined_data)}")
     
-    def calculate_basic_metrics(self, data):
-        """Calculate basic trading metrics"""
-        # Filter for completed trades (non-zero P&L)
-        completed_trades = data[data['trade_pl_clean'] != 0].copy()
+    def calculate_basic_metrics(self) -> Dict:
+        """Calculate basic trading performance metrics"""
+        if self.combined_data is None:
+            raise ValueError("No data loaded. Call load_data() first.")
         
-        if len(completed_trades) == 0:
-            return {}
+        # Get completed trades (trades with non-zero P&L)
+        long_completed = self.long_data[self.long_data['trade_pl'] != 0]
+        short_completed = self.short_data[self.short_data['trade_pl'] != 0]
         
-        # Basic metrics
-        total_trades = len(completed_trades)
-        winning_trades = completed_trades[completed_trades['trade_pl_clean'] > 0]
-        losing_trades = completed_trades[completed_trades['trade_pl_clean'] < 0]
+        # Calculate metrics for each strategy
+        long_metrics = self._calculate_strategy_metrics(long_completed, "Long")
+        short_metrics = self._calculate_strategy_metrics(short_completed, "Short")
         
-        win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0
-        total_pl = completed_trades['trade_pl_clean'].sum()
+        # Combined metrics
+        all_completed = pd.concat([long_completed, short_completed], ignore_index=True)
+        combined_metrics = self._calculate_strategy_metrics(all_completed, "Combined")
         
-        avg_winner = winning_trades['trade_pl_clean'].mean() if len(winning_trades) > 0 else 0
-        avg_loser = losing_trades['trade_pl_clean'].mean() if len(losing_trades) > 0 else 0
+        return {
+            'long': long_metrics,
+            'short': short_metrics,
+            'combined': combined_metrics
+        }
+    
+    def _calculate_strategy_metrics(self, trades: pd.DataFrame, strategy_name: str) -> Dict:
+        """Calculate metrics for a specific strategy"""
+        if len(trades) == 0:
+            return {
+                'strategy': strategy_name,
+                'total_trades': 0,
+                'winning_trades': 0,
+                'losing_trades': 0,
+                'win_rate': 0,
+                'total_pl': 0,
+                'average_winner': 0,
+                'average_loser': 0,
+                'profit_factor': 0,
+                'max_drawdown': 0,
+                'sharpe_ratio': 0,
+                'max_consecutive_wins': 0,
+                'max_consecutive_losses': 0
+            }
         
-        gross_profit = winning_trades['trade_pl_clean'].sum() if len(winning_trades) > 0 else 0
-        gross_loss = abs(losing_trades['trade_pl_clean'].sum()) if len(losing_trades) > 0 else 0
+        # Calculate trade P&L
+        trades = trades.copy()
+        trades['trade_pl'] = trades['trade_pl'].fillna(0)
         
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
+        # Basic counts
+        total_trades = len(trades)
+        winning_trades = len(trades[trades['trade_pl'] > 0])
+        losing_trades = len(trades[trades['trade_pl'] < 0])
         
-        # Risk metrics
-        max_winner = completed_trades['trade_pl_clean'].max()
-        max_loser = completed_trades['trade_pl_clean'].min()
+        # Win rate
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
         
-        # Calculate drawdown
-        cumulative_pl = completed_trades['cumulative_pl_clean'].values
-        running_max = np.maximum.accumulate(cumulative_pl)
+        # P&L metrics
+        total_pl = trades['trade_pl'].sum()
+        average_winner = trades[trades['trade_pl'] > 0]['trade_pl'].mean() if winning_trades > 0 else 0
+        average_loser = trades[trades['trade_pl'] < 0]['trade_pl'].mean() if losing_trades > 0 else 0
+        
+        # Profit factor
+        gross_profit = trades[trades['trade_pl'] > 0]['trade_pl'].sum() if winning_trades > 0 else 0
+        gross_loss = abs(trades[trades['trade_pl'] < 0]['trade_pl'].sum()) if losing_trades > 0 else 0
+        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf') if gross_profit > 0 else 0
+        
+        # Max drawdown
+        cumulative_pl = trades['trade_pl'].cumsum()
+        running_max = cumulative_pl.expanding().max()
         drawdown = cumulative_pl - running_max
         max_drawdown = drawdown.min()
         
-        # Sharpe ratio (simplified - assuming daily returns)
-        daily_returns = completed_trades.groupby('date')['trade_pl_clean'].sum()
-        sharpe_ratio = daily_returns.mean() / daily_returns.std() if daily_returns.std() > 0 else 0
+        # Sharpe ratio (assuming daily returns)
+        returns = trades['trade_pl'] / trades['price']  # Simple return
+        sharpe_ratio = returns.mean() / returns.std() if returns.std() > 0 else 0
+        
+        # Consecutive wins/losses
+        max_consecutive_wins = self._max_consecutive(trades['trade_pl'] > 0)
+        max_consecutive_losses = self._max_consecutive(trades['trade_pl'] < 0)
         
         return {
+            'strategy': strategy_name,
             'total_trades': total_trades,
-            'winning_trades': len(winning_trades),
-            'losing_trades': len(losing_trades),
+            'winning_trades': winning_trades,
+            'losing_trades': losing_trades,
             'win_rate': win_rate,
             'total_pl': total_pl,
-            'avg_winner': avg_winner,
-            'avg_loser': avg_loser,
-            'gross_profit': gross_profit,
-            'gross_loss': gross_loss,
+            'average_winner': average_winner,
+            'average_loser': average_loser,
             'profit_factor': profit_factor,
-            'max_winner': max_winner,
-            'max_loser': max_loser,
             'max_drawdown': max_drawdown,
             'sharpe_ratio': sharpe_ratio,
-            'avg_trade': total_pl / total_trades if total_trades > 0 else 0
+            'max_consecutive_wins': max_consecutive_wins,
+            'max_consecutive_losses': max_consecutive_losses
         }
     
-    def analyze_time_performance(self, data):
-        """Analyze performance by time of day"""
-        completed_trades = data[data['trade_pl_clean'] != 0].copy()
+    def _max_consecutive(self, condition_series: pd.Series) -> int:
+        """Calculate maximum consecutive True values"""
+        max_consecutive = 0
+        current_consecutive = 0
         
-        if len(completed_trades) == 0:
-            return pd.DataFrame()
+        for value in condition_series:
+            if value:
+                current_consecutive += 1
+                max_consecutive = max(max_consecutive, current_consecutive)
+            else:
+                current_consecutive = 0
         
-        # Hourly analysis
-        hourly_analysis = completed_trades.groupby('hour').agg({
-            'trade_pl_clean': ['count', 'sum', 'mean'],
-            'datetime': 'count'
-        }).round(2)
+        return max_consecutive
+    
+    def calculate_time_analysis(self) -> Dict:
+        """Analyze performance by time of day, day of week, and month"""
+        if self.combined_data is None:
+            raise ValueError("No data loaded. Call load_data() first.")
         
-        hourly_analysis.columns = ['trade_count', 'total_pl', 'avg_pl', 'total_trades']
-        hourly_analysis = hourly_analysis.reset_index()
+        # Add time-based columns
+        df = self.combined_data.copy()
+        df['hour'] = df['datetime'].dt.hour
+        df['day_of_week'] = df['datetime'].dt.day_name()
+        df['month'] = df['datetime'].dt.month_name()
+        df['date'] = df['datetime'].dt.date
+        
+        # Time of day analysis
+        hourly_pl = df.groupby('hour')['trade_pl'].agg(['sum', 'mean', 'count']).reset_index()
+        hourly_pl.columns = ['hour', 'total_pl', 'avg_pl', 'trade_count']
         
         # Day of week analysis
-        daily_analysis = completed_trades.groupby('day_of_week').agg({
-            'trade_pl_clean': ['count', 'sum', 'mean']
-        }).round(2)
+        daily_pl = df.groupby('day_of_week')['trade_pl'].agg(['sum', 'mean', 'count']).reset_index()
+        daily_pl.columns = ['day', 'total_pl', 'avg_pl', 'trade_count']
         
-        daily_analysis.columns = ['trade_count', 'total_pl', 'avg_pl']
-        daily_analysis = daily_analysis.reset_index()
+        # Monthly analysis
+        monthly_pl = df.groupby('month')['trade_pl'].agg(['sum', 'mean', 'count']).reset_index()
+        monthly_pl.columns = ['month', 'total_pl', 'avg_pl', 'trade_count']
         
-        return hourly_analysis, daily_analysis
+        # Daily P&L
+        daily_cumulative = df.groupby('date')['trade_pl'].sum().cumsum().reset_index()
+        daily_cumulative.columns = ['date', 'cumulative_pl']
+        
+        return {
+            'hourly': hourly_pl,
+            'daily': daily_pl,
+            'monthly': monthly_pl,
+            'daily_cumulative': daily_cumulative
+        }
     
-    def generate_visualizations(self, save_path='trading_analysis_plots.png'):
-        """Generate comprehensive visualizations"""
-        fig, axes = plt.subplots(3, 3, figsize=(20, 15))
-        fig.suptitle('ThinkorSwim Trading Strategy Analysis', fontsize=16, fontweight='bold')
+    def generate_visualizations(self, save_path: str = "trading_analysis"):
+        """Generate comprehensive trading analysis visualizations"""
+        if self.combined_data is None:
+            raise ValueError("No data loaded. Call load_data() first.")
+        
+        # Set up the plotting style
+        plt.style.use('seaborn-v0_8')
+        sns.set_palette("husl")
+        
+        # Create figure with subplots
+        fig = plt.figure(figsize=(20, 24))
         
         # 1. Cumulative P&L
-        ax1 = axes[0, 0]
-        for strategy in ['Long', 'Short']:
-            data = self.long_data if strategy == 'Long' else self.short_data
-            completed_trades = data[data['trade_pl_clean'] != 0]
-            if len(completed_trades) > 0:
-                ax1.plot(completed_trades['datetime'], completed_trades['cumulative_pl_clean'], 
-                        label=f'{strategy} Strategy', linewidth=2)
-        ax1.set_title('Cumulative P&L Over Time')
-        ax1.set_xlabel('Date')
-        ax1.set_ylabel('Cumulative P&L ($)')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
+        ax1 = plt.subplot(4, 2, 1)
+        self._plot_cumulative_pl(ax1)
         
         # 2. Trade P&L Distribution
-        ax2 = axes[0, 1]
-        all_trades = pd.concat([
-            self.long_data[self.long_data['trade_pl_clean'] != 0]['trade_pl_clean'],
-            self.short_data[self.short_data['trade_pl_clean'] != 0]['trade_pl_clean']
-        ])
-        ax2.hist(all_trades, bins=30, alpha=0.7, color='skyblue', edgecolor='black')
-        ax2.axvline(all_trades.mean(), color='red', linestyle='--', label=f'Mean: ${all_trades.mean():.2f}')
-        ax2.set_title('Trade P&L Distribution')
-        ax2.set_xlabel('Trade P&L ($)')
-        ax2.set_ylabel('Frequency')
-        ax2.legend()
+        ax2 = plt.subplot(4, 2, 2)
+        self._plot_pl_distribution(ax2)
         
-        # 3. Win Rate Comparison
-        ax3 = axes[0, 2]
-        long_metrics = self.calculate_basic_metrics(self.long_data)
-        short_metrics = self.calculate_basic_metrics(self.short_data)
+        # 3. Win Rate by Strategy
+        ax3 = plt.subplot(4, 2, 3)
+        self._plot_win_rate(ax3)
         
-        strategies = ['Long', 'Short']
-        win_rates = [long_metrics.get('win_rate', 0), short_metrics.get('win_rate', 0)]
-        colors = ['green', 'red']
+        # 4. Profit Factor Comparison
+        ax4 = plt.subplot(4, 2, 4)
+        self._plot_profit_factor(ax4)
         
-        bars = ax3.bar(strategies, win_rates, color=colors, alpha=0.7)
-        ax3.set_title('Win Rate by Strategy')
-        ax3.set_ylabel('Win Rate')
-        ax3.set_ylim(0, 1)
+        # 5. Time of Day Analysis
+        ax5 = plt.subplot(4, 2, 5)
+        self._plot_hourly_analysis(ax5)
         
-        # Add percentage labels on bars
-        for bar, rate in zip(bars, win_rates):
-            height = bar.get_height()
-            ax3.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                    f'{rate:.1%}', ha='center', va='bottom')
+        # 6. Day of Week Analysis
+        ax6 = plt.subplot(4, 2, 6)
+        self._plot_daily_analysis(ax6)
         
-        # 4. Hourly Performance
-        ax4 = axes[1, 0]
-        hourly_long, _ = self.analyze_time_performance(self.long_data)
-        hourly_short, _ = self.analyze_time_performance(self.short_data)
+        # 7. Drawdown Analysis
+        ax7 = plt.subplot(4, 2, 7)
+        self._plot_drawdown(ax7)
         
-        if len(hourly_long) > 0:
-            ax4.plot(hourly_long['hour'], hourly_long['total_pl'], 'o-', label='Long', color='green')
-        if len(hourly_short) > 0:
-            ax4.plot(hourly_short['hour'], hourly_short['total_pl'], 'o-', label='Short', color='red')
-        
-        ax4.set_title('P&L by Hour of Day')
-        ax4.set_xlabel('Hour')
-        ax4.set_ylabel('Total P&L ($)')
-        ax4.legend()
-        ax4.grid(True, alpha=0.3)
-        
-        # 5. Daily Performance
-        ax5 = axes[1, 1]
-        _, daily_long = self.analyze_time_performance(self.long_data)
-        _, daily_short = self.analyze_time_performance(self.short_data)
-        
-        if len(daily_long) > 0:
-            ax5.bar([f"{d} (L)" for d in daily_long['day_of_week']], daily_long['total_pl'], 
-                   alpha=0.7, color='green', label='Long')
-        if len(daily_short) > 0:
-            ax5.bar([f"{d} (S)" for d in daily_short['day_of_week']], daily_short['total_pl'], 
-                   alpha=0.7, color='red', label='Short')
-        
-        ax5.set_title('P&L by Day of Week')
-        ax5.set_xlabel('Day of Week')
-        ax5.set_ylabel('Total P&L ($)')
-        ax5.legend()
-        plt.setp(ax5.xaxis.get_majorticklabels(), rotation=45)
-        
-        # 6. Drawdown Analysis
-        ax6 = axes[1, 2]
-        for strategy in ['Long', 'Short']:
-            data = self.long_data if strategy == 'Long' else self.short_data
-            completed_trades = data[data['trade_pl_clean'] != 0]
-            if len(completed_trades) > 0:
-                cumulative_pl = completed_trades['cumulative_pl_clean'].values
-                running_max = np.maximum.accumulate(cumulative_pl)
-                drawdown = cumulative_pl - running_max
-                ax6.plot(completed_trades['datetime'], drawdown, label=f'{strategy} Strategy', linewidth=2)
-        
-        ax6.set_title('Drawdown Over Time')
-        ax6.set_xlabel('Date')
-        ax6.set_ylabel('Drawdown ($)')
-        ax6.legend()
-        ax6.grid(True, alpha=0.3)
-        
-        # 7. Trade Size Analysis
-        ax7 = axes[2, 0]
-        long_trades = self.long_data[self.long_data['trade_pl_clean'] != 0]['trade_pl_clean']
-        short_trades = self.short_data[self.short_data['trade_pl_clean'] != 0]['trade_pl_clean']
-        
-        if len(long_trades) > 0:
-            ax7.boxplot(long_trades, positions=[1], labels=['Long'], patch_artist=True, 
-                       boxprops=dict(facecolor='lightgreen'))
-        if len(short_trades) > 0:
-            ax7.boxplot(short_trades, positions=[2], labels=['Short'], patch_artist=True,
-                       boxprops=dict(facecolor='lightcoral'))
-        
-        ax7.set_title('Trade P&L Distribution by Strategy')
-        ax7.set_ylabel('Trade P&L ($)')
-        ax7.grid(True, alpha=0.3)
-        
-        # 8. Monthly Performance
-        ax8 = axes[2, 1]
-        monthly_pl = self.combined_data[self.combined_data['trade_pl_clean'] != 0].groupby('month')['trade_pl_clean'].sum()
-        ax8.bar(monthly_pl.index, monthly_pl.values, alpha=0.7, color='steelblue')
-        ax8.set_title('Monthly P&L')
-        ax8.set_xlabel('Month')
-        ax8.set_ylabel('Total P&L ($)')
-        ax8.set_xticks(range(1, 13))
-        ax8.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-        
-        # 9. Strategy Comparison
-        ax9 = axes[2, 2]
-        metrics = ['total_pl', 'win_rate', 'profit_factor', 'avg_trade']
-        long_values = [long_metrics.get(m, 0) for m in metrics]
-        short_values = [short_metrics.get(m, 0) for m in metrics]
-        
-        x = np.arange(len(metrics))
-        width = 0.35
-        
-        ax9.bar(x - width/2, long_values, width, label='Long', alpha=0.7, color='green')
-        ax9.bar(x + width/2, short_values, width, label='Short', alpha=0.7, color='red')
-        
-        ax9.set_title('Strategy Comparison')
-        ax9.set_xticks(x)
-        ax9.set_xticklabels(['Total P&L', 'Win Rate', 'Profit Factor', 'Avg Trade'])
-        ax9.legend()
+        # 8. Trade Duration Analysis
+        ax8 = plt.subplot(4, 2, 8)
+        self._plot_trade_duration(ax8)
         
         plt.tight_layout()
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(f"{save_path}_overview.png", dpi=300, bbox_inches='tight')
         plt.show()
         
-        print(f"Visualizations saved to {save_path}")
+        # Generate additional detailed plots
+        self._generate_detailed_plots(save_path)
     
-    def print_comprehensive_report(self):
-        """Print comprehensive trading analysis report"""
-        print("=" * 80)
-        print("THINKORSWIM TRADING STRATEGY ANALYSIS REPORT")
-        print("=" * 80)
+    def _plot_cumulative_pl(self, ax):
+        """Plot cumulative P&L over time"""
+        long_cumulative = self.long_data['cumulative_pl'].fillna(0)
+        short_cumulative = self.short_data['cumulative_pl'].fillna(0)
         
-        # Overall statistics
-        print(f"\n📊 OVERALL STATISTICS")
-        print(f"Date Range: {self.combined_data['datetime'].min().strftime('%Y-%m-%d')} to {self.combined_data['datetime'].max().strftime('%Y-%m-%d')}")
-        print(f"Total Trading Days: {(self.combined_data['datetime'].max() - self.combined_data['datetime'].min()).days}")
-        print(f"Total Trades: {len(self.combined_data[self.combined_data['trade_pl_clean'] != 0])}")
+        ax.plot(self.long_data['datetime'], long_cumulative, label='Long Strategy', linewidth=2, color='green')
+        ax.plot(self.short_data['datetime'], short_cumulative, label='Short Strategy', linewidth=2, color='red')
         
-        # Strategy-specific analysis
-        for strategy_name, data in [("LONG STRATEGY", self.long_data), ("SHORT STRATEGY", self.short_data)]:
-            print(f"\n{'='*50}")
-            print(f"{strategy_name} ANALYSIS")
-            print(f"{'='*50}")
-            
-            metrics = self.calculate_basic_metrics(data)
-            
-            if not metrics:
-                print("No completed trades found.")
-                continue
-            
-            print(f"📈 PERFORMANCE METRICS:")
-            print(f"   Total Trades: {metrics['total_trades']}")
-            print(f"   Winning Trades: {metrics['winning_trades']}")
-            print(f"   Losing Trades: {metrics['losing_trades']}")
-            print(f"   Win Rate: {metrics['win_rate']:.2%}")
-            print(f"   Total P&L: ${metrics['total_pl']:,.2f}")
-            print(f"   Average Winner: ${metrics['avg_winner']:,.2f}")
-            print(f"   Average Loser: ${metrics['avg_loser']:,.2f}")
-            print(f"   Average Trade: ${metrics['avg_trade']:,.2f}")
-            print(f"   Gross Profit: ${metrics['gross_profit']:,.2f}")
-            print(f"   Gross Loss: ${metrics['gross_loss']:,.2f}")
-            print(f"   Profit Factor: {metrics['profit_factor']:.2f}")
-            print(f"   Max Winner: ${metrics['max_winner']:,.2f}")
-            print(f"   Max Loser: ${metrics['max_loser']:,.2f}")
-            print(f"   Max Drawdown: ${metrics['max_drawdown']:,.2f}")
-            print(f"   Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
-            
-            # Time-based analysis
-            hourly_analysis, daily_analysis = self.analyze_time_performance(data)
-            
-            if len(hourly_analysis) > 0:
-                print(f"\n⏰ TIME-BASED ANALYSIS:")
-                print(f"   Best Hour: {hourly_analysis.loc[hourly_analysis['total_pl'].idxmax(), 'hour']}:00 ({hourly_analysis['total_pl'].max():.2f})")
-                print(f"   Worst Hour: {hourly_analysis.loc[hourly_analysis['total_pl'].idxmin(), 'hour']}:00 ({hourly_analysis['total_pl'].min():.2f})")
-            
-            if len(daily_analysis) > 0:
-                best_day = daily_analysis.loc[daily_analysis['total_pl'].idxmax()]
-                worst_day = daily_analysis.loc[daily_analysis['total_pl'].idxmin()]
-                print(f"   Best Day: {best_day['day_of_week']} (${best_day['total_pl']:.2f})")
-                print(f"   Worst Day: {worst_day['day_of_week']} (${worst_day['total_pl']:.2f})")
+        # Combined cumulative
+        combined_cumulative = self.combined_data['cumulative_pl'].fillna(0)
+        ax.plot(self.combined_data['datetime'], combined_cumulative, label='Combined', linewidth=3, color='blue', alpha=0.7)
         
-        # Combined analysis
-        print(f"\n{'='*50}")
-        print("COMBINED STRATEGY ANALYSIS")
-        print(f"{'='*50}")
+        ax.set_title('Cumulative P&L Over Time', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Cumulative P&L ($)')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
         
-        combined_metrics = self.calculate_basic_metrics(self.combined_data)
-        if combined_metrics:
-            print(f"📊 COMBINED PERFORMANCE:")
-            print(f"   Total P&L: ${combined_metrics['total_pl']:,.2f}")
-            print(f"   Win Rate: {combined_metrics['win_rate']:.2%}")
-            print(f"   Profit Factor: {combined_metrics['profit_factor']:.2f}")
-            print(f"   Max Drawdown: ${combined_metrics['max_drawdown']:,.2f}")
-            print(f"   Sharpe Ratio: {combined_metrics['sharpe_ratio']:.2f}")
+        # Format y-axis as currency
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+    
+    def _plot_pl_distribution(self, ax):
+        """Plot distribution of trade P&L"""
+        long_pl = self.long_data['trade_pl'].fillna(0)
+        short_pl = self.short_data['trade_pl'].fillna(0)
         
-        print(f"\n{'='*80}")
-        print("ANALYSIS COMPLETE")
-        print(f"{'='*80}")
+        ax.hist(long_pl, bins=30, alpha=0.7, label='Long Strategy', color='green', edgecolor='black')
+        ax.hist(short_pl, bins=30, alpha=0.7, label='Short Strategy', color='red', edgecolor='black')
+        
+        ax.set_title('Trade P&L Distribution', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Trade P&L ($)')
+        ax.set_ylabel('Frequency')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        # Add vertical line at zero
+        ax.axvline(x=0, color='black', linestyle='--', alpha=0.7)
+    
+    def _plot_win_rate(self, ax):
+        """Plot win rate comparison"""
+        metrics = self.calculate_basic_metrics()
+        
+        strategies = ['Long', 'Short', 'Combined']
+        win_rates = [metrics['long']['win_rate'], metrics['short']['win_rate'], metrics['combined']['win_rate']]
+        colors = ['green', 'red', 'blue']
+        
+        bars = ax.bar(strategies, win_rates, color=colors, alpha=0.7, edgecolor='black')
+        
+        # Add value labels on bars
+        for bar, rate in zip(bars, win_rates):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                   f'{rate:.1%}', ha='center', va='bottom', fontweight='bold')
+        
+        ax.set_title('Win Rate by Strategy', fontsize=14, fontweight='bold')
+        ax.set_ylabel('Win Rate')
+        ax.set_ylim(0, 1)
+        ax.grid(True, alpha=0.3, axis='y')
+    
+    def _plot_profit_factor(self, ax):
+        """Plot profit factor comparison"""
+        metrics = self.calculate_basic_metrics()
+        
+        strategies = ['Long', 'Short', 'Combined']
+        profit_factors = [metrics['long']['profit_factor'], metrics['short']['profit_factor'], metrics['combined']['profit_factor']]
+        colors = ['green', 'red', 'blue']
+        
+        # Cap infinite values for display
+        max_display = 10
+        profit_factors_display = [min(pf, max_display) if pf != float('inf') else max_display for pf in profit_factors]
+        
+        bars = ax.bar(strategies, profit_factors_display, color=colors, alpha=0.7, edgecolor='black')
+        
+        # Add value labels on bars
+        for bar, pf in zip(bars, profit_factors):
+            height = bar.get_height()
+            label = f'{pf:.2f}' if pf != float('inf') else '∞'
+            ax.text(bar.get_x() + bar.get_width()/2., height + 0.1,
+                   label, ha='center', va='bottom', fontweight='bold')
+        
+        ax.set_title('Profit Factor by Strategy', fontsize=14, fontweight='bold')
+        ax.set_ylabel('Profit Factor')
+        ax.axhline(y=1, color='black', linestyle='--', alpha=0.7, label='Break-even')
+        ax.legend()
+        ax.grid(True, alpha=0.3, axis='y')
+    
+    def _plot_hourly_analysis(self, ax):
+        """Plot hourly P&L analysis"""
+        time_analysis = self.calculate_time_analysis()
+        hourly_data = time_analysis['hourly']
+        
+        ax.bar(hourly_data['hour'], hourly_data['total_pl'], 
+               color=['green' if x > 0 else 'red' for x in hourly_data['total_pl']], 
+               alpha=0.7, edgecolor='black')
+        
+        ax.set_title('P&L by Hour of Day', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Hour')
+        ax.set_ylabel('Total P&L ($)')
+        ax.axhline(y=0, color='black', linestyle='-', alpha=0.7)
+        ax.grid(True, alpha=0.3, axis='y')
+        
+        # Format y-axis as currency
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+    
+    def _plot_daily_analysis(self, ax):
+        """Plot day of week P&L analysis"""
+        time_analysis = self.calculate_time_analysis()
+        daily_data = time_analysis['daily']
+        
+        # Order days correctly
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        daily_data['day'] = pd.Categorical(daily_data['day'], categories=day_order, ordered=True)
+        daily_data = daily_data.sort_values('day')
+        
+        ax.bar(daily_data['day'], daily_data['total_pl'], 
+               color=['green' if x > 0 else 'red' for x in daily_data['total_pl']], 
+               alpha=0.7, edgecolor='black')
+        
+        ax.set_title('P&L by Day of Week', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Day')
+        ax.set_ylabel('Total P&L ($)')
+        ax.axhline(y=0, color='black', linestyle='-', alpha=0.7)
+        ax.grid(True, alpha=0.3, axis='y')
+        plt.setp(ax.get_xticklabels(), rotation=45)
+        
+        # Format y-axis as currency
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+    
+    def _plot_drawdown(self, ax):
+        """Plot drawdown analysis"""
+        # Calculate drawdown for combined strategy
+        combined_pl = self.combined_data['trade_pl'].fillna(0)
+        cumulative_pl = combined_pl.cumsum()
+        running_max = cumulative_pl.expanding().max()
+        drawdown = cumulative_pl - running_max
+        
+        ax.fill_between(range(len(drawdown)), drawdown, 0, alpha=0.3, color='red')
+        ax.plot(drawdown, color='red', linewidth=2)
+        
+        ax.set_title('Drawdown Analysis', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Trade Number')
+        ax.set_ylabel('Drawdown ($)')
+        ax.grid(True, alpha=0.3)
+        
+        # Format y-axis as currency
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+    
+    def _plot_trade_duration(self, ax):
+        """Plot trade duration analysis"""
+        # Calculate trade duration (time between entry and exit)
+        # This is a simplified version - you might want to enhance this
+        trade_durations = []
+        
+        # For long strategy
+        long_entries = self.long_data[self.long_data['side'].str.contains('Buy to Open')]
+        long_exits = self.long_data[self.long_data['side'].str.contains('Sell to Close')]
+        
+        for i in range(min(len(long_entries), len(long_exits))):
+            duration = (long_exits.iloc[i]['datetime'] - long_entries.iloc[i]['datetime']).total_seconds() / 60  # minutes
+            trade_durations.append(duration)
+        
+        # For short strategy
+        short_entries = self.short_data[self.short_data['side'].str.contains('Sell to Open')]
+        short_exits = self.short_data[self.short_data['side'].str.contains('Buy to Close')]
+        
+        for i in range(min(len(short_entries), len(short_exits))):
+            duration = (short_exits.iloc[i]['datetime'] - short_entries.iloc[i]['datetime']).total_seconds() / 60  # minutes
+            trade_durations.append(duration)
+        
+        if trade_durations:
+            ax.hist(trade_durations, bins=30, alpha=0.7, color='blue', edgecolor='black')
+            ax.set_title('Trade Duration Distribution', fontsize=14, fontweight='bold')
+            ax.set_xlabel('Duration (minutes)')
+            ax.set_ylabel('Frequency')
+            ax.grid(True, alpha=0.3)
+        else:
+            ax.text(0.5, 0.5, 'No trade duration data available', 
+                   ha='center', va='center', transform=ax.transAxes, fontsize=12)
+            ax.set_title('Trade Duration Distribution', fontsize=14, fontweight='bold')
+    
+    def _generate_detailed_plots(self, save_path: str):
+        """Generate additional detailed analysis plots"""
+        # Monthly performance
+        fig, ax = plt.subplots(figsize=(12, 6))
+        time_analysis = self.calculate_time_analysis()
+        monthly_data = time_analysis['monthly']
+        
+        ax.bar(monthly_data['month'], monthly_data['total_pl'], 
+               color=['green' if x > 0 else 'red' for x in monthly_data['total_pl']], 
+               alpha=0.7, edgecolor='black')
+        
+        ax.set_title('Monthly Performance', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Month')
+        ax.set_ylabel('Total P&L ($)')
+        ax.axhline(y=0, color='black', linestyle='-', alpha=0.7)
+        ax.grid(True, alpha=0.3, axis='y')
+        plt.setp(ax.get_xticklabels(), rotation=45)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+        
+        plt.tight_layout()
+        plt.savefig(f"{save_path}_monthly.png", dpi=300, bbox_inches='tight')
+        plt.show()
+    
+    def generate_report(self, save_path: str = "trading_report.txt"):
+        """Generate a comprehensive text report"""
+        if self.combined_data is None:
+            raise ValueError("No data loaded. Call load_data() first.")
+        
+        metrics = self.calculate_basic_metrics()
+        time_analysis = self.calculate_time_analysis()
+        
+        with open(save_path, 'w') as f:
+            f.write("=" * 80 + "\n")
+            f.write("THINKORSWIM TRADING STRATEGY ANALYSIS REPORT\n")
+            f.write("=" * 80 + "\n\n")
+            
+            # Summary
+            f.write("SUMMARY\n")
+            f.write("-" * 40 + "\n")
+            f.write(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total Trades: {len(self.combined_data)}\n")
+            f.write(f"Long Strategy Trades: {len(self.long_data)}\n")
+            f.write(f"Short Strategy Trades: {len(self.short_data)}\n")
+            f.write(f"Date Range: {self.combined_data['datetime'].min()} to {self.combined_data['datetime'].max()}\n\n")
+            
+            # Strategy Performance
+            for strategy in ['long', 'short', 'combined']:
+                f.write(f"{strategy.upper()} STRATEGY PERFORMANCE\n")
+                f.write("-" * 40 + "\n")
+                m = metrics[strategy]
+                f.write(f"Total Trades: {m['total_trades']}\n")
+                f.write(f"Winning Trades: {m['winning_trades']}\n")
+                f.write(f"Losing Trades: {m['losing_trades']}\n")
+                f.write(f"Win Rate: {m['win_rate']:.2%}\n")
+                f.write(f"Total P&L: ${m['total_pl']:,.2f}\n")
+                f.write(f"Average Winner: ${m['average_winner']:,.2f}\n")
+                f.write(f"Average Loser: ${m['average_loser']:,.2f}\n")
+                f.write(f"Profit Factor: {m['profit_factor']:.2f}\n")
+                f.write(f"Max Drawdown: ${m['max_drawdown']:,.2f}\n")
+                f.write(f"Sharpe Ratio: {m['sharpe_ratio']:.2f}\n")
+                f.write(f"Max Consecutive Wins: {m['max_consecutive_wins']}\n")
+                f.write(f"Max Consecutive Losses: {m['max_consecutive_losses']}\n\n")
+            
+            # Time Analysis
+            f.write("TIME-BASED ANALYSIS\n")
+            f.write("-" * 40 + "\n")
+            
+            # Best/Worst hours
+            hourly_data = time_analysis['hourly']
+            best_hour = hourly_data.loc[hourly_data['total_pl'].idxmax()]
+            worst_hour = hourly_data.loc[hourly_data['total_pl'].idxmin()]
+            
+            f.write(f"Best Hour: {int(best_hour['hour']):02d}:00 (P&L: ${best_hour['total_pl']:,.2f})\n")
+            f.write(f"Worst Hour: {int(worst_hour['hour']):02d}:00 (P&L: ${worst_hour['total_pl']:,.2f})\n\n")
+            
+            # Best/Worst days
+            daily_data = time_analysis['daily']
+            best_day = daily_data.loc[daily_data['total_pl'].idxmax()]
+            worst_day = daily_data.loc[daily_data['total_pl'].idxmin()]
+            
+            f.write(f"Best Day: {best_day['day']} (P&L: ${best_day['total_pl']:,.2f})\n")
+            f.write(f"Worst Day: {worst_day['day']} (P&L: ${worst_day['total_pl']:,.2f})\n\n")
+            
+            # Risk Metrics
+            f.write("RISK METRICS\n")
+            f.write("-" * 40 + "\n")
+            
+            # Calculate additional risk metrics
+            all_trades = pd.concat([
+                self.long_data[self.long_data['side'].str.contains('Buy to Open')],
+                self.short_data[self.short_data['side'].str.contains('Sell to Open')]
+            ], ignore_index=True)
+            
+            if len(all_trades) > 0:
+                returns = all_trades['trade_pl'] / all_trades['price']
+                volatility = returns.std()
+                var_95 = np.percentile(returns, 5)  # 95% VaR
+                
+                f.write(f"Volatility: {volatility:.4f}\n")
+                f.write(f"95% Value at Risk: {var_95:.4f}\n")
+                f.write(f"Largest Single Loss: ${all_trades['trade_pl'].min():,.2f}\n")
+                f.write(f"Largest Single Win: ${all_trades['trade_pl'].max():,.2f}\n\n")
+            
+            f.write("=" * 80 + "\n")
+            f.write("END OF REPORT\n")
+            f.write("=" * 80 + "\n")
+        
+        print(f"Report saved to {save_path}")
 
 def main():
     """Main function to run the analysis"""
-    # Sample data (replace with your actual data)
+    # Your trading data (replace with actual data)
     long_report = """Strategy report Symbol: QQQ Work Time: 6/20/25 9:31 AM - 8/1/25 3:59 PM Id;Strategy;Side;Amount;Price;Date/Time;Trade P/L;P/L;Position; 1;ORDERBLOCK(Long on Green Dot);Buy to Open;100.0;$532.52;6/20/25 9:31 AM;;($43.00);100.0; 2;ORDERBLOCK(Exit Long);Sell to Close;-100.0;$532.09;6/20/25 9:32 AM;($43.00);($43.00);0.0; Total P/L: $1 326.97; Total order(s): 620;"""
     
     short_report = """Strategy report Symbol: QQQ Work Time: 6/20/25 9:32 AM - 8/1/25 3:59 PM Id;Strategy;Side;Amount;Price;Date/Time;Trade P/L;P/L;Position; 1;ORDERBLOCK(Short on Red Dot);Sell to Open;-100.0;$532.09;6/20/25 9:32 AM;;($38.00);-100.0; 2;ORDERBLOCK(Exit Short);Buy to Close;100.0;$532.47;6/20/25 9:33 AM;($38.00);($38.00);0.0; Total P/L: ($843.03); Total order(s): 619;"""
     
-    # Initialize analyzer
+    # Create analyzer and run analysis
     analyzer = TradingAnalyzer()
     
     try:
-        # Load data
         analyzer.load_data(long_report, short_report)
         
-        # Generate comprehensive report
-        analyzer.print_comprehensive_report()
+        # Calculate metrics
+        metrics = analyzer.calculate_basic_metrics()
+        
+        # Print summary
+        print("\n" + "="*60)
+        print("TRADING STRATEGY ANALYSIS SUMMARY")
+        print("="*60)
+        
+        for strategy in ['long', 'short', 'combined']:
+            print(f"\n{strategy.upper()} STRATEGY:")
+            m = metrics[strategy]
+            print(f"  Total Trades: {m['total_trades']}")
+            print(f"  Win Rate: {m['win_rate']:.2%}")
+            print(f"  Total P&L: ${m['total_pl']:,.2f}")
+            print(f"  Profit Factor: {m['profit_factor']:.2f}")
+            print(f"  Max Drawdown: ${m['max_drawdown']:,.2f}")
         
         # Generate visualizations
+        print("\nGenerating visualizations...")
         analyzer.generate_visualizations()
         
-        print("\n✅ Analysis complete! Check the generated plots for visual insights.")
+        # Generate report
+        print("\nGenerating detailed report...")
+        analyzer.generate_report()
+        
+        print("\nAnalysis complete! Check the generated files for detailed results.")
         
     except Exception as e:
-        print(f"❌ Error during analysis: {str(e)}")
-        print("Please check your data format and try again.")
+        print(f"Error during analysis: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
