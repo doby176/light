@@ -1,7 +1,6 @@
-# Bullish Order Block Long Strategy for QQQ Shares on ThinkorSwim
+# Bullish Order Block LONG Strategy for QQQ Shares on Thinkorswim
 # Designed for 1-minute chart
-# Strategy: Add 100 shares on each green dot, exit when price closes below green dot
-# Includes Alerts for Bullish Order Block and Close Below
+# Strategy: Add 100 shares on every green dot, stop out when price closes below green dot level
 
 # --- 1-Minute Data ---
 def close1 = close;
@@ -35,6 +34,24 @@ def closeBelowBullish = close1 < lastBullishLevel and !IsNaN(lastBullishLevel) a
 # Track if a red dot has already been plotted
 def redDotPlotted = if isBullishOrderBlock then 0 else if closeBelowBullish and !redDotPlotted[1] then 1 else redDotPlotted[1];
 
+# --- Position State Tracking (using recursive definitions) ---
+def currentPosition = if currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated then 1
+                      else if currentPosition[1] == 1 and closeBelowBullish and !redDotPlotted[1] then 0
+                      else currentPosition[1];
+
+def entryPrice = if currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated then close1
+                 else entryPrice[1];
+
+# Track total shares accumulated
+def totalShares = if isBullishOrderBlock and bullishUnmitigated then totalShares[1] + 100 else if closeBelowBullish and !redDotPlotted[1] then 0 else totalShares[1];
+
+# --- Strategy Logic ---
+# Add 100 shares on every green dot
+def shouldAddShares = isBullishOrderBlock and bullishUnmitigated;
+
+# Exit all shares when price closes below green dot level
+def shouldExitAll = currentPosition[1] == 1 and closeBelowBullish and !redDotPlotted[1];
+
 # --- Plot Single Line on Order Block Candle ---
 plot BullishOrderBlock = if isBullishOrderBlock and bullishUnmitigated then bullishOrderBlockLevel else Double.NaN;
 BullishOrderBlock.SetDefaultColor(Color.LIGHT_GREEN);
@@ -47,19 +64,26 @@ RedDot.SetDefaultColor(Color.RED);
 RedDot.SetStyle(Curve.POINTS);
 RedDot.SetLineWeight(3);
 
-# --- Strategy Logic ---
-# Check if green dot appears AND candle closes above it
-def greenDotWithValidClose = isBullishOrderBlock and bullishUnmitigated and close1 > bullishOrderBlockLevel;
+# --- Plot Current Position ---
+plot Position = currentPosition;
+Position.SetDefaultColor(Color.YELLOW);
+Position.SetStyle(Curve.POINTS);
+Position.SetLineWeight(2);
 
-# Track total shares accumulated
-def totalShares = if greenDotWithValidClose then totalShares[1] + 100 else if closeBelowBullish and !redDotPlotted[1] then 0 else totalShares[1];
+# --- Strategy Orders ---
+# Add 100 shares on every green dot
+AddOrder(OrderType.BUY_TO_OPEN, shouldAddShares, close1, 100, Color.GREEN, Color.GREEN, "Add 100 Shares on Green Dot");
 
-# Add 100 shares on each green dot (valid close) - NO POSITION CHECK
-AddOrder(OrderType.BUY_TO_OPEN, greenDotWithValidClose, close1, 100, Color.GREEN, Color.GREEN, "QQQ Add 100 Shares on Green Dot");
+# Exit all shares when price closes below green dot level
+AddOrder(OrderType.SELL_TO_CLOSE, shouldExitAll, close1, totalShares[1], Color.RED, Color.RED, "Exit All Shares");
 
-# Exit all accumulated shares when price closes below the last green dot (red dot appears)
-AddOrder(OrderType.SELL_TO_CLOSE, closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0, close1, totalShares[1], Color.RED, Color.RED, "QQQ Exit All Positions (Close Below Green Dot)");
+# --- Performance Labels ---
+AddLabel(yes, "LONG Strategy - Add 100 Shares per Green Dot", Color.WHITE);
+AddLabel(yes, "Position: " + (if currentPosition == 1 then "LONG" else "FLAT"), 
+         if currentPosition == 1 then Color.GREEN else Color.GRAY);
+AddLabel(yes, "Total Shares: " + totalShares, Color.WHITE);
+AddLabel(yes, "Stop Level: $" + Round(lastBullishLevel, 2), Color.RED);
 
 # --- Alerts ---
-Alert(greenDotWithValidClose, "QQQ Add 100 Shares - Green Dot with Close Above", Alert.BAR, Sound.Bell);
-Alert(closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0, "QQQ Exit All Positions - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
+Alert(shouldAddShares, "Green Dot - Add 100 Shares", Alert.BAR, Sound.Bell);
+Alert(shouldExitAll, "Red Dot - Exit All Shares", Alert.BAR, Sound.Ding);
