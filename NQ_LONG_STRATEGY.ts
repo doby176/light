@@ -13,8 +13,8 @@ def low1 = low;
 # --- Daily Close Logic ---
 # Get current time in ET
 def currentTime = GetTime();
-def currentHour = Hour(currentTime);
-def currentMinute = Minute(currentTime);
+def currentHour = GetTime() / 1000000 % 100;
+def currentMinute = GetTime() / 10000 % 100;
 
 # Close all positions at 3:59 PM ET (15:59)
 def dailyCloseTime = currentHour == 15 and currentMinute == 59;
