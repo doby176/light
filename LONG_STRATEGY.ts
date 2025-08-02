@@ -11,12 +11,13 @@ def high1 = high;
 def low1 = low;
 
 # --- Daily Close Logic - SIMPLE AND RELIABLE ---
-# Check if we're in the last 2 minutes of regular trading session
-def isLastMinute = SecondsFromTime(1600) <= 120; # Last 2 minutes before 4:00 PM
-def isMarketClosed = SecondsFromTime(1600) > 0; # After 4:00 PM
+# Market closes at 16:00 (4:00 PM ET)
+# Close positions in last 5 minutes of trading (15:55-16:00)
+def isLast5Minutes = SecondsFromTime(1555) >= 0 and SecondsFromTime(1600) <= 300;
+def isMarketClosed = SecondsFromTime(1600) > 0;
 
-# Close all positions in last 2 minutes of trading
-def shouldCloseDaily = isLastMinute or isMarketClosed;
+# Close all positions in last 5 minutes or after market close
+def shouldCloseDaily = isLast5Minutes or isMarketClosed;
 
 # --- Bullish Order Block Detection (1-Minute Chart) ---
 # Inefficiency: Shadow gap > 1.5x candle body
