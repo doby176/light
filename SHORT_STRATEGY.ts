@@ -1,12 +1,23 @@
-# Bullish Order Block SHORT Strategy for QQQ Shares on Thinkorswim
+# Bullish Order Block Short Strategy for QQQ Shares on ThinkorSwim
 # Designed for 1-minute chart
-# Strategy: Go short on first close below green dot level, stop out when first green dot appears
+# Strategy: Go short on first close below last green dot, stop out when first green dot appears
+# Includes Alerts for Bullish Order Block and Close Below
+# **NEW: Closes all positions at 3:59 PM ET daily to avoid overnight positions**
 
 # --- 1-Minute Data ---
 def close1 = close;
 def open1 = open;
 def high1 = high;
 def low1 = low;
+
+# --- Daily Close Logic ---
+# Get current time in ET
+def currentTime = GetTime();
+def currentHour = Hour(currentTime);
+def currentMinute = Minute(currentTime);
+
+# Close all positions at 3:59 PM ET (15:59)
+def dailyCloseTime = currentHour == 15 and currentMinute == 59;
 
 # --- Bullish Order Block Detection (1-Minute Chart) ---
 # Inefficiency: Shadow gap > 1.5x candle body
@@ -34,21 +45,6 @@ def closeBelowBullish = close1 < lastBullishLevel and !IsNaN(lastBullishLevel) a
 # Track if a red dot has already been plotted
 def redDotPlotted = if isBullishOrderBlock then 0 else if closeBelowBullish and !redDotPlotted[1] then 1 else redDotPlotted[1];
 
-# --- Position State Tracking (using recursive definitions) ---
-def currentPosition = if currentPosition[1] == 0 and closeBelowBullish and !redDotPlotted[1] then -1
-                      else if currentPosition[1] == -1 and isBullishOrderBlock and bullishUnmitigated then 0
-                      else currentPosition[1];
-
-def entryPrice = if currentPosition[1] == 0 and closeBelowBullish and !redDotPlotted[1] then close1
-                 else entryPrice[1];
-
-# --- Strategy Logic ---
-# Go short on first close below green dot level when flat
-def shouldGoShort = currentPosition[1] == 0 and closeBelowBullish and !redDotPlotted[1];
-
-# Exit short when first green dot appears
-def shouldExitShort = currentPosition[1] == -1 and isBullishOrderBlock and bullishUnmitigated;
-
 # --- Plot Single Line on Order Block Candle ---
 plot BullishOrderBlock = if isBullishOrderBlock and bullishUnmitigated then bullishOrderBlockLevel else Double.NaN;
 BullishOrderBlock.SetDefaultColor(Color.LIGHT_GREEN);
@@ -61,26 +57,21 @@ RedDot.SetDefaultColor(Color.RED);
 RedDot.SetStyle(Curve.POINTS);
 RedDot.SetLineWeight(3);
 
-# --- Plot Current Position ---
-plot Position = currentPosition;
-Position.SetDefaultColor(Color.YELLOW);
-Position.SetStyle(Curve.POINTS);
-Position.SetLineWeight(2);
+# --- Strategy Logic ---
+# Position management
+def currentPosition = if closeBelowBullish and !redDotPlotted[1] then -1 else if isBullishOrderBlock and bullishUnmitigated then 0 else if dailyCloseTime then 0 else currentPosition[1];
+def entryPrice = if closeBelowBullish and !redDotPlotted[1] then close1 else entryPrice[1];
 
-# --- Strategy Orders ---
-# Go short on first close below green dot level
-AddOrder(OrderType.SELL_TO_OPEN, shouldGoShort, close1, 100, Color.RED, Color.RED, "Short on Red Dot");
+# Go short on first close below last green dot (red dot appears)
+AddOrder(OrderType.SELL_TO_OPEN, closeBelowBullish and !redDotPlotted[1], close1, 100, Color.RED, Color.RED, "QQQ Short on Red Dot");
 
 # Exit short when first green dot appears
-AddOrder(OrderType.BUY_TO_CLOSE, shouldExitShort, close1, 100, Color.GREEN, Color.GREEN, "Exit Short");
+AddOrder(OrderType.BUY_TO_CLOSE, isBullishOrderBlock and bullishUnmitigated, close1, 100, Color.GREEN, Color.GREEN, "QQQ Exit Short (Green Dot)");
 
-# --- Performance Labels ---
-AddLabel(yes, "SHORT Strategy", Color.WHITE);
-AddLabel(yes, "Position: " + (if currentPosition == -1 then "SHORT" else "FLAT"), 
-         if currentPosition == -1 then Color.RED else Color.GRAY);
-AddLabel(yes, "Entry: $" + Round(entryPrice, 2), Color.WHITE);
-AddLabel(yes, "Stop Level: $" + Round(lastBullishLevel, 2), Color.GREEN);
+# **NEW: Exit all positions at 3:59 PM ET daily**
+AddOrder(OrderType.BUY_TO_CLOSE, dailyCloseTime and currentPosition[1] < 0, close1, 100, Color.ORANGE, Color.ORANGE, "QQQ Daily Close - Exit All Positions");
 
 # --- Alerts ---
-Alert(shouldGoShort, "Red Dot - Enter SHORT", Alert.BAR, Sound.Ding);
-Alert(shouldExitShort, "Green Dot - Exit SHORT", Alert.BAR, Sound.Bell);
+Alert(closeBelowBullish and !redDotPlotted[1], "QQQ Short Entry - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
+Alert(isBullishOrderBlock and bullishUnmitigated, "QQQ Exit Short - Green Dot Appeared", Alert.BAR, Sound.Bell);
+Alert(dailyCloseTime and currentPosition[1] < 0, "QQQ Daily Close - Exiting All Positions", Alert.BAR, Sound.Chimes);
