@@ -1,2 +1,47 @@
 THINKORSWIM TRADING STRATEGY ANALYSIS REPORT
 ================================================================================
+
+OVERALL PERFORMANCE:
+--------------------
+total_trades: 4
+total_pnl: 162.00
+total_return_pct: -0.02
+winning_trades: 4
+losing_trades: 0
+win_rate: 100.00
+avg_winner: 40.50
+avg_loser: 0
+avg_trade: 40.50
+avg_return_pct: -0.00
+profit_factor: inf
+max_drawdown: 0.00
+sharpe_ratio: -0.05
+sortino_ratio: -134.20
+avg_duration_minutes: 1.00
+median_duration_minutes: 1.00
+long_trades: 2
+short_trades: 2
+long_pnl: 81.00
+short_pnl: 81.00
+long_win_rate: 100.00
+short_win_rate: 100.00
+
+TIME ANALYSIS:
+--------------------
+Hourly Performance:
+      trades  total_pnl  avg_pnl  avg_return_pct
+hour                                            
+9          4      162.0     40.5            -0.0
+
+Daily Performance:
+             trades  total_pnl  avg_pnl  avg_return_pct
+day_of_week                                            
+Friday            4      162.0     40.5            -0.0
+
+TRADE DETAILS:
+--------------------
+   entry_id  exit_id                       strategy          side  entry_price  exit_price          entry_time           exit_time  amount  trade_pl  duration  return_pct trade_type strategy_type  hour day_of_week  cumulative_pnl
+0         1        2  ORDERBLOCK(Long on Green Dot)   Buy to Open       532.52      532.09 2025-06-20 09:31:00 2025-06-20 09:32:00   100.0      43.0       1.0   -0.080748       Long          Long     9      Friday            43.0
+1         3        4  ORDERBLOCK(Long on Green Dot)   Buy to Open       532.47      532.85 2025-06-20 09:33:00 2025-06-20 09:34:00   100.0      38.0       1.0    0.071366       Long          Long     9      Friday            81.0
+2         1        2   ORDERBLOCK(Short on Red Dot)  Sell to Open       532.09      532.47 2025-06-20 09:32:00 2025-06-20 09:33:00   100.0      38.0       1.0    0.071416      Short         Short     9      Friday           119.0
+3         3        4   ORDERBLOCK(Short on Red Dot)  Sell to Open       532.85      532.42 2025-06-20 09:34:00 2025-06-20 09:35:00   100.0      43.0       1.0   -0.080698      Short         Short     9      Friday           162.0

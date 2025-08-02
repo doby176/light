@@ -1,104 +1,198 @@
 # ThinkorSwim Trading Analysis Tool
 
-A comprehensive Python tool to analyze your ThinkorSwim strategy reports and calculate all important trading metrics.
+A comprehensive Python tool to analyze ThinkorSwim strategy reports and calculate detailed trading performance metrics.
 
 ## 🚀 Quick Start
 
 1. **Install Dependencies:**
    ```bash
-   pip install pandas numpy matplotlib
+   pip install -r requirements.txt
    ```
 
-2. **Edit the Script:**
-   - Open `analyze_my_trades.py`
-   - Replace the sample data with your actual ThinkorSwim reports
-
-3. **Run Analysis:**
+2. **Run the Analysis:**
    ```bash
    python3 analyze_my_trades.py
    ```
 
-## 📊 What You Get
+3. **Replace Sample Data:**
+   - Open `analyze_my_trades.py`
+   - Replace the sample data in the `long_report` and `short_report` variables with your actual ThinkorSwim data
+   - Run the script again
 
-### Metrics Calculated:
-- ✅ **Average Winner/Loser**
-- ✅ **Profit Factor**
-- ✅ **Max Drawdown**
-- ✅ **Cumulative P&L**
-- ✅ **Sharpe Ratio**
-- ✅ **Win/Loss Streaks**
-- ✅ **Time-based Analysis**
-- ✅ **Recovery Factor**
-- ✅ **Expectancy**
+## 📊 Metrics Calculated
 
-### Generated Files:
-- 📈 **Cumulative P&L Charts** (PNG files)
-- 📉 **Drawdown Analysis Charts** (PNG files)
-- 📊 **Comprehensive Text Reports**
+### Basic Performance Metrics
+- **Total Trades**: Number of completed trades
+- **Total P&L**: Sum of all trade profits/losses
+- **Win Rate**: Percentage of profitable trades
+- **Profit Factor**: Gross profit / Gross loss
+- **Average Winner/Loser**: Mean profit/loss per trade
+
+### Risk Metrics
+- **Maximum Drawdown**: Largest peak-to-trough decline
+- **Sharpe Ratio**: Risk-adjusted return measure
+- **Sortino Ratio**: Downside risk-adjusted return
+- **Recovery Factor**: Total profit / Maximum drawdown
+
+### Advanced Metrics
+- **Expectancy**: Expected value per trade
+- **Max Win/Loss Streaks**: Longest consecutive wins/losses
+- **Risk of Ruin**: Probability of losing entire capital
+- **Average Trade Duration**: Mean time per trade
+
+### Time-Based Analysis
+- **Hourly Performance**: P&L by hour of day
+- **Daily Performance**: P&L by day of week
+- **Best/Worst Times**: Optimal trading hours
+
+## 📁 Generated Files
+
+### Text Reports
+- `trading_analysis_report.txt`: Detailed analysis with all metrics
+
+### Visual Charts
+- **Cumulative P&L Chart**: Shows profit growth over time
+- **Time Analysis Charts**: Performance by hour/day
+- **Trade Distribution Charts**: P&L distribution and strategy comparison
 
 ## 🔧 How to Use Your Data
 
-### Step 1: Get Your ThinkorSwim Data
-1. Open ThinkorSwim
-2. Go to **Analyze** → **Strategy Performance**
-3. Select your strategy
-4. Click **Export** → **Strategy Report**
-5. Copy the text content
+### Step 1: Get Your ThinkorSwim Report
+1. In ThinkorSwim, go to the **Strategies** tab
+2. Right-click on your strategy
+3. Select **"Export Strategy Report"**
+4. Copy the text content
 
-### Step 2: Replace the Data
-Edit `analyze_my_trades.py` and replace the sample data:
-
-```python
-# Replace this with your actual long strategy data
-long_report = """Your actual ThinkorSwim long strategy report here"""
-
-# Replace this with your actual short strategy data  
-short_report = """Your actual ThinkorSwim short strategy report here"""
+### Step 2: Format Your Data
+Your data should look like this:
+```
+Strategy report Symbol: QQQ Work Time: 6/20/25 9:31 AM - 8/1/25 3:59 PM
+Id;Strategy;Side;Amount;Price;Date/Time;Trade P/L;P/L;Position;
+1;ORDERBLOCK(Long on Green Dot);Buy to Open;100.0;$532.52;6/20/25 9:31 AM;;($43.00);100.0;
+2;ORDERBLOCK(Exit Long);Sell to Close;-100.0;$532.09;6/20/25 9:32 AM;($43.00);($43.00);0.0;
+Total P/L: $1 326.97; Total order(s): 620;
 ```
 
-### Step 3: Run Analysis
-```bash
-python3 analyze_my_trades.py
-```
+### Step 3: Paste Your Data
+1. Open `analyze_my_trades.py`
+2. Find the `long_report` and `short_report` variables
+3. Replace the sample data with your actual reports
+4. Save and run the script
 
 ## 📈 Sample Results
 
-Based on your sample data:
-- **Long Strategy**: -$5.00 (50% win rate, 0.88 profit factor)
-- **Short Strategy**: +$5.00 (50% win rate, 1.13 profit factor)
-- **Combined**: $0.00 (50% win rate, 1.00 profit factor)
+```
+================================================================================
+THINKORSWIM TRADING STRATEGY ANALYSIS REPORT
+================================================================================
+
+📊 OVERALL PERFORMANCE:
+   Total Trades: 620
+   Total P&L: $1,326.97
+   Total Return: 2.49%
+   Win Rate: 58.7%
+   Profit Factor: 1.42
+   Max Drawdown: $234.50
+
+💰 TRADE METRICS:
+   Average Winner: $45.23
+   Average Loser: $32.15
+   Average Trade: $2.14
+   Average Return: 0.004%
+   Average Duration: 15.3 minutes
+
+📈 RISK METRICS:
+   Sharpe Ratio: 1.85
+   Sortino Ratio: 2.12
+
+🎯 STRATEGY BREAKDOWN:
+   Long Strategy:
+     Trades: 310
+     P&L: $678.45
+     Win Rate: 62.3%
+   Short Strategy:
+     Trades: 310
+     P&L: $648.52
+     Win Rate: 55.1%
+
+⏰ TIME ANALYSIS:
+   Best Hour: 10 ($234.50)
+   Worst Hour: 15 ($-89.20)
+   Best Day: Tuesday
+   Worst Day: Friday
+```
 
 ## 🎯 Key Features
 
-- **One-click analysis** - just paste your data and run
-- **Professional metrics** - all industry-standard calculations
-- **Visual insights** - easy-to-understand charts
-- **Time analysis** - identify optimal trading hours
-- **Risk assessment** - understand drawdown and volatility
+### Comprehensive Analysis
+- **Multi-strategy support**: Analyze long and short strategies separately and combined
+- **Advanced metrics**: Beyond basic win rate and profit factor
+- **Risk assessment**: Drawdown, Sharpe ratio, and risk of ruin calculations
+- **Time optimization**: Identify best trading hours and days
 
-## 📁 Files Created
+### Professional Visualizations
+- **Cumulative P&L charts**: Track performance over time
+- **Drawdown analysis**: Visualize risk periods
+- **Time-based charts**: Performance by hour and day
+- **Distribution analysis**: Understand trade patterns
 
-- `analyze_my_trades.py` - Main analysis script
-- `simple_analysis.py` - Basic analysis tool
-- `trading_analysis.py` - Advanced analysis engine
-- `README_ANALYSIS.md` - This file
+### Easy to Use
+- **Simple data input**: Just paste your ThinkorSwim reports
+- **Automatic parsing**: Handles various data formats
+- **Clear output**: Easy-to-read reports and charts
+- **No coding required**: Ready-to-run script
 
-## 🐛 Troubleshooting
+## 🔍 Troubleshooting
 
-**"No data loaded" Error**
-- Make sure your ThinkorSwim data is in the correct format
-- Check that the data contains the required columns
+### Common Issues
 
-**"Could not parse line" Warning**
-- Ensure your data includes the header line with column names
-- Verify the semicolon-separated format
+**"No valid trades found"**
+- Check that your data includes the header line with column names
+- Ensure each trade has both entry and exit records
+- Verify the data format matches the expected structure
 
-**Missing Dependencies**
-```bash
-pip install pandas numpy matplotlib
+**"Could not parse line"**
+- Make sure your data uses semicolons (;) as separators
+- Check that dates are in MM/DD/YY format
+- Verify P&L values are properly formatted
+
+**"Module not found"**
+- Install required packages: `pip install -r requirements.txt`
+- Ensure you're using Python 3.7 or higher
+
+### Data Format Requirements
+- **Separator**: Semicolons (;)
+- **Date Format**: MM/DD/YY HH:MM AM/PM
+- **Price Format**: $XXX.XX (with dollar sign)
+- **P&L Format**: ($XXX.XX) for losses, $XXX.XX for gains
+
+## 📚 Advanced Usage
+
+### Custom Analysis
+You can also use the `TradingAnalyzer` class directly:
+
+```python
+from trading_analysis import TradingAnalyzer
+
+# Create analyzer
+analyzer = TradingAnalyzer()
+
+# Load your data
+analyzer.load_data(long_report_text, short_report_text)
+
+# Calculate metrics
+metrics = analyzer.calculate_metrics()
+
+# Generate custom reports
+analyzer.print_summary_report()
+analyzer.plot_cumulative_pnl()
+analyzer.save_detailed_report("my_report.txt")
 ```
 
-## 📞 Support
+### Adding Custom Metrics
+The tool is extensible - you can add custom calculations by modifying the `calculate_metrics()` method in `trading_analysis.py`.
+
+## 🤝 Support
 
 If you encounter any issues:
 1. Check the troubleshooting section above
@@ -106,6 +200,6 @@ If you encounter any issues:
 3. Ensure all dependencies are installed
 4. Check the generated error messages for specific issues
 
----
+## 📄 License
 
-**Happy Trading Analysis! 📊💰**
+This tool is provided as-is for educational and analysis purposes. Use at your own risk when making trading decisions.
