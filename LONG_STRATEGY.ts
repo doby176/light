@@ -51,16 +51,15 @@ RedDot.SetLineWeight(3);
 # Check if green dot appears AND candle closes above it
 def greenDotWithValidClose = isBullishOrderBlock and bullishUnmitigated and close1 > bullishOrderBlockLevel;
 
-# Position management - track total shares
-def totalShares = if greenDotWithValidClose then totalShares[1] + 100 else if closeBelowBullish and !redDotPlotted[1] then 0 else totalShares[1];
-def entryPrice = if greenDotWithValidClose then close1 else entryPrice[1];
+# Simple position tracking
+def inPosition = if greenDotWithValidClose then 1 else if closeBelowBullish and !redDotPlotted[1] then 0 else inPosition[1];
 
 # Add 100 shares on each green dot (valid close)
 AddOrder(OrderType.BUY_TO_OPEN, greenDotWithValidClose, close1, 100, Color.GREEN, Color.GREEN, "QQQ Add 100 Shares on Green Dot");
 
 # Exit all positions when price closes below the last green dot (red dot appears)
-AddOrder(OrderType.SELL_TO_CLOSE, closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0, close1, totalShares[1], Color.RED, Color.RED, "QQQ Exit All Positions (Close Below Green Dot)");
+AddOrder(OrderType.SELL_TO_CLOSE, closeBelowBullish and !redDotPlotted[1] and inPosition[1] > 0, close1, 100, Color.RED, Color.RED, "QQQ Exit All Positions (Close Below Green Dot)");
 
 # --- Alerts ---
 Alert(greenDotWithValidClose, "QQQ Add 100 Shares - Green Dot with Close Above", Alert.BAR, Sound.Bell);
-Alert(closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0, "QQQ Exit All Positions - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
+Alert(closeBelowBullish and !redDotPlotted[1] and inPosition[1] > 0, "QQQ Exit All Positions - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
