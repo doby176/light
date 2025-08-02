@@ -54,6 +54,7 @@ def analyze_trades():
             # Skip first 6 lines (header info) and parse from line 7
             data_lines = lines[6:]  # Start from line 7 (index 6)
             
+            file_trades = []
             for line_num, line in enumerate(data_lines, start=7):
                 line = line.strip()
                 if not line or line.startswith('Total'):  # Skip empty lines and totals
@@ -84,19 +85,54 @@ def analyze_trades():
                             # Parse P&L
                             trade_pl = parse_pl(trade_pl_str)
                             
-                            all_trades.append({
+                            file_trades.append({
                                 'id': trade_id,
                                 'strategy': strategy_type,
                                 'side': side,
                                 'price': price,
                                 'datetime': dt,
                                 'trade_pl': trade_pl,
-                                'amount': abs(amount)
+                                'amount': abs(amount),
+                                'position': position
                             })
                             
                         except Exception as e:
                             print(f"Warning: Could not parse line {line_num}: {line[:50]}... Error: {e}")
                             continue
+            
+            # Now pair the trades correctly (entry and exit)
+            i = 0
+            while i < len(file_trades) - 1:
+                entry_trade = file_trades[i]
+                exit_trade = file_trades[i + 1]
+                
+                # Check if this is a valid entry/exit pair
+                # Entry should have position != 0, exit should have position = 0
+                if entry_trade['position'] != 0 and exit_trade['position'] == 0:
+                    # Calculate trade metrics
+                    duration = (exit_trade['datetime'] - entry_trade['datetime']).total_seconds() / 60  # minutes
+                    return_pct = ((exit_trade['price'] - entry_trade['price']) / entry_trade['price']) * 100
+                    
+                    # For short trades, reverse the return calculation
+                    if 'Sell to Open' in entry_trade['side']:
+                        return_pct = ((entry_trade['price'] - exit_trade['price']) / entry_trade['price']) * 100
+                    
+                    all_trades.append({
+                        'strategy': strategy_type,
+                        'entry_price': entry_trade['price'],
+                        'exit_price': exit_trade['price'],
+                        'entry_time': entry_trade['datetime'],
+                        'exit_time': exit_trade['datetime'],
+                        'trade_pl': exit_trade['trade_pl'],  # P&L is on the exit trade
+                        'duration': duration,
+                        'return_pct': return_pct,
+                        'amount': entry_trade['amount'],
+                        'entry_side': entry_trade['side'],
+                        'exit_side': exit_trade['side']
+                    })
+                    i += 2  # Skip both entry and exit
+                else:
+                    i += 1  # Skip this trade, try next pair
             
             print(f"Parsed {len([t for t in all_trades if t['strategy'] == strategy_type])} {strategy_type} trades")
                     
@@ -111,37 +147,7 @@ def analyze_trades():
     print(f"✅ Successfully parsed {len(all_trades)} total trades")
     
     # Convert to DataFrame
-    df = pd.DataFrame(all_trades)
-    
-    # Create trade pairs (entry/exit)
-    trades = []
-    i = 0
-    while i < len(df) - 1:
-        entry = df.iloc[i]
-        exit = df.iloc[i + 1]
-        
-        # Calculate trade metrics
-        duration = (exit['datetime'] - entry['datetime']).total_seconds() / 60  # minutes
-        return_pct = ((exit['price'] - entry['price']) / entry['price']) * 100
-        
-        trades.append({
-            'strategy': entry['strategy'],
-            'entry_price': entry['price'],
-            'exit_price': exit['price'],
-            'entry_time': entry['datetime'],
-            'exit_time': exit['datetime'],
-            'trade_pl': exit['trade_pl'],
-            'duration': duration,
-            'return_pct': return_pct,
-            'amount': entry['amount']
-        })
-        i += 2
-    
-    if not trades:
-        print("❌ No completed trades found!")
-        return
-    
-    trades_df = pd.DataFrame(trades)
+    trades_df = pd.DataFrame(all_trades)
     
     # Calculate metrics
     total_trades = len(trades_df)
