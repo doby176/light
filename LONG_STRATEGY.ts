@@ -1,6 +1,6 @@
 # Bullish Order Block LONG Strategy for QQQ Shares on Thinkorswim
 # Designed for 1-minute chart
-# Strategy: Add 100 shares on every green dot, stop out when price closes below green dot level
+# Strategy: Scale position size based on green dots, exit when price closes below green dot level
 
 # --- 1-Minute Data ---
 def close1 = close;
@@ -42,15 +42,18 @@ def currentPosition = if currentPosition[1] == 0 and isBullishOrderBlock and bul
 def entryPrice = if currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated then close1
                  else entryPrice[1];
 
-# Track total shares accumulated - ADD ON EVERY GREEN DOT
-def totalShares = if isBullishOrderBlock and bullishUnmitigated then totalShares[1] + 100 else if closeBelowBullish and !redDotPlotted[1] then 0 else totalShares[1];
+# Count green dots and scale position size
+def greenDotCount = if isBullishOrderBlock and bullishUnmitigated then greenDotCount[1] + 1 else if closeBelowBullish and !redDotPlotted[1] then 0 else greenDotCount[1];
+
+# Calculate position size: 100 shares per green dot
+def positionSize = greenDotCount * 100;
 
 # --- Strategy Logic ---
-# Add 100 shares on every green dot - SIMPLIFIED CONDITION
-def shouldAddShares = isBullishOrderBlock and bullishUnmitigated;
+# Enter with scaled position size on green dot
+def shouldEnterLong = currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated;
 
 # Exit all shares when price closes below green dot level
-def shouldExitAll = closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0;
+def shouldExitLong = currentPosition[1] == 1 and closeBelowBullish and !redDotPlotted[1];
 
 # --- Plot Single Line on Order Block Candle ---
 plot BullishOrderBlock = if isBullishOrderBlock and bullishUnmitigated then bullishOrderBlockLevel else Double.NaN;
@@ -71,19 +74,20 @@ Position.SetStyle(Curve.POINTS);
 Position.SetLineWeight(2);
 
 # --- Strategy Orders ---
-# Add 100 shares on every green dot - NO POSITION CHECK
-AddOrder(OrderType.BUY_TO_OPEN, shouldAddShares, close1, 100, Color.GREEN, Color.GREEN, "Add 100 Shares on Green Dot");
+# Enter with scaled position size on green dot
+AddOrder(OrderType.BUY_TO_OPEN, shouldEnterLong, close1, positionSize, Color.GREEN, Color.GREEN, "Enter Long - Scaled Position");
 
 # Exit all shares when price closes below green dot level
-AddOrder(OrderType.SELL_TO_CLOSE, shouldExitAll, close1, totalShares[1], Color.RED, Color.RED, "Exit All Shares");
+AddOrder(OrderType.SELL_TO_CLOSE, shouldExitLong, close1, positionSize, Color.RED, Color.RED, "Exit Long - All Shares");
 
 # --- Performance Labels ---
-AddLabel(yes, "LONG Strategy - Add 100 Shares per Green Dot", Color.WHITE);
+AddLabel(yes, "LONG Strategy - Scaled Position", Color.WHITE);
 AddLabel(yes, "Position: " + (if currentPosition == 1 then "LONG" else "FLAT"), 
          if currentPosition == 1 then Color.GREEN else Color.GRAY);
-AddLabel(yes, "Total Shares: " + totalShares, Color.WHITE);
+AddLabel(yes, "Green Dots: " + greenDotCount, Color.WHITE);
+AddLabel(yes, "Position Size: " + positionSize + " shares", Color.WHITE);
 AddLabel(yes, "Stop Level: $" + Round(lastBullishLevel, 2), Color.RED);
 
 # --- Alerts ---
-Alert(shouldAddShares, "Green Dot - Add 100 Shares", Alert.BAR, Sound.Bell);
-Alert(shouldExitAll, "Red Dot - Exit All Shares", Alert.BAR, Sound.Ding);
+Alert(shouldEnterLong, "Green Dot - Enter Long with " + positionSize + " shares", Alert.BAR, Sound.Bell);
+Alert(shouldExitLong, "Red Dot - Exit Long " + positionSize + " shares", Alert.BAR, Sound.Ding);
