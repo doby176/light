@@ -43,117 +43,72 @@ def analyze_trades():
     
     for file_path, strategy_type in [(long_file, 'Long'), (short_file, 'Short')]:
         try:
-            # Try different CSV reading approaches
-            try:
-                # First try with semicolon separator
-                df = pd.read_csv(file_path, sep=';', encoding='utf-8')
-            except:
-                try:
-                    # Try with comma separator
-                    df = pd.read_csv(file_path, sep=',', encoding='utf-8')
-                except:
-                    # Try with tab separator
-                    df = pd.read_csv(file_path, sep='\t', encoding='utf-8')
+            print(f"Reading {file_path}...")
             
-            print(f"Successfully loaded {file_path}")
-            print(f"Columns found: {list(df.columns)}")
-            print(f"First few rows:")
-            print(df.head())
+            # Read file as text and parse manually
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
             
-            # Parse each trade
-            for _, row in df.iterrows():
-                try:
-                    # Handle different column names
-                    id_col = 'Id' if 'Id' in df.columns else 'ID' if 'ID' in df.columns else df.columns[0]
-                    price_col = 'Price' if 'Price' in df.columns else 'PRICE' if 'PRICE' in df.columns else None
-                    datetime_col = 'Date/Time' if 'Date/Time' in df.columns else 'DateTime' if 'DateTime' in df.columns else None
-                    pl_col = 'Trade P/L' if 'Trade P/L' in df.columns else 'Trade_PL' if 'Trade_PL' in df.columns else None
-                    amount_col = 'Amount' if 'Amount' in df.columns else 'AMOUNT' if 'AMOUNT' in df.columns else None
-                    side_col = 'Side' if 'Side' in df.columns else 'SIDE' if 'SIDE' in df.columns else None
-                    
-                    if not all([price_col, datetime_col, pl_col, amount_col, side_col]):
-                        print(f"Missing required columns. Available: {list(df.columns)}")
-                        continue
-                    
-                    # Clean price (remove tabs, $, commas)
-                    price_str = str(row[price_col]).replace('$', '').replace(',', '').replace('\t', '')
-                    price = float(price_str)
-                    
-                    # Parse datetime
-                    dt = pd.to_datetime(row[datetime_col], format='%m/%d/%y %I:%M %p')
-                    
-                    # Parse P&L
-                    trade_pl = parse_pl(row[pl_col])
-                    
-                    all_trades.append({
-                        'id': row[id_col],
-                        'strategy': strategy_type,
-                        'side': row[side_col],
-                        'price': price,
-                        'datetime': dt,
-                        'trade_pl': trade_pl,
-                        'amount': abs(float(row[amount_col]))
-                    })
-                except Exception as e:
-                    print(f"Warning: Could not parse row {row.get('Id', 'Unknown')}: {e}")
+            print(f"File has {len(lines)} lines")
+            
+            # Skip first 6 lines (header info) and parse from line 7
+            data_lines = lines[6:]  # Start from line 7 (index 6)
+            
+            for line_num, line in enumerate(data_lines, start=7):
+                line = line.strip()
+                if not line or line.startswith('Total'):  # Skip empty lines and totals
                     continue
+                
+                # Parse semicolon-separated data
+                if ';' in line:
+                    parts = line.split(';')
+                    if len(parts) >= 9:  # Expected: Id;Strategy;Side;Amount;Price;Date/Time;Trade P/L;P/L;Position;
+                        try:
+                            trade_id = int(parts[0])
+                            strategy = parts[1]
+                            side = parts[2]
+                            amount = float(parts[3])
+                            
+                            # Clean price (remove $, commas, tabs)
+                            price_str = parts[4].replace('$', '').replace(',', '').replace('\t', '')
+                            price = float(price_str)
+                            
+                            datetime_str = parts[5]
+                            trade_pl_str = parts[6]
+                            cumulative_pl_str = parts[7]
+                            position = float(parts[8])
+                            
+                            # Parse datetime
+                            dt = pd.to_datetime(datetime_str, format='%m/%d/%y %I:%M %p')
+                            
+                            # Parse P&L
+                            trade_pl = parse_pl(trade_pl_str)
+                            
+                            all_trades.append({
+                                'id': trade_id,
+                                'strategy': strategy_type,
+                                'side': side,
+                                'price': price,
+                                'datetime': dt,
+                                'trade_pl': trade_pl,
+                                'amount': abs(amount)
+                            })
+                            
+                        except Exception as e:
+                            print(f"Warning: Could not parse line {line_num}: {line[:50]}... Error: {e}")
+                            continue
+            
+            print(f"Parsed {len([t for t in all_trades if t['strategy'] == strategy_type])} {strategy_type} trades")
                     
         except Exception as e:
             print(f"Error reading {file_path}: {e}")
-            # Try to read as text and parse manually
-            try:
-                print("Trying to read as text file...")
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
-                
-                print(f"File has {len(lines)} lines")
-                print("First few lines:")
-                for i, line in enumerate(lines[:5]):
-                    print(f"Line {i+1}: {line.strip()}")
-                
-                # Skip header lines and parse data
-                for line in lines:
-                    if ';' in line and any(char.isdigit() for char in line):
-                        parts = line.strip().split(';')
-                        if len(parts) >= 9:  # Expected number of columns
-                            try:
-                                # Parse the line manually
-                                trade_id = int(parts[0])
-                                strategy = parts[1]
-                                side = parts[2]
-                                amount = float(parts[3])
-                                price_str = parts[4].replace('$', '').replace(',', '').replace('\t', '')
-                                price = float(price_str)
-                                datetime_str = parts[5]
-                                trade_pl_str = parts[6]
-                                cumulative_pl_str = parts[7]
-                                position = float(parts[8])
-                                
-                                dt = pd.to_datetime(datetime_str, format='%m/%d/%y %I:%M %p')
-                                trade_pl = parse_pl(trade_pl_str)
-                                
-                                all_trades.append({
-                                    'id': trade_id,
-                                    'strategy': strategy_type,
-                                    'side': side,
-                                    'price': price,
-                                    'datetime': dt,
-                                    'trade_pl': trade_pl,
-                                    'amount': abs(amount)
-                                })
-                            except Exception as e:
-                                print(f"Warning: Could not parse line: {line[:50]}... Error: {e}")
-                                continue
-                                
-            except Exception as e2:
-                print(f"Failed to read as text file: {e2}")
             continue
     
     if not all_trades:
         print("❌ No valid trades found!")
         return
     
-    print(f"✅ Successfully parsed {len(all_trades)} trades")
+    print(f"✅ Successfully parsed {len(all_trades)} total trades")
     
     # Convert to DataFrame
     df = pd.DataFrame(all_trades)
