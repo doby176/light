@@ -1,7 +1,6 @@
 # Bullish Order Block Auto-Trading Strategy for QQQ Shares on Thinkorswim
 # Designed for 1-minute chart
-# Strategy: Go long on green dot, flip to short on red dot, flip back to long when price hits green dot level
-# Includes Alerts for Bullish Order Block and Close Below
+# Strategy: Go long ONLY when NEW green dot appears, flip to short on red dot, flip back to long on next NEW green dot
 
 # --- 1-Minute Data ---
 def close1 = close;
@@ -35,42 +34,42 @@ def closeBelowBullish = close1 < lastBullishLevel and !IsNaN(lastBullishLevel) a
 # Track if a red dot has already been plotted
 def redDotPlotted = if isBullishOrderBlock then 0 else if closeBelowBullish and !redDotPlotted[1] then 1 else redDotPlotted[1];
 
-# --- Strategy State Variables ---
+# --- Position State Tracking ---
 def currentPosition = 0; # 0=flat, 1=long, -1=short
-def entryPrice = 0.0;
-def stopLossPrice = 0.0;
+def lastGreenDotLevel = 0.0;
+def lastRedDotLevel = 0.0;
+def waitingForRedDot = 0; # 0=no, 1=yes
+def waitingForGreenDot = 0; # 0=no, 1=yes
 
 # --- Strategy Logic ---
-# Initialize position tracking
-def newPosition = currentPosition;
-def newEntryPrice = entryPrice;
-def newStopLossPrice = stopLossPrice;
+# Rule 1: Go long ONLY when NEW green dot appears and we're flat or waiting for green dot
+def newGreenDot = isBullishOrderBlock and bullishUnmitigated and (currentPosition == 0 or waitingForGreenDot == 1);
+def shouldGoLong = newGreenDot;
 
-# Rule 1: Go long on green dot (Bullish Order Block) when flat
-if currentPosition == 0 and isBullishOrderBlock and bullishUnmitigated {
-    newPosition = 1;
-    newEntryPrice = close1;
-    newStopLossPrice = close1 * 0.99; # 1% stop loss
-}
+# Rule 2: Exit long and go short when red dot appears (close below Bullish Order Block)
+def newRedDot = closeBelowBullish and !redDotPlotted[1] and currentPosition == 1;
+def shouldExitLongGoShort = newRedDot;
 
-# Rule 2: Exit long and go short on red dot (close below Bullish Order Block)
-if currentPosition == 1 and closeBelowBullish and !redDotPlotted[1] {
-    newPosition = -1;
-    newEntryPrice = close1;
-    newStopLossPrice = lastBullishLevel; # Stop at the green dot level
-}
+# Rule 3: Exit short and go long when price hits the green dot level (but only if we're waiting for it)
+def shouldExitShortGoLong = currentPosition == -1 and high1 >= lastGreenDotLevel and waitingForGreenDot == 1;
 
-# Rule 3: Exit short and go long when price hits green dot level (lastBullishLevel)
-if currentPosition == -1 and high1 >= lastBullishLevel {
-    newPosition = 1;
-    newEntryPrice = lastBullishLevel;
-    newStopLossPrice = lastBullishLevel * 0.99; # 1% stop loss
-}
+# --- Position State Updates ---
+def newPosition = if shouldGoLong then 1
+                  else if shouldExitLongGoShort then -1
+                  else if shouldExitShortGoLong then 1
+                  else currentPosition;
 
-# Update position variables
+def newLastGreenDotLevel = if shouldGoLong then bullishOrderBlockLevel else lastGreenDotLevel;
+def newLastRedDotLevel = if shouldExitLongGoShort then close1 else lastRedDotLevel;
+def newWaitingForRedDot = if shouldGoLong then 1 else if shouldExitLongGoShort then 0 else waitingForRedDot;
+def newWaitingForGreenDot = if shouldExitLongGoShort then 1 else if shouldExitShortGoLong then 0 else waitingForGreenDot;
+
+# Update state variables
 currentPosition = newPosition;
-entryPrice = newEntryPrice;
-stopLossPrice = newStopLossPrice;
+lastGreenDotLevel = newLastGreenDotLevel;
+lastRedDotLevel = newLastRedDotLevel;
+waitingForRedDot = newWaitingForRedDot;
+waitingForGreenDot = newWaitingForGreenDot;
 
 # --- Plot Single Line on Order Block Candle ---
 plot BullishOrderBlock = if isBullishOrderBlock and bullishUnmitigated then bullishOrderBlockLevel else Double.NaN;
@@ -87,34 +86,41 @@ RedDot.SetLineWeight(3);
 # --- Plot Current Position ---
 plot Position = currentPosition;
 Position.SetDefaultColor(Color.YELLOW);
-Position.SetStyle(Curve.LINE);
+Position.SetStyle(Curve.POINTS);
 Position.SetLineWeight(2);
 
-# --- Plot Stop Loss Level ---
-plot StopLoss = if currentPosition != 0 then stopLossPrice else Double.NaN;
-StopLoss.SetDefaultColor(Color.RED);
-StopLoss.SetStyle(Curve.LINE);
-StopLoss.SetLineWeight(1);
+# --- Plot Waiting States ---
+plot WaitingForRed = if waitingForRedDot == 1 then high1 + 0.5 else Double.NaN;
+WaitingForRed.SetDefaultColor(Color.ORANGE);
+WaitingForRed.SetStyle(Curve.POINTS);
+WaitingForRed.SetLineWeight(2);
+
+plot WaitingForGreen = if waitingForGreenDot == 1 then low1 - 0.5 else Double.NaN;
+WaitingForGreen.SetDefaultColor(Color.CYAN);
+WaitingForGreen.SetStyle(Curve.POINTS);
+WaitingForGreen.SetLineWeight(2);
 
 # --- Strategy Orders ---
-# Go long on green dot (Bullish Order Block)
-AddOrder(OrderType.BUY_TO_OPEN, currentPosition == 0 and isBullishOrderBlock and bullishUnmitigated, close1, 100, Color.GREEN, Color.GREEN, "Long on Green Dot");
+# Go long ONLY when NEW green dot appears
+AddOrder(OrderType.BUY_TO_OPEN, shouldGoLong, close1, 100, Color.GREEN, Color.GREEN, "Long on NEW Green Dot");
 
-# Exit long and go short on red dot (close below Bullish Order Block)
-AddOrder(OrderType.SELL_TO_CLOSE, currentPosition == 1 and closeBelowBullish and !redDotPlotted[1], close1, 100, Color.RED, Color.RED, "Exit Long");
-AddOrder(OrderType.SELL_TO_OPEN, currentPosition == 1 and closeBelowBullish and !redDotPlotted[1], close1, 100, Color.RED, Color.RED, "Short on Red Dot");
+# Exit long and go short when red dot appears
+AddOrder(OrderType.SELL_TO_CLOSE, shouldExitLongGoShort, close1, 100, Color.RED, Color.RED, "Exit Long");
+AddOrder(OrderType.SELL_TO_OPEN, shouldExitLongGoShort, close1, 100, Color.RED, Color.RED, "Short on Red Dot");
 
 # Exit short and go long when price hits green dot level
-AddOrder(OrderType.BUY_TO_CLOSE, currentPosition == -1 and high1 >= lastBullishLevel, lastBullishLevel, 100, Color.GREEN, Color.GREEN, "Exit Short");
-AddOrder(OrderType.BUY_TO_OPEN, currentPosition == -1 and high1 >= lastBullishLevel, lastBullishLevel, 100, Color.GREEN, Color.GREEN, "Long on Green Level");
+AddOrder(OrderType.BUY_TO_CLOSE, shouldExitShortGoLong, lastGreenDotLevel, 100, Color.GREEN, Color.GREEN, "Exit Short");
+AddOrder(OrderType.BUY_TO_OPEN, shouldExitShortGoLong, lastGreenDotLevel, 100, Color.GREEN, Color.GREEN, "Long on Green Level");
 
 # --- Performance Labels ---
 AddLabel(yes, "Position: " + (if currentPosition == 1 then "LONG" else if currentPosition == -1 then "SHORT" else "FLAT"), 
          if currentPosition == 1 then Color.GREEN else if currentPosition == -1 then Color.RED else Color.GRAY);
-AddLabel(yes, "Entry: $" + Round(entryPrice, 2), Color.WHITE);
-AddLabel(yes, "Stop: $" + Round(stopLossPrice, 2), Color.RED);
+AddLabel(yes, "Green Level: $" + Round(lastGreenDotLevel, 2), Color.GREEN);
+AddLabel(yes, "Red Level: $" + Round(lastRedDotLevel, 2), Color.RED);
+AddLabel(yes, "Waiting: " + (if waitingForRedDot == 1 then "RED DOT" else if waitingForGreenDot == 1 then "GREEN LEVEL" else "NONE"), 
+         if waitingForRedDot == 1 then Color.ORANGE else if waitingForGreenDot == 1 then Color.CYAN else Color.GRAY);
 
 # --- Alerts ---
-Alert(isBullishOrderBlock and bullishUnmitigated, "Bullish Order Block Detected - Enter LONG", Alert.BAR, Sound.Bell);
-Alert(closeBelowBullish and !redDotPlotted[1], "Price Closed Below Bullish Order Block - Exit LONG, Enter SHORT", Alert.BAR, Sound.Ding);
-Alert(currentPosition == -1 and high1 >= lastBullishLevel, "Price at Green Dot Level - Exit SHORT, Enter LONG", Alert.BAR, Sound.Chimes);
+Alert(shouldGoLong, "NEW Green Dot - Enter LONG", Alert.BAR, Sound.Bell);
+Alert(shouldExitLongGoShort, "Red Dot - Exit LONG, Enter SHORT", Alert.BAR, Sound.Ding);
+Alert(shouldExitShortGoLong, "Hit Green Level - Exit SHORT, Enter LONG", Alert.BAR, Sound.Chimes);
