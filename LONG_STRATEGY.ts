@@ -42,15 +42,15 @@ def currentPosition = if currentPosition[1] == 0 and isBullishOrderBlock and bul
 def entryPrice = if currentPosition[1] == 0 and isBullishOrderBlock and bullishUnmitigated then close1
                  else entryPrice[1];
 
-# Track total shares accumulated
+# Track total shares accumulated - ADD ON EVERY GREEN DOT
 def totalShares = if isBullishOrderBlock and bullishUnmitigated then totalShares[1] + 100 else if closeBelowBullish and !redDotPlotted[1] then 0 else totalShares[1];
 
 # --- Strategy Logic ---
-# Add 100 shares on every green dot
+# Add 100 shares on every green dot - SIMPLIFIED CONDITION
 def shouldAddShares = isBullishOrderBlock and bullishUnmitigated;
 
 # Exit all shares when price closes below green dot level
-def shouldExitAll = currentPosition[1] == 1 and closeBelowBullish and !redDotPlotted[1];
+def shouldExitAll = closeBelowBullish and !redDotPlotted[1] and totalShares[1] > 0;
 
 # --- Plot Single Line on Order Block Candle ---
 plot BullishOrderBlock = if isBullishOrderBlock and bullishUnmitigated then bullishOrderBlockLevel else Double.NaN;
@@ -71,7 +71,7 @@ Position.SetStyle(Curve.POINTS);
 Position.SetLineWeight(2);
 
 # --- Strategy Orders ---
-# Add 100 shares on every green dot
+# Add 100 shares on every green dot - NO POSITION CHECK
 AddOrder(OrderType.BUY_TO_OPEN, shouldAddShares, close1, 100, Color.GREEN, Color.GREEN, "Add 100 Shares on Green Dot");
 
 # Exit all shares when price closes below green dot level
