@@ -11,13 +11,19 @@ def high1 = high;
 def low1 = low;
 
 # --- Daily Close Logic ---
-# Get current time in ET
+# Get current time in ET - more reliable method
 def currentTime = GetTime();
-def currentHour = GetTime() / 1000000 % 100;
-def currentMinute = GetTime() / 10000 % 100;
+def currentHour = Floor(currentTime / 1000000) % 100;
+def currentMinute = Floor(currentTime / 10000) % 100;
 
-# Close all positions at 3:59 PM ET (15:59)
+# Close all positions at 3:59 PM ET (15:59) - last minute of regular trading
 def dailyCloseTime = currentHour == 15 and currentMinute == 59;
+
+# Alternative: Close at market close (4:00 PM ET)
+def marketCloseTime = currentHour == 16 and currentMinute == 0;
+
+# Use either condition to ensure we close before overnight
+def shouldCloseDaily = dailyCloseTime or marketCloseTime;
 
 # --- Bullish Order Block Detection (1-Minute Chart) ---
 # Inefficiency: Shadow gap > 1.5x candle body
@@ -58,8 +64,8 @@ RedDot.SetStyle(Curve.POINTS);
 RedDot.SetLineWeight(3);
 
 # --- Strategy Logic ---
-# Position management
-def currentPosition = if closeBelowBullish and !redDotPlotted[1] then -1 else if isBullishOrderBlock and bullishUnmitigated then 0 else if dailyCloseTime then 0 else currentPosition[1];
+# Position management - reset position if daily close time
+def currentPosition = if closeBelowBullish and !redDotPlotted[1] then -1 else if isBullishOrderBlock and bullishUnmitigated then 0 else if shouldCloseDaily then 0 else currentPosition[1];
 def entryPrice = if closeBelowBullish and !redDotPlotted[1] then close1 else entryPrice[1];
 
 # Go short on first close below last green dot (red dot appears)
@@ -68,10 +74,10 @@ AddOrder(OrderType.SELL_TO_OPEN, closeBelowBullish and !redDotPlotted[1], close1
 # Exit short when first green dot appears
 AddOrder(OrderType.BUY_TO_CLOSE, isBullishOrderBlock and bullishUnmitigated, close1, 1, Color.GREEN, Color.GREEN, "NQ Exit Short (Green Dot)");
 
-# **NEW: Exit all positions at 3:59 PM ET daily**
-AddOrder(OrderType.BUY_TO_CLOSE, dailyCloseTime and currentPosition[1] < 0, close1, 1, Color.ORANGE, Color.ORANGE, "NQ Daily Close - Exit All Positions");
+# **NEW: Exit all positions at daily close time**
+AddOrder(OrderType.BUY_TO_CLOSE, shouldCloseDaily and currentPosition[1] < 0, close1, 1, Color.ORANGE, Color.ORANGE, "NQ Daily Close - Exit All Positions");
 
 # --- Alerts ---
 Alert(closeBelowBullish and !redDotPlotted[1], "NQ Short Entry - Price Closed Below Green Dot", Alert.BAR, Sound.Ding);
 Alert(isBullishOrderBlock and bullishUnmitigated, "NQ Exit Short - Green Dot Appeared", Alert.BAR, Sound.Bell);
-Alert(dailyCloseTime and currentPosition[1] < 0, "NQ Daily Close - Exiting All Positions", Alert.BAR, Sound.Chimes);
+Alert(shouldCloseDaily and currentPosition[1] < 0, "NQ Daily Close - Exiting All Positions", Alert.BAR, Sound.Chimes);
