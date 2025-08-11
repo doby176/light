@@ -60,11 +60,13 @@ def compute_session_vwap(df: pd.DataFrame, close_col: str, vol_col: str) -> pd.S
 
 
 def within_time_window(ts: pd.Series, start_hm: str, end_hm: str) -> pd.Series:
+    from datetime import time as dtime
     start_h, start_m = map(int, start_hm.split(":"))
     end_h, end_m = map(int, end_hm.split(":"))
+    start_t = dtime(hour=start_h, minute=start_m)
+    end_t = dtime(hour=end_h, minute=end_m)
     t = ts.dt.time
-    return ((t >= pd.Timestamp(hour=start_h, minute=start_m).time()) &
-            (t <= pd.Timestamp(hour=end_h, minute=end_m).time()))
+    return (t >= start_t) & (t <= end_t)
 
 
 def scan_vwap_high_hitrate(df: pd.DataFrame, cols: Dict[str, Optional[str]],
