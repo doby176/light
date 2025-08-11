@@ -218,8 +218,17 @@ def opening_range_breakout(df: pd.DataFrame, cols: Dict[str, Optional[str]], rep
         end_time = pd.Timestamp(str(day)) + pd.Timedelta(hours=int(entry_window_end.split(":")[0]), minutes=int(entry_window_end.split(":")[1]))
         mask_window = (day_df[time_col] >= or_end) & (day_df[time_col] <= end_time)
         window_df = day_df.loc[mask_window]
-        long_trigger_idx = window_df.index[window_df[close_col] > or_high].min() if not window_df.empty else None
-        short_trigger_idx = window_df.index[window_df[close_col] < or_low].min() if not window_df.empty else None
+        if window_df.empty:
+            continue
+        long_candidates = window_df[window_df[close_col] > or_high]
+        short_candidates = window_df[window_df[close_col] < or_low]
+        long_trigger_idx = long_candidates.index.min() if not long_candidates.empty else None
+        short_trigger_idx = short_candidates.index.min() if not short_candidates.empty else None
+        # Normalize NaN indices to None
+        if isinstance(long_trigger_idx, float) and pd.isna(long_trigger_idx):
+            long_trigger_idx = None
+        if isinstance(short_trigger_idx, float) and pd.isna(short_trigger_idx):
+            short_trigger_idx = None
 
         trigger_side = None
         trigger_time = None
@@ -236,11 +245,12 @@ def opening_range_breakout(df: pd.DataFrame, cols: Dict[str, Optional[str]], rep
 
         exit_time = trigger_time + pd.Timedelta(minutes=fwd_h)
         exit_row = day_df[day_df[time_col] >= exit_time].head(1)
-        if exit_row.empty:
-            # exit at last close of the day
-            exit_price = day_df.iloc[-1][close_col]
-        else:
-            exit_price = exit_row.iloc[0][close_col]
+        if exit_row.empty or pd.isna(entry_price):
+            # skip if cannot compute a sane exit or entry
+            continue
+        exit_price = exit_row.iloc[0][close_col] if not exit_row.empty else np.nan
+        if pd.isna(exit_price):
+            continue
 
         ret = (exit_price / entry_price - 1.0) * (1 if trigger_side == "long" else -1)
         records.append({
