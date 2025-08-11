@@ -159,7 +159,7 @@ def minute_regularities(dt: pd.Series) -> Dict:
         if day_times.empty:
             continue
         # Round to minute
-        rounded = day_times.dt.floor("T")
+        rounded = day_times.dt.floor("min")
         diffs = rounded.diff().dropna().dt.total_seconds() // 60
         # Gaps > 1 minute
         big_gaps = diffs[diffs > 1]
@@ -169,7 +169,7 @@ def minute_regularities(dt: pd.Series) -> Dict:
             if len(sample_gaps) < 5:
                 sample_gaps.append({
                     "day": str(day),
-                    "first_gap_at": str(rounded.iloc[big_gaps.index[0]]),
+                    "first_gap_at": str(rounded.loc[big_gaps.index[0]]),
                     "gap_minutes": int(big_gaps.iloc[0]),
                 })
     report["approx_missing_minutes"] = int(missing_total)
