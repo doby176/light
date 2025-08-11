@@ -106,10 +106,18 @@ def scan_vwap_high_hitrate(df: pd.DataFrame, cols: Dict[str, Optional[str]],
         short_entries = (df["z_vwap"] >= z_thr) & time_mask
 
         for H in horizons:
-            # Precompute future window stats
-            fut_max = df[close_col].shift(-1).rolling(H, min_periods=1).max()
-            fut_min = df[close_col].shift(-1).rolling(H, min_periods=1).min()
-            fut_close_H = df[close_col].shift(-H)
+            # Precompute forward window stats per session (correctly forward-looking)
+            fut_max = (
+                df.groupby("session_date")[close_col]
+                  .apply(lambda s: s.iloc[::-1].rolling(H, min_periods=1).max().iloc[::-1].shift(-1))
+                  .reindex(df.index)
+            )
+            fut_min = (
+                df.groupby("session_date")[close_col]
+                  .apply(lambda s: s.iloc[::-1].rolling(H, min_periods=1).min().iloc[::-1].shift(-1))
+                  .reindex(df.index)
+            )
+            fut_close_H = df.groupby("session_date")[close_col].shift(-H)
 
             for tp_bps in tp_bps_list:
                 tp_mult = 1.0 + tp_bps / 1e4
@@ -117,13 +125,14 @@ def scan_vwap_high_hitrate(df: pd.DataFrame, cols: Dict[str, Optional[str]],
                 idx_long = df.index[long_entries]
                 if len(idx_long) > 0:
                     entry_px = df.loc[idx_long, close_col]
-                    win_reached = fut_max.loc[idx_long] >= entry_px * tp_mult
-                    # PnL: wins get TP, losses exit at H; subtract cost
-                    ret_long = np.where(win_reached, tp_bps / 1e4, (fut_close_H.loc[idx_long] / entry_px - 1.0)) - (cost_bps / 1e4)
-                    wins_long = ret_long > 0
-                    n_long = int(len(ret_long))
-                    hr_long = float(wins_long.mean()) if n_long else np.nan
-                    avg_bps_long = float(np.nanmean(ret_long) * 1e4) if n_long else np.nan
+                    win_reached = (fut_max.loc[idx_long] >= entry_px * tp_mult).fillna(False)
+                    # Hit rate by TP touch (ignores costs)
+                    wins_long = win_reached.to_numpy()
+                    n_long = int(len(wins_long))
+                    hr_long = float(np.mean(wins_long)) if n_long else np.nan
+                    # Net PnL: wins get TP, losses exit at H; subtract cost
+                    ret_long_net = np.where(wins_long, tp_bps / 1e4, (fut_close_H.loc[idx_long] / entry_px - 1.0)) - (cost_bps / 1e4)
+                    avg_bps_long = float(np.nanmean(ret_long_net) * 1e4) if n_long else np.nan
                     results.append({
                         "family": "VWAP_MR", "side": "long", "z_thr": z_thr, "H": H, "tp_bps": tp_bps,
                         "cost_bps": cost_bps, "n_trades": n_long, "hit_rate": hr_long, "avg_bps": avg_bps_long
@@ -132,12 +141,12 @@ def scan_vwap_high_hitrate(df: pd.DataFrame, cols: Dict[str, Optional[str]],
                 idx_short = df.index[short_entries]
                 if len(idx_short) > 0:
                     entry_px = df.loc[idx_short, close_col]
-                    win_reached = fut_min.loc[idx_short] <= entry_px / tp_mult
-                    ret_short = np.where(win_reached, tp_bps / 1e4, (1.0 - fut_close_H.loc[idx_short] / entry_px)) - (cost_bps / 1e4)
-                    wins_short = ret_short > 0
-                    n_short = int(len(ret_short))
-                    hr_short = float(wins_short.mean()) if n_short else np.nan
-                    avg_bps_short = float(np.nanmean(ret_short) * 1e4) if n_short else np.nan
+                    win_reached = (fut_min.loc[idx_short] <= entry_px / tp_mult).fillna(False)
+                    wins_short = win_reached.to_numpy()
+                    n_short = int(len(wins_short))
+                    hr_short = float(np.mean(wins_short)) if n_short else np.nan
+                    ret_short_net = np.where(wins_short, tp_bps / 1e4, (1.0 - fut_close_H.loc[idx_short] / entry_px)) - (cost_bps / 1e4)
+                    avg_bps_short = float(np.nanmean(ret_short_net) * 1e4) if n_short else np.nan
                     results.append({
                         "family": "VWAP_MR", "side": "short", "z_thr": z_thr, "H": H, "tp_bps": tp_bps,
                         "cost_bps": cost_bps, "n_trades": n_short, "hit_rate": hr_short, "avg_bps": avg_bps_short
