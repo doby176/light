@@ -55,12 +55,23 @@ def read_excel_meta(file_path: Path) -> Tuple[List[str], Optional[pd.DataFrame]]
         return [], None
 
 
-def load_sheet(file_path: Path, sheet: Optional[str]) -> pd.DataFrame:
+def load_data(file_path: Path, sheet: Optional[str], sep: str) -> pd.DataFrame:
+    suffix = file_path.suffix.lower()
     try:
-        df = pd.read_excel(file_path, sheet_name=sheet, engine="openpyxl")
-        return df
+        if suffix in [".xlsx", ".xls", ".xlsm"]:
+            return pd.read_excel(file_path, sheet_name=sheet, engine="openpyxl")
+        elif suffix in [".csv", ".txt"]:
+            return pd.read_csv(file_path, sep=sep)
+        elif suffix in [".parquet"]:
+            return pd.read_parquet(file_path)
+        else:
+            # Fallback: try CSV then Excel
+            try:
+                return pd.read_csv(file_path, sep=sep)
+            except Exception:
+                return pd.read_excel(file_path, sheet_name=sheet, engine="openpyxl")
     except Exception as e:
-        print(f"Error reading Excel sheet: {e}", file=sys.stderr)
+        print(f"Error reading data: {e}", file=sys.stderr)
         raise
 
 
@@ -180,7 +191,6 @@ def ohlc_sanity(df: pd.DataFrame, col_map: Dict[str, Optional[str]]) -> Dict:
     present = {k: (col_map.get(k) is not None) for k in ["open", "high", "low", "close", "volume"]}
     report["present_columns"] = present
 
-    issues: List[str] = []
     if all(col is not None for col in [o, h, l, c]):
         # Basic inequalities
         bad_low = (df[l] > df[[o, h, c]].min(axis=1)).sum()
@@ -275,9 +285,10 @@ def print_human_readable(report: Dict) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Inspect Excel data columns and intraday minute regularity.")
-    parser.add_argument("--file", required=True, help="Path to the Excel file (.xlsx/.xlsm)")
-    parser.add_argument("--sheet", default=None, help="Sheet name (optional)")
+    parser = argparse.ArgumentParser(description="Inspect CSV/Excel data columns and intraday minute regularity.")
+    parser.add_argument("--file", required=True, help="Path to the data file (.csv/.xlsx/.xlsm/.parquet)")
+    parser.add_argument("--sheet", default=None, help="Sheet name (Excel only, optional)")
+    parser.add_argument("--sep", default=",", help="CSV separator (default ',')")
     parser.add_argument("--time-col", dest="time_col", default=None, help="Timestamp column name (optional)")
     parser.add_argument("--tz", default="America/New_York", help="Timezone for timestamps (default: America/New_York)")
     parser.add_argument("--out", default=None, help="Optional path to write JSON report")
@@ -289,15 +300,17 @@ def main() -> None:
         print(f"File not found: {file_path}", file=sys.stderr)
         sys.exit(1)
 
-    sheet_names, _ = read_excel_meta(file_path)
-    if sheet_names:
-        print("Available sheets:")
-        for s in sheet_names:
-            print(f"  - {s}")
-    else:
-        print("No sheet metadata available or failed to read sheets.")
+    # Only list sheets for Excel
+    if file_path.suffix.lower() in [".xlsx", ".xls", ".xlsm"]:
+        sheet_names, _ = read_excel_meta(file_path)
+        if sheet_names:
+            print("Available sheets:")
+            for s in sheet_names:
+                print(f"  - {s}")
+        else:
+            print("No sheet metadata available or failed to read sheets.")
 
-    df = load_sheet(file_path, args.sheet)
+    df = load_data(file_path, args.sheet, args.sep)
 
     # Detect time column
     time_col = detect_time_column(list(df.columns), args.time_col)
