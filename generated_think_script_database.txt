@@ -1,0 +1,99 @@
+# ThinkOrSwim NASDAQ Previous High/Low Analysis - CSV Data Based
+# Generated from 2100+ days of historical data
+
+declare lower;
+
+# Input parameters
+input show_analysis = yes;
+input show_alerts = yes;
+input continuation_threshold = 0.5;
+input reversal_threshold = 0.3;
+
+# Overall statistics from 2100+ days of data
+def high_continuation_10min_median = 0.0418;
+def high_continuation_10min_avg = 0.0386;
+def high_reversal_10min_median = -0.0277;
+def high_reversal_10min_avg = -0.0295;
+def low_continuation_10min_median = -0.0912;
+def low_continuation_10min_avg = -0.0881;
+def low_reversal_10min_median = 0.0539;
+def low_reversal_10min_avg = 0.0455;
+
+# Position-specific statistics
+# Between Previous High and Low statistics
+def between_previous_high_and_low_high_continuation_10min_median = 0.0963;
+def between_previous_high_and_low_high_continuation_10min_avg = 0.1399;
+def between_previous_high_and_low_high_reversal_10min_median = -0.0826;
+def between_previous_high_and_low_high_reversal_10min_avg = -0.1383;
+def between_previous_high_and_low_low_continuation_10min_median = -0.1556;
+def between_previous_high_and_low_low_continuation_10min_avg = -0.2043;
+def between_previous_high_and_low_low_reversal_10min_median = 0.1087;
+def between_previous_high_and_low_low_reversal_10min_avg = 0.1563;
+
+# Above Previous High statistics
+def above_previous_high_high_continuation_10min_median = -0.1305;
+def above_previous_high_high_continuation_10min_avg = -0.1468;
+def above_previous_high_high_reversal_10min_median = 0.1085;
+def above_previous_high_high_reversal_10min_avg = 0.1766;
+
+# Below Previous Low statistics
+def below_previous_low_high_continuation_10min_median = 0.1126;
+def below_previous_low_high_continuation_10min_avg = 0.1560;
+def below_previous_low_high_reversal_10min_median = -0.0576;
+def below_previous_low_high_reversal_10min_avg = -0.2362;
+def below_previous_low_low_continuation_10min_median = 0.1744;
+def below_previous_low_low_continuation_10min_avg = 0.2001;
+def below_previous_low_low_reversal_10min_median = -0.1270;
+def below_previous_low_low_reversal_10min_avg = -0.2293;
+
+# Day-specific statistics
+# Monday statistics
+def monday_high_continuation_10min_median = 0.0562;
+def monday_high_continuation_10min_avg = 0.0531;
+def monday_high_reversal_10min_median = -0.0345;
+def monday_high_reversal_10min_avg = -0.0396;
+def monday_low_continuation_10min_median = -0.0880;
+def monday_low_continuation_10min_avg = -0.0620;
+def monday_low_reversal_10min_median = 0.0239;
+def monday_low_reversal_10min_avg = 0.0022;
+
+# Tuesday statistics
+def tuesday_high_continuation_10min_median = 0.0309;
+def tuesday_high_continuation_10min_avg = 0.0270;
+def tuesday_high_reversal_10min_median = -0.0181;
+def tuesday_high_reversal_10min_avg = -0.0155;
+def tuesday_low_continuation_10min_median = -0.1000;
+def tuesday_low_continuation_10min_avg = -0.1030;
+def tuesday_low_reversal_10min_median = 0.0648;
+def tuesday_low_reversal_10min_avg = 0.0498;
+
+# Friday statistics
+def friday_high_continuation_10min_median = 0.0386;
+def friday_high_continuation_10min_avg = 0.0318;
+def friday_high_reversal_10min_median = -0.0111;
+def friday_high_reversal_10min_avg = -0.0164;
+def friday_low_continuation_10min_median = -0.0753;
+def friday_low_continuation_10min_avg = -0.0856;
+def friday_low_reversal_10min_median = 0.0616;
+def friday_low_reversal_10min_avg = 0.0533;
+
+# Wednesday statistics
+def wednesday_high_continuation_10min_median = 0.0428;
+def wednesday_high_continuation_10min_avg = 0.0532;
+def wednesday_high_reversal_10min_median = -0.0504;
+def wednesday_high_reversal_10min_avg = -0.0381;
+def wednesday_low_continuation_10min_median = -0.1230;
+def wednesday_low_continuation_10min_avg = -0.1235;
+def wednesday_low_reversal_10min_median = 0.0599;
+def wednesday_low_reversal_10min_avg = 0.0811;
+
+# Thursday statistics
+def thursday_high_continuation_10min_median = 0.0457;
+def thursday_high_continuation_10min_avg = 0.0294;
+def thursday_high_reversal_10min_median = -0.0335;
+def thursday_high_reversal_10min_avg = -0.0392;
+def thursday_low_continuation_10min_median = -0.0522;
+def thursday_low_continuation_10min_avg = -0.0631;
+def thursday_low_reversal_10min_median = 0.0509;
+def thursday_low_reversal_10min_avg = 0.0334;
+
