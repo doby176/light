@@ -1,0 +1,19 @@
+PREMARKET LEVEL ANALYSIS INSIGHTS
+==================================================
+
+Total events analyzed: 350
+Date range: 2015-01-09 to 2025-04-16
+
+OVERALL STATISTICS:
+High level touches: 179 (51.1%)
+Low level touches: 171 (48.9%)
+Returned to opposite level: 131 (37.4%)
+Did not return: 219 (62.6%)
+
+KEY FINDINGS:
+1. Market behavior around premarket levels
+2. Frequency of touching high vs low premarket levels
+3. Probability of returning to opposite levels
+4. Event type performance patterns
+5. Market condition impact on premarket level behavior
+6. Yearly trends in premarket level interactions
